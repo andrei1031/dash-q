@@ -106,3 +106,46 @@
 .refresh-button:hover {
   background-color: #4946b9;
 }
+
+/* --- New styles for AI Generator --- */
+.ai-generator {
+  border-top: 2px solid #f0f0f0;
+  border-bottom: 2px solid #f0f0f0;
+  padding: 15px 0;
+  margin: 20px 0;
+}
+
+.ai-title {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #333;
+  margin-top: 0;
+}
+
+.generate-button {
+  width: 100%;
+  background-color: #5e5ce6; /* Indigo */
+  margin-bottom: 15px;
+}
+.generate-button:hover {
+  background-color: #4946b9;
+}
+.generate-button:disabled {
+  background-color: #aaa;
+}
+
+.image-preview img {
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.success-text {
+  font-weight: 600;
+  color: #34c759;
+}
+
+.join-queue-button {
+  width: 100%;
+  font-size: 1.1em;
+}
