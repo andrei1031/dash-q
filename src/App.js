@@ -165,6 +165,7 @@ function BarberDashboard({ onCutComplete }) {
     fetchQueue();
   }, []);
 
+  // Inside BarberDashboard...
   const handleNextCustomer = async () => {
     const nextCustomer = myQueue[0];
     if (!nextCustomer) {
@@ -173,9 +174,14 @@ function BarberDashboard({ onCutComplete }) {
     }
 
     try {
+      // --- THIS IS THE UPDATED PART ---
       await axios.put(`${API_URL}/queue/next`, {
-        queue_id: nextCustomer.id
+        queue_id: nextCustomer.id,
+        barber_id: MY_BARBER_ID // Send the barber's ID!
       });
+      // --- END OF UPDATE ---
+
+      // Refresh the queue
       fetchQueue();
     } catch (error) {
       console.error('Failed to update customer:', error);
