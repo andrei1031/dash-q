@@ -47,7 +47,13 @@ function CustomerView() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [message, setMessage] = useState('');
+  const [file, setFile] = useState(null);
+  const [prompt, setPrompt] = useState(''); // <-- ADD THIS
+  const [generatedImage, setGeneratedImage] = useState(null); // <-- ADD THIS
+  const [isGenerating, setIsGenerating] = useState(false); // <-- ADD THIS
 
+  // We're renaming this from 'isUploading' for clarity
+  const [isLoading, setIsLoading] = useState(false);
   useEffect(() => {
     const loadBarbers = async () => {
       try {
@@ -60,68 +66,177 @@ function CustomerView() {
     loadBarbers();
   }, []);
 
+  // --- NEW: Function to call the AI ---
+const handleGeneratePreview = async () => {
+  if (!file || !prompt) {
+    setMessage('Please upload a photo and enter a prompt.');
+    return;
+  }
+
+  setIsGenerating(true);
+  setIsLoading(true); // Disable "Join Queue" button
+  setGeneratedImage(null); // Clear old image
+  setMessage('Step 1/3: Uploading your photo...');
+
+  // Step 1: Upload the file to Supabase Storage
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}.${fileExt}`;
+  const filePath = `${fileName}`;
+
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from('haircut_references') // Our public bucket
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // 2. Get the public URL
+    const { data: urlData } = supabase.storage
+      .from('haircut_references')
+      .getPublicUrl(filePath);
+
+    const imageUrl = urlData.publicUrl;
+
+    // Step 2: Call our backend to run the AI
+    setMessage('Step 2/3: Generating AI haircut... (this takes ~15s)');
+    const response = await axios.post(`${API_URL}/generate-haircut`, {
+      imageUrl: imageUrl,
+      prompt: prompt
+    });
+
+    const newAiUrl = response.data.generatedImageUrl;
+    setGeneratedImage(newAiUrl); // Show the new image!
+    setMessage('Step 3/3: Success! Check out your preview.');
+
+  } catch (error) {
+    console.error('Error in AI generation pipeline:', error);
+    setMessage('AI generation failed. Please try again.');
+  } finally {
+    setIsGenerating(false);
+    setIsLoading(false); // Re-enable "Join Queue"
+  }
+};
+
+// --- UPDATED: handleJoinQueue function ---
+// This function will now save the AI image if it exists.
   const handleJoinQueue = async (e) => {
     e.preventDefault();
+
     if (!customerName || !selectedBarber) {
       setMessage('Please enter your name and select a barber.');
       return;
     }
+
+    setIsLoading(true);
+
     try {
       await axios.post(`${API_URL}/queue`, {
         customer_name: customerName,
         customer_phone: customerPhone,
-        barber_id: selectedBarber
+        barber_id: selectedBarber,
+        // *** THIS IS THE KEY ***
+        // Save the AI image if it exists, otherwise save nothing.
+        reference_image_url: generatedImage 
       });
+
       const barberName = barbers.find(b => b.id === parseInt(selectedBarber)).full_name;
       setMessage(`Success! You've been added to the queue for ${barberName}.`);
+
+      // Clear the form
       setCustomerName('');
       setCustomerPhone('');
       setSelectedBarber('');
+      setFile(null);
+      setPrompt('');
+      setGeneratedImage(null);
+
     } catch (error) {
       console.error('Failed to join queue:', error);
       setMessage('Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="card">
-      <h2>Join the Queue</h2>
-      <form onSubmit={handleJoinQueue}>
+  // This is the new <CustomerView> return block
+return (
+  <div className="card">
+    <h2>Join the Queue</h2>
+    <form onSubmit={handleJoinQueue}>
+      {/* --- Standard Queue Form --- */}
+      <div className="form-group">
+        <label>Your Name:</label>
+        <input 
+          type="text"
+          value={customerName}
+          onChange={(e) => setCustomerName(e.target.value)}
+        />
+      </div>
+      <div className="form-group">
+        <label>Your Phone (for SMS):</label>
+        <input 
+          type="text"
+          value={customerPhone}
+          onChange={(e) => setCustomerPhone(e.target.value)}
+        />
+      </div>
+      <div className="form-group">
+        <label>Select a Barber:</label>
+        <select 
+          value={selectedBarber} 
+          onChange={(e) => setSelectedBarber(e.target.value)}
+        >
+          {/* ... (your barbers.map is in here) ... */}
+        </select>
+      </div>
+
+      {/* --- NEW AI GENERATOR SECTION --- */}
+      <div className="ai-generator">
+        <p className="ai-title">AI Haircut Preview (Optional)</p>
         <div className="form-group">
-          <label>Your Name:</label>
+          <label>1. Upload a clear photo of yourself:</label>
           <input 
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
+            type="file" 
+            accept="image/*"
+            onChange={(e) => setFile(e.target.files[0])}
           />
         </div>
         <div className="form-group">
-          <label>Your Phone (for SMS):</label>
+          <label>2. Describe your desired haircut:</label>
           <input 
             type="text"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
+            value={prompt}
+            placeholder="e.g., 'a short buzz cut' or 'blue hair'"
+            onChange={(e) => setPrompt(e.target.value)}
           />
         </div>
-        <div className="form-group">
-          <label>Select a Barber:</label>
-          <select 
-            value={selectedBarber} 
-            onChange={(e) => setSelectedBarber(e.target.value)}
-          >
-            <option value="">-- Choose a barber --</option>
-            {barbers.map((barber) => (
-              <option key={barber.id} value={barber.id}>
-                {barber.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button type="submit">Join Queue</button>
-      </form>
-      {message && <p className="message">{message}</p>}
-    </div>
-  );
+        <button 
+          type="button" 
+          onClick={handleGeneratePreview} 
+          className="generate-button"
+          disabled={!file || !prompt || isLoading}
+        >
+          {isGenerating ? 'Generating...' : 'Generate AI Preview'}
+        </button>
+
+        {/* --- AI Image Preview --- */}
+        {generatedImage && (
+          <div className="image-preview">
+            <p>Your AI Preview:</p>
+            <img src={generatedImage} alt="AI Generated Haircut" />
+            <p className="success-text">Happy? Click "Join Queue" to save this photo!</p>
+          </div>
+        )}
+      </div>
+      {/* --- END OF AI SECTION --- */}
+
+      <button type="submit" disabled={isLoading} className="join-queue-button">
+        {isLoading ? '...' : 'Join Queue'}
+      </button>
+    </form>
+    {message && <p className="message">{message}</p>}
+  </div>
+);
 }
 
 
