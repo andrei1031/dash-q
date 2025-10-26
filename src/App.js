@@ -56,77 +56,63 @@ function AuthForm() {
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const [selectedRole, setSelectedRole] = useState('customer'); // 'customer' or 'barber'
+    const [pin, setPin] = useState(''); // Barber PIN input
 
     const handleAuth = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage('');
-        // Inside AuthForm JSX, the main submit button:
-        <button type="submit" disabled={loading}>
-            {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
-        </button>
-        try {
-            if (isLogin) {
-                // --- LOGIN via Backend (Username/Password) ---
-                console.log(`Attempting login for username: ${username}`);
-                if (!username || !password) throw new Error("Username and password required.");
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
 
-                // 1. Call backend to verify username/password and get user email
-                const response = await axios.post(`${API_URL}/login/username`, {
-                    username: username.trim(),
-                    password: password,
-                });
+    try {
+        if (isLogin) {
+            // --- LOGIN Logic (UPDATED) ---
+            console.log(`Attempting login for username: ${username} as role: ${selectedRole}`);
+            if (!username || !password) throw new Error("Username and password required.");
+            if (selectedRole === 'barber' && !pin) throw new Error("Barber PIN required for barber login.");
 
-                // 2. If backend verified, use email+password with Supabase client to set session
-                if (response.data.user?.email && supabase?.auth) {
-                     console.log("Password verified by backend for:", response.data.user.email, "Now signing in client-side...");
-                     const { error: clientSignInError } = await supabase.auth.signInWithPassword({
-                         email: response.data.user.email, // Use email verified by backend
-                         password: password,
-                     });
-                     if (clientSignInError) {
-                         console.error("Client-side sign-in failed after backend verification:", clientSignInError);
-                         // Surface specific errors
-                         if (clientSignInError.message.includes('Email not confirmed')) {
-                             throw new Error("Login failed: Please verify your email address first.");
-                         }
-                         throw new Error("Login succeeded but failed to establish session.");
-                     }
-                      console.log("Client-side session established.");
-                     // Auth listener in App component will now detect the session and trigger role check/redirect
-                 } else {
-                    console.error("Backend login response missing user email:", response.data);
-                    throw new Error("Login failed to retrieve necessary user details.");
-                 }
+            // Call backend login endpoint, now including role and pin
+            const response = await axios.post(`${API_URL}/login/username`, {
+                username: username.trim(),
+                password: password,
+                role: selectedRole, // Send the selected role
+                pin: selectedRole === 'barber' ? pin : undefined // Send PIN only if barber
+            });
 
-            } else {
-                // --- SIGN UP via Backend (Username/Email/Password/Name) ---
-                console.log(`Attempting signup for username: ${username}`);
-                 if (!email.trim() || !fullName.trim()) { // Validate all required fields
-                     throw new Error("Email and Full Name are required for signup.");
-                 }
-                // Call backend signup endpoint (removed barberCode)
-                const response = await axios.post(`${API_URL}/signup/username`, {
-                    username: username.trim(),
-                    email: email.trim(),
-                    password: password,
-                    fullName: fullName.trim()
-                    // barberCode is no longer sent
-                });
-                setMessage(response.data.message || 'Signup successful!');
-                // Switch to login view after signup success
-                setIsLogin(true);
-                // Clear all fields after successful signup
-                setUsername(''); setEmail(''); setPassword(''); setFullName('');
-            }
-        } catch (error) {
-            console.error('Auth error:', error);
-            // Display error from backend if available, otherwise frontend error
-            setMessage(`Authentication failed: ${error.response?.data?.error || error.message || 'An unexpected error occurred.'}`);
-        } finally {
-            setLoading(false);
+            // Backend verified credentials and role (if barber).
+            // Now use email+pass with Supabase client to set session.
+            if (response.data.user?.email && supabase?.auth) {
+                 console.log("Credentials verified by backend for:", response.data.user.email, "Signing in client-side...");
+                 const { error: clientSignInError } = await supabase.auth.signInWithPassword({
+                     email: response.data.user.email,
+                     password: password,
+                 });
+                 if (clientSignInError) { throw clientSignInError; } // Let outer catch handle display
+                  console.log("Client-side session established.");
+                 // Auth listener in App will now detect session and check actual role
+             } else {
+                throw new Error("Login failed: Invalid response from server.");
+             }
+
+        } else {
+            // --- SIGN UP Logic (Unchanged - barber role assigned manually by admin) ---
+            console.log(`Attempting signup for username: ${username}`);
+             if (!email.trim() || !fullName.trim()) throw new Error("Email and Full Name required.");
+            // Call backend signup endpoint (no role/pin needed here)
+            const response = await axios.post(`${API_URL}/signup/username`, {
+                username: username.trim(), email: email.trim(), password: password, fullName: fullName.trim()
+            });
+            setMessage(response.data.message || 'Signup successful!');
+            setIsLogin(true); // Switch to login view
+            setUsername(''); setEmail(''); setPassword(''); setFullName(''); setPin(''); // Clear form
         }
-    };
+    } catch (error) {
+        console.error('Auth error:', error);
+        setMessage(`Authentication failed: ${error.response?.data?.error || error.message || 'An unexpected error occurred.'}`);
+    } finally {
+        setLoading(false);
+    }
+};
 
     // Render Auth Form (Removed Barber Code Input)
     return (
@@ -139,6 +125,43 @@ function AuthForm() {
                 {!isLogin && (<div className="form-group"> <label>Email:</label> <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required={!isLogin} autoComplete="email"/> <small>Needed for account functions.</small> </div>)}
                 {/* Password */}
                 <div className="form-group"> <label>Password:</label> <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" autoComplete={isLogin ? "current-password" : "new-password"}/> </div>
+                {/* --- NEW Role Toggle and PIN (Login Only) --- */}
+                {isLogin && (
+                    <div className="login-role-select">
+                        <label>Login As:</label>
+                        <div className="role-toggle">
+                            <button
+                                type="button"
+                                className={selectedRole === 'customer' ? 'active' : ''}
+                                onClick={() => setSelectedRole('customer')}
+                            >
+                                Customer
+                            </button>
+                            <button
+                                type="button"
+                                className={selectedRole === 'barber' ? 'active' : ''}
+                                onClick={() => setSelectedRole('barber')}
+                            >
+                                Barber
+                            </button>
+                        </div>
+
+                        {/* Conditionally show PIN input only for Barber login */}
+                        {selectedRole === 'barber' && (
+                            <div className="form-group pin-input">
+                                <label>Barber PIN:</label>
+                                <input
+                                    type="password" // Use password type to hide PIN
+                                    value={pin}
+                                    onChange={(e) => setPin(e.target.value)}
+                                    required={selectedRole === 'barber'} // Required only if barber role selected
+                                    autoComplete="off" // Don't suggest saving PIN
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
+                {/* --- END NEW --- */}
                 {/* Signup Only Fields (No Barber Code) */}
                 {!isLogin && (<> <div className="form-group"> <label>Full Name:</label> <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLogin} autoComplete="name"/> </div> </>)}
                 {/* Submit Button */}
