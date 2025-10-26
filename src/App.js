@@ -59,6 +59,7 @@ function AuthForm() {
     const [selectedRole, setSelectedRole] = useState('customer'); // 'customer' or 'barber'
     const [barberCode, setBarberCode] = useState(''); // Keep for barber signup
 
+    const [pin, setPin] = useState(''); // Barber PIN input for login
     const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
