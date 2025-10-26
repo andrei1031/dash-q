@@ -21,6 +21,9 @@ body {
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    position: sticky; /* Make header sticky */
+    top: 0;
+    z-index: 1000;
 }
 .app-header h1 {
     margin: 0;
@@ -44,11 +47,12 @@ body {
 /* Main content container */
 .container {
   display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
-  gap: 20px;
+  justify-content: space-around; /* Space out cards */
+  flex-wrap: wrap; /* Allow cards to wrap */
+  gap: 20px; /* Space between cards */
   padding: 30px 20px; /* Add padding to main content area */
   flex-grow: 1; /* Allow container to fill remaining space */
+  align-items: flex-start; /* Align cards to the top */
 }
 
 .card {
@@ -56,10 +60,11 @@ body {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   padding: 24px;
-  width: 400px;
-  min-width: 300px;
+  width: 400px; /* Default width */
+  min-width: 300px; /* Minimum width */
   display: flex;
   flex-direction: column;
+  margin-bottom: 20px; /* Add margin between stacked cards on mobile */
 }
 
 .card h2 {
@@ -68,12 +73,13 @@ body {
   border-bottom: 2px solid #eee;
   padding-bottom: 10px;
   margin-bottom: 20px;
+  font-size: 1.4em; /* Slightly larger heading */
 }
 
 /* Auth Form */
 .auth-card {
     max-width: 400px;
-    margin: 50px auto; /* Center the auth card */
+    margin: 50px auto; /* Center the auth card on the page */
 }
 .toggle-auth-button {
     background: none;
@@ -139,6 +145,7 @@ button:hover:not(:disabled) {
 button:disabled {
   background-color: #aaa;
   cursor: not-allowed;
+  opacity: 0.7; /* Make disabled buttons look faded */
 }
 
 /* Messages */
@@ -150,6 +157,7 @@ button:disabled {
   background-color: #e6f7ff;
   border: 1px solid #91d5ff;
   color: #0056b3;
+  font-size: 0.9em; /* Slightly smaller messages */
 }
 .error-message {
   font-weight: 600;
@@ -159,6 +167,7 @@ button:disabled {
   background-color: #fff1f0;
   border: 1px solid #ffccc7;
   color: #cf1322;
+   font-size: 0.9em;
 }
 .message.success { /* For Auth success */
      background-color: #e6ffed;
@@ -182,7 +191,7 @@ button:disabled {
 /* Queue Subtitles & Lists */
 .queue-subtitle {
   font-size: 1.1em; color: #555; margin-top: 20px; margin-bottom: 5px;
-  border-bottom: 1px solid #f0f0f0; padding-bottom: 5px; font-weight: 600; /* Make subtitle bold */
+  border-bottom: 1px solid #f0f0f0; padding-bottom: 5px; font-weight: 600;
 }
 .queue-list {
   list-style: none; padding: 0; margin: 0 0 15px 0;
@@ -210,8 +219,8 @@ button:disabled {
     display: flex; align-items: center; gap: 10px; background-color: rgba(255, 255, 255, 0.1);
     padding: 5px 10px; border-radius: 6px;
 }
-.availability-toggle p { margin: 0; font-size: 0.9em; }
-.availability-toggle button { padding: 6px 10px; font-size: 0.8em; margin-top: 0; }
+.availability-toggle p { margin: 0; font-size: 0.9em; white-space: nowrap;}
+.availability-toggle button { padding: 6px 10px; font-size: 0.8em; margin-top: 0; white-space: nowrap;}
 .go-online-button { background-color: #34c759; }
 .go-online-button:hover { background-color: #2a9e46; }
 .go-offline-button { background-color: #ff9500; }
@@ -264,39 +273,47 @@ button:disabled {
 .loading-fullscreen { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-size: 1.5em; color: #555; }
 
 /* Responsive Adjustments */
-@media (max-width: 1250px) { /* Adjust breakpoint for 3 columns */
+@media (max-width: 1250px) { /* Adjust breakpoint for 3 columns stacking */
     .container {
         flex-direction: column;
         align-items: center;
     }
     .card {
         width: 90%;
-        max-width: 600px;
+        max-width: 600px; /* Allow cards to be wider */
     }
 }
 @media (max-width: 768px) {
     .app-header {
-        flex-direction: column;
+        flex-direction: column; /* Stack header items */
         gap: 10px;
         padding: 10px 15px;
+        text-align: center; /* Center title */
     }
      .header-controls {
         width: 100%;
-        justify-content: space-between;
+        justify-content: space-between; /* Space out toggle/logout */
+        flex-wrap: wrap; /* Allow wrap if needed */
+        gap: 8px;
     }
      .card {
-        width: 95%; /* Take more width on small screens */
+        width: 95%; /* Take more width */
         padding: 15px;
     }
      .analytics-grid {
          grid-template-columns: 1fr; /* Stack analytics items */
      }
      .availability-toggle {
-         flex-direction: column;
-         align-items: flex-start;
+         /* flex-direction: column; */ /* Keep row but maybe wrap */
+         align-items: center; /* Center items vertically */
+         justify-content: center; /* Center toggle button etc */
          gap: 5px;
          padding: 8px;
-         width: 100%; /* Make toggle wider */
+         width: auto; /* Don't force full width */
+         /* width: 100%; */ /* Or make it full width if preferred */
      }
-     .availability-toggle button { width: 100%; }
+     /* .availability-toggle button { width: 100%; } */
+     .auth-card {
+         margin: 20px auto; /* Less margin on mobile */
+     }
 }
