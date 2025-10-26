@@ -136,20 +136,8 @@ function AuthForm() {
                 <div className="signup-role-select">
                     <label>Sign Up As:</label>
                     <div className="role-toggle">
-                        <button
-                            type="button"
-                            className={selectedRole === 'customer' ? 'active' : ''}
-                            onClick={() => setSelectedRole('customer')}
-                        >
-                            Customer
-                        </button>
-                        <button
-                            type="button"
-                            className={selectedRole === 'barber' ? 'active' : ''}
-                            onClick={() => setSelectedRole('barber')}
-                        >
-                            Barber
-                        </button>
+                        <button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button>
+                        <button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button>
                     </div>
                 </div>
                 {/* Password */}
