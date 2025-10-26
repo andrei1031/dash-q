@@ -57,7 +57,7 @@ function AuthForm() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [selectedRole, setSelectedRole] = useState('customer'); // 'customer' or 'barber'
-    const [pin, setPin] = useState(''); // Barber PIN input
+    const [barberCode, setBarberCode] = useState(''); // Keep for barber signup
 
     const handleAuth = async (e) => {
     e.preventDefault();
@@ -95,16 +95,25 @@ function AuthForm() {
              }
 
         } else {
-            // --- SIGN UP Logic (Unchanged - barber role assigned manually by admin) ---
-            console.log(`Attempting signup for username: ${username}`);
-             if (!email.trim() || !fullName.trim()) throw new Error("Email and Full Name required.");
-            // Call backend signup endpoint (no role/pin needed here)
+            // --- SIGN UP Logic (UPDATED) ---
+            console.log(`Attempting signup for username: ${username} as role: ${selectedRole}`);
+             if (!email.trim() || !fullName.trim()) { throw new Error("Email and Full Name required."); }
+             // Require barber code only if signing up as barber
+             if (selectedRole === 'barber' && !barberCode.trim()) { throw new Error("Barber Code required for barber signup."); }
+
+            // Call backend signup endpoint, sending role and code
             const response = await axios.post(`${API_URL}/signup/username`, {
-                username: username.trim(), email: email.trim(), password: password, fullName: fullName.trim()
+                username: username.trim(),
+                email: email.trim(),
+                password: password,
+                fullName: fullName.trim(),
+                role: selectedRole, // Send the role
+                barberCode: selectedRole === 'barber' ? barberCode.trim() : undefined // Send code only if barber
             });
             setMessage(response.data.message || 'Signup successful!');
             setIsLogin(true); // Switch to login view
-            setUsername(''); setEmail(''); setPassword(''); setFullName(''); setPin(''); // Clear form
+            // Clear all fields
+            setUsername(''); setEmail(''); setPassword(''); setFullName(''); setBarberCode(''); setSelectedRole('customer'); // Reset role
         }
     } catch (error) {
         console.error('Auth error:', error);
@@ -123,6 +132,26 @@ function AuthForm() {
                 <div className="form-group"> <label>Username:</label> <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required minLength="3" autoComplete="username"/> </div>
                 {/* Email (Only for Signup) */}
                 {!isLogin && (<div className="form-group"> <label>Email:</label> <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required={!isLogin} autoComplete="email"/> <small>Needed for account functions.</small> </div>)}
+                {/* --- NEW Role Toggle for Signup --- */}
+                <div className="signup-role-select">
+                    <label>Sign Up As:</label>
+                    <div className="role-toggle">
+                        <button
+                            type="button"
+                            className={selectedRole === 'customer' ? 'active' : ''}
+                            onClick={() => setSelectedRole('customer')}
+                        >
+                            Customer
+                        </button>
+                        <button
+                            type="button"
+                            className={selectedRole === 'barber' ? 'active' : ''}
+                            onClick={() => setSelectedRole('barber')}
+                        >
+                            Barber
+                        </button>
+                    </div>
+                </div>
                 {/* Password */}
                 <div className="form-group"> <label>Password:</label> <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" autoComplete={isLogin ? "current-password" : "new-password"}/> </div>
                 {/* --- NEW Role Toggle and PIN (Login Only) --- */}
