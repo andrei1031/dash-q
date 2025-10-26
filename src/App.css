@@ -457,3 +457,47 @@ button:disabled {
 .form-group.pin-input {
     margin-top: 10px;
 }
+/* --- Add these styles for Signup Role Toggle --- */
+
+.signup-role-select {
+    margin-bottom: 15px; /* Space below toggle */
+}
+
+.signup-role-select label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+/* Reuse existing role-toggle styles */
+.signup-role-select .role-toggle {
+    display: flex;
+    margin-bottom: 0; /* No margin below buttons themselves */
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.signup-role-select .role-toggle button {
+    flex: 1;
+    padding: 10px;
+    margin: 0;
+    border: none;
+    background-color: #f0f0f0;
+    color: #555;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    border-radius: 0;
+    transition: background-color 0.2s, color 0.2s;
+}
+.signup-role-select .role-toggle button:first-child {
+    border-right: 1px solid #ccc;
+}
+.signup-role-select .role-toggle button.active {
+    background-color: #007aff;
+    color: white;
+    font-weight: 600;
+}
