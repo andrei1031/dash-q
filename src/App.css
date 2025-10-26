@@ -2,20 +2,53 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   background-color: #f4f7f6;
-  padding: 20px;
+  padding: 0; /* Remove body padding */
+  margin: 0; /* Remove default body margin */
   color: #333;
 }
 
-.App-header {
-  text-align: center;
-  margin-bottom: 30px;
+/* General Layout */
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+.app-header {
+    background-color: #333;
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.app-header h1 {
+    margin: 0;
+    font-size: 1.5em;
+}
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.logout-button {
+    background-color: #ff3b30;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    margin-top: 0; /* Override default button margin */
+}
+.logout-button:hover {
+    background-color: #c53028;
 }
 
+/* Main content container */
 .container {
   display: flex;
   justify-content: space-around;
   flex-wrap: wrap;
   gap: 20px;
+  padding: 30px 20px; /* Add padding to main content area */
+  flex-grow: 1; /* Allow container to fill remaining space */
 }
 
 .card {
@@ -37,10 +70,30 @@ body {
   margin-bottom: 20px;
 }
 
+/* Auth Form */
+.auth-card {
+    max-width: 400px;
+    margin: 50px auto; /* Center the auth card */
+}
+.toggle-auth-button {
+    background: none;
+    border: none;
+    color: #007aff;
+    cursor: pointer;
+    margin-top: 15px;
+    padding: 0;
+    font-size: 0.9em;
+    width: 100%;
+    text-align: center;
+}
+.toggle-auth-button:hover {
+    text-decoration: underline;
+}
+
+/* Form Groups & Inputs */
 .form-group {
   margin-bottom: 16px;
 }
-
 .form-group label {
   display: block;
   font-weight: 600;
@@ -48,7 +101,6 @@ body {
   font-size: 0.9em;
   color: #555;
 }
-
 .form-group input,
 .form-group select {
   width: calc(100% - 22px); /* Account for padding */
@@ -58,10 +110,11 @@ body {
   font-size: 1em;
 }
 .form-group input[type="file"] {
-  padding: 8px; /* Adjust padding for file input */
+  padding: 8px;
 }
 
 
+/* Buttons */
 button {
   background-color: #007aff;
   color: white;
@@ -72,9 +125,8 @@ button {
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s ease-in-out;
-  margin-top: 10px; /* Add some space above buttons */
+  margin-top: 10px;
 }
-
 button:hover:not(:disabled) {
   background-color: #0056b3;
 }
@@ -83,7 +135,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-
+/* Messages */
 .message {
   font-weight: 600;
   margin-top: 15px;
@@ -102,306 +154,141 @@ button:disabled {
   border: 1px solid #ffccc7;
   color: #cf1322;
 }
+.message.success { /* For Auth success */
+     background-color: #e6ffed;
+     border-color: #b7eb8f;
+     color: #389e0d;
+}
+.message.error { /* For Auth error */
+     background-color: #fff1f0;
+     border-color: #ffccc7;
+     color: #cf1322;
+}
 .loading-text {
-    font-style: italic;
-    color: #555;
-    margin-top: 10px;
+    font-style: italic; color: #555; margin-top: 10px;
+}
+.error-message.small { /* For minor errors like toggle fail */
+    font-size: 0.8em; margin-top: 5px; padding: 5px;
 }
 
 
+/* Queue Subtitles & Lists */
 .queue-subtitle {
-  font-size: 1.1em;
-  color: #555;
-  margin-top: 20px;
-  margin-bottom: 5px;
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 5px;
+  font-size: 1.1em; color: #555; margin-top: 20px; margin-bottom: 5px;
+  border-bottom: 1px solid #f0f0f0; padding-bottom: 5px;
 }
-
 .queue-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 15px 0; /* Add bottom margin */
+  list-style: none; padding: 0; margin: 0 0 15px 0;
 }
-
 .queue-list li {
-  padding: 10px 5px; /* Adjust padding */
-  border-bottom: 1px solid #eee;
-  font-size: 1.1em;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 10px 5px; border-bottom: 1px solid #eee; font-size: 1.1em;
+  display: flex; justify-content: space-between; align-items: center;
 }
+.queue-list li:last-child { border-bottom: none; }
 
-.queue-list li:last-child {
-  border-bottom: none;
-}
+/* Queue Item Status Styles */
+.in-progress { font-weight: 700; color: #007aff; background-color: #f0f7ff; border-radius: 4px; padding: 10px 5px; }
+.up-next { font-weight: 700; color: #e67e22; background-color: #fff8f0; border-radius: 4px; padding: 10px 5px; }
+.empty-text { font-style: italic; color: #888; font-size: 0.9em; padding: 10px 5px; }
 
-.in-progress {
-  font-weight: 700;
-  color: #007aff;
-  background-color: #f0f7ff;
-  border-radius: 4px;
-  padding: 10px 5px;
+/* Barber Action Buttons */
+.next-button { width: 100%; background-color: #34c759; }
+.next-button:hover:not(:disabled) { background-color: #2a9e46; }
+.next-button.disabled { background-color: #aaa; cursor: not-allowed; }
+.complete-button { width: 100%; background-color: #ff9500; }
+.complete-button:hover { background-color: #d98000; }
+
+/* Barber Availability Toggle */
+.availability-toggle {
+    display: flex; align-items: center; gap: 10px; background-color: rgba(255, 255, 255, 0.1);
+    padding: 5px 10px; border-radius: 6px;
 }
-.up-next { /* Style for Barber Dashboard's 'Up Next' section */
-  font-weight: 700;
-  color: #e67e22; /* Orange for Up Next */
-  background-color: #fff8f0;
-  border-radius: 4px;
-   padding: 10px 5px;
-}
-.up-next-public { /* Style for Customer's view of 'Up Next' */
-    background-color: #fff8f0; /* Light orange */
-     border-left: 4px solid #e67e22;
-     font-weight: 600;
-}
+.availability-toggle p { margin: 0; font-size: 0.9em; }
+.availability-toggle button { padding: 6px 10px; font-size: 0.8em; margin-top: 0; }
+.go-online-button { background-color: #34c759; }
+.go-online-button:hover { background-color: #2a9e46; }
+.go-offline-button { background-color: #ff9500; }
+.go-offline-button:hover { background-color: #d98000; }
 
 
-.empty-text {
-  font-style: italic;
-  color: #888;
-  font-size: 0.9em;
-  padding: 10px 5px;
-}
+/* Analytics Card */
+.analytics-card { background-color: #f9f9f9; border: 1px solid #e0e0e0; }
+.analytics-subtitle { font-size: 1.1em; color: #333; margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; font-weight: 600; }
+.analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+.analytics-item { display: flex; flex-direction: column; align-items: flex-start; padding: 10px; background-color: #fff; border-radius: 4px; border: 1px solid #eee; border-bottom: 1px solid #eee; }
+.analytics-item:last-of-type { border-bottom: 1px solid #eee; }
+.analytics-label { font-size: 0.85em; color: #555; margin-bottom: 3px; font-weight: 500; }
+.analytics-value { font-size: 1.5em; font-weight: 700; color: #34c759; }
+.analytics-value.small { font-size: 1.2em; color: #555; }
+.chart-container { margin-top: 20px; margin-bottom: 15px; position: relative; }
+.chart-container > div { height: 250px !important; width: 100% !important; } /* Ensure chart has height */
+.refresh-button { width: 100%; background-color: #5856d6; }
+.refresh-button:hover { background-color: #4946b9; }
+.refresh-button.small { width: auto; padding: 6px 10px; font-size: 0.8em; margin-top: 10px; }
 
 
-/* --- Action Buttons --- */
-.next-button {
-  width: 100%;
-  background-color: #34c759; /* Green */
-}
-.next-button:hover:not(:disabled) {
-  background-color: #2a9e46;
-}
-.next-button.disabled {
-    background-color: #aaa;
-    cursor: not-allowed;
-}
+/* AI Generator Section */
+.ai-generator { border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 15px 0; margin: 20px 0; }
+.ai-title { font-size: 1.1em; font-weight: 600; color: #333; margin-top: 0; margin-bottom: 15px; }
+.generate-button { width: 100%; background-color: #5e5ce6; margin-bottom: 15px; }
+.generate-button:hover:not(:disabled) { background-color: #4946b9; }
+.image-preview img { width: 100%; max-width: 350px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee; }
+.success-text { font-weight: 600; color: #34c759; font-size: 0.9em; margin-top: 5px; }
+.join-queue-button { width: 100%; font-size: 1.1em; background-color: #007aff; }
 
-.complete-button {
-  width: 100%;
-  background-color: #ff9500; /* Orange */
-}
-.complete-button:hover {
-  background-color: #d98000;
-}
+/* Photo Link */
+.photo-link { margin-left: 10px; font-size: 0.8em; font-weight: 600; color: #007aff; text-decoration: none; background-color: #f0f7ff; padding: 3px 6px; border-radius: 3px; white-space: nowrap; }
+.photo-link:hover { text-decoration: underline; background-color: #e6f2ff; }
 
-/* --- Analytics Card --- */
-.analytics-card {
-  background-color: #f9f9f9;
-  border: 1px solid #e0e0e0;
-}
+/* Live Queue View */
+.live-queue-view h2 { margin-bottom: 15px; }
+.queue-list.live { margin-bottom: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
+.queue-list.live li { font-size: 1em; padding: 8px 10px; background-color: #f9f9f9; border: none; border-bottom: 1px solid #eee; margin-bottom: 0; border-radius: 0; display: flex; justify-content: space-between; align-items: center; }
+.queue-list.live li:last-child { border-bottom: none; }
+.queue-list.live li.my-position { background-color: #e6f7ff; border-left: 4px solid #007aff; font-weight: 600; }
+.queue-list.live li.up-next-public { background-color: #fff8f0; border-left: 4px solid #e67e22; font-weight: 600; }
+.queue-status { font-size: 0.8em; font-weight: 500; color: #777; background-color: #eee; padding: 2px 6px; border-radius: 10px; text-transform: capitalize; }
+.up-next-public .queue-status { background-color: #e67e22; color: white; }
+.my-position .queue-status { background-color: #007aff; color: white; }
+.leave-queue-button { background-color: #ff3b30; width: 100%; }
+.leave-queue-button:hover { background-color: #c53028; }
 
-.analytics-subtitle {
-  font-size: 1.1em;
-  color: #333;
-  margin-top: 25px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 5px;
-  font-weight: 600;
-}
+/* Loading State */
+.loading-fullscreen { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-size: 1.5em; color: #555; }
 
-/* Use Grid for better alignment */
-.analytics-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* Two columns */
-    gap: 15px; /* Space between items */
-    margin-bottom: 15px;
+/* Responsive Adjustments */
+@media (max-width: 1250px) { /* Adjust breakpoint as needed */
+    .container {
+        flex-direction: column;
+        align-items: center;
+    }
+    .card {
+        width: 90%;
+        max-width: 600px; /* Allow cards to be wider on medium screens */
+    }
 }
-
-.analytics-item {
-  display: flex; /* Use flex within each grid item */
-  flex-direction: column; /* Stack label and value vertically */
-  align-items: flex-start; /* Align text to the start */
-  padding: 10px;
-  background-color: #fff;
-  border-radius: 4px;
-  border: 1px solid #eee;
-  /* Remove bottom border from previous style */
-  border-bottom: 1px solid #eee;
-}
-.analytics-item:last-of-type {
-   border-bottom: 1px solid #eee; /* Ensure last item still has border if needed */
-}
-
-
-.analytics-label {
-  font-size: 0.85em; /* Smaller label */
-  color: #555;
-  margin-bottom: 3px; /* Space between label and value */
-  font-weight: 500;
-}
-
-.analytics-value {
-  font-size: 1.5em; /* Adjust size */
-  font-weight: 700;
-  color: #34c759; /* Keep green for main values */
-}
-/* Style for smaller values like Avg Price, Queue Size */
-.analytics-value.small {
-    font-size: 1.2em;
-    color: #555; /* Neutral color */
-}
-
-
-.chart-container {
-  margin-top: 20px;
-  margin-bottom: 15px;
-  position: relative; /* Needed for chart responsiveness */
-  /* height: 250px; /* Give chart container explicit height */
-}
-
-.refresh-button {
-  width: 100%;
-  background-color: #5856d6; /* Indigo */
-}
-.refresh-button:hover {
-  background-color: #4946b9;
-}
-.refresh-button.small {
-    width: auto;
-    padding: 6px 10px;
-    font-size: 0.8em;
-    margin-top: 10px;
-}
-
-
-/* --- AI Generator Section --- */
-.ai-generator {
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
-  padding: 15px 0;
-  margin: 20px 0;
-}
-
-.ai-title {
-  font-size: 1.1em;
-  font-weight: 600;
-  color: #333;
-  margin-top: 0;
-  margin-bottom: 15px;
-}
-
-.generate-button {
-  width: 100%;
-  background-color: #5e5ce6; /* Indigo */
-  margin-bottom: 15px;
-}
-.generate-button:hover:not(:disabled) {
-  background-color: #4946b9;
-}
-
-.image-preview img {
-  width: 100%;
-  max-width: 350px; /* Limit max size */
-  border-radius: 8px;
-  margin-top: 10px;
-  border: 1px solid #eee;
-}
-
-.success-text {
-  font-weight: 600;
-  color: #34c759;
-  font-size: 0.9em;
-  margin-top: 5px;
-}
-
-.join-queue-button {
-  width: 100%;
-  font-size: 1.1em;
-  background-color: #007aff; /* Standard blue */
-}
-
-.photo-link {
-  margin-left: 10px;
-  font-size: 0.8em;
-  font-weight: 600;
-  color: #007aff;
-  text-decoration: none;
-  background-color: #f0f7ff;
-  padding: 3px 6px;
-  border-radius: 3px;
-  white-space: nowrap; /* Prevent link from wrapping */
-}
-.photo-link:hover {
-  text-decoration: underline;
-  background-color: #e6f2ff;
-}
-
-/* --- Styles for Live Queue View --- */
-.live-queue-view h2 {
-    margin-bottom: 15px; /* Less margin */
-}
-
-.queue-list.live {
-    margin-bottom: 20px;
-    max-height: 300px; /* Limit height and allow scroll if needed */
-    overflow-y: auto;
-    border: 1px solid #eee; /* Add border around the list */
-    border-radius: 4px;
-}
-
-.queue-list.live li {
-    font-size: 1em; /* Slightly smaller */
-    padding: 8px 10px;
-    background-color: #f9f9f9;
-    border: none; /* Remove individual borders */
-    border-bottom: 1px solid #eee; /* Use bottom border as separator */
-    margin-bottom: 0; /* Remove margin */
-    border-radius: 0; /* No radius on list items */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-/* Remove border from last item */
-.queue-list.live li:last-child {
-    border-bottom: none;
-}
-
-.queue-list.live li.my-position {
-    background-color: #e6f7ff; /* Light blue for user's position */
-    border-left: 4px solid #007aff;
-    font-weight: 600;
-}
-
-.queue-list.live li.up-next-public {
-    background-color: #fff8f0; /* Light orange for up next */
-     border-left: 4px solid #e67e22;
-     font-weight: 600;
-}
-
-
-.queue-status {
-    font-size: 0.8em;
-    font-weight: 500;
-    color: #777;
-    background-color: #eee;
-    padding: 2px 6px;
-    border-radius: 10px;
-    text-transform: capitalize; /* Make status look nicer */
-}
-.up-next-public .queue-status {
-    background-color: #e67e22;
-    color: white;
-}
-.my-position .queue-status {
-    background-color: #007aff;
-    color: white;
-}
-
-
-.leave-queue-button {
-    background-color: #ff3b30; /* Red */
-    width: 100%;
-}
-.leave-queue-button:hover {
-    background-color: #c53028;
-}
-
-/* Ensure chart container has height */
-.chart-container > div {
-    height: 250px !important; /* Force height for chart canvas */
-    width: 100% !important;
+@media (max-width: 768px) {
+    .app-header {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 15px;
+    }
+     .header-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+     .card {
+        width: 95%;
+        padding: 15px;
+    }
+     .analytics-grid {
+         grid-template-columns: 1fr; /* Stack analytics items on small screens */
+     }
+     .availability-toggle {
+         flex-direction: column;
+         align-items: flex-start;
+         gap: 5px;
+         padding: 8px;
+     }
+     .availability-toggle button { width: 100%; }
 }
