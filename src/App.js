@@ -125,72 +125,74 @@ function AuthForm() {
 };
 
     // Render Auth Form (Removed Barber Code Input)
-    return (
-        <div className="card auth-card">
-            <h2>{isLogin ? 'Login' : 'Sign Up'}</h2>
-            <form onSubmit={handleAuth}>
-                {/* Username */}
-                <div className="form-group"> <label>Username:</label> <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required minLength="3" autoComplete="username"/> </div>
-                {/* Email (Only for Signup) */}
-                {!isLogin && (<div className="form-group"> <label>Email:</label> <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required={!isLogin} autoComplete="email"/> <small>Needed for account functions.</small> </div>)}
-                {/* --- NEW Role Toggle for Signup --- */}
-                <div className="signup-role-select">
-                    <label>Sign Up As:</label>
+    // Replace the existing return block in AuthForm with this:
+return (
+    <div className="card auth-card">
+        <h2>{isLogin ? 'Login' : 'Sign Up'}</h2>
+        <form onSubmit={handleAuth}>
+
+            {/* --- Fields for BOTH Login and Signup --- */}
+            <div className="form-group">
+                <label>Username:</label>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required minLength="3" autoComplete="username"/>
+            </div>
+            <div className="form-group">
+                <label>Password:</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" autoComplete={isLogin ? "current-password" : "new-password"}/>
+            </div>
+
+            {/* --- Login Specific Fields --- */}
+            {isLogin && (
+                <div className="login-role-select">
+                    <label>Login As:</label>
                     <div className="role-toggle">
                         <button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button>
                         <button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button>
                     </div>
-                </div>
-                {/* Password */}
-                <div className="form-group"> <label>Password:</label> <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" autoComplete={isLogin ? "current-password" : "new-password"}/> </div>
-                {/* --- NEW Role Toggle and PIN (Login Only) --- */}
-                {isLogin && (
-                    <div className="login-role-select">
-                        <label>Login As:</label>
-                        <div className="role-toggle">
-                            <button
-                                type="button"
-                                className={selectedRole === 'customer' ? 'active' : ''}
-                                onClick={() => setSelectedRole('customer')}
-                            >
-                                Customer
-                            </button>
-                            <button
-                                type="button"
-                                className={selectedRole === 'barber' ? 'active' : ''}
-                                onClick={() => setSelectedRole('barber')}
-                            >
-                                Barber
-                            </button>
+                    {selectedRole === 'barber' && ( // PIN only if barber login
+                        <div className="form-group pin-input">
+                            <label>Barber PIN:</label>
+                            <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} required={selectedRole === 'barber'} autoComplete="off" />
                         </div>
+                    )}
+                </div>
+            )}
 
-                        {/* Conditionally show PIN input only for Barber login */}
-                        {selectedRole === 'barber' && (
-                            <div className="form-group pin-input">
-                                <label>Barber PIN:</label>
-                                <input
-                                    type="password" // Use password type to hide PIN
-                                    value={pin}
-                                    onChange={(e) => setPin(e.target.value)}
-                                    required={selectedRole === 'barber'} // Required only if barber role selected
-                                    autoComplete="off" // Don't suggest saving PIN
-                                />
-                            </div>
-                        )}
+            {/* --- Signup Specific Fields --- */}
+            {!isLogin && (
+              <>
+                {/* Role Toggle for Signup */}
+                <div className="signup-role-select">
+                    <label>Sign Up As:</label>
+                    <div className="role-toggle">
+                         <button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button>
+                         <button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button>
                     </div>
+                </div>
+                {/* Email for Signup */}
+                <div className="form-group"><label>Email:</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required={!isLogin} autoComplete="email"/><small>Needed for account functions.</small></div>
+                {/* Full Name for Signup */}
+                <div className="form-group"> <label>Full Name:</label> <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLogin} autoComplete="name"/> </div>
+                {/* Barber Code for Signup (Conditional) */}
+                {selectedRole === 'barber' && (
+                     <div className="form-group">
+                        <label>Barber Code:</label>
+                        <input type="text" value={barberCode} placeholder="Enter secret barber code" onChange={(e) => setBarberCode(e.target.value)} required={selectedRole === 'barber' && !isLogin} />
+                        <small>Required to sign up as a barber.</small>
+                     </div>
                 )}
-                {/* --- END NEW --- */}
-                {/* Signup Only Fields (No Barber Code) */}
-                {!isLogin && (<> <div className="form-group"> <label>Full Name:</label> <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLogin} autoComplete="name"/> </div> </>)}
-                {/* Submit Button */}
-                <button type="submit" disabled={loading}>{loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}</button>
-            </form>
-            {/* Message Area */}
-            {message && <p className={`message ${message.includes('successful') || message.includes('created') ? 'success' : 'error'}`}>{message}</p>}
-            {/* Toggle Button */}
-            <button type="button" onClick={() => { setIsLogin(!isLogin); setMessage(''); }} className="toggle-auth-button">{isLogin ? 'Need an account? Sign Up' : 'Have an account? Login'}</button>
-        </div>
-    );
+              </>
+            )}
+
+            {/* Submit Button */}
+            <button type="submit" disabled={loading}>{loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}</button>
+        </form>
+        {/* Message Area */}
+        {message && <p className={`message ${message.includes('successful') || message.includes('created') ? 'success' : 'error'}`}>{message}</p>}
+        {/* Toggle Button */}
+        <button type="button" onClick={() => { setIsLogin(!isLogin); setMessage(''); setSelectedRole('customer'); setPin(''); /* Reset role/pin on toggle */ }} className="toggle-auth-button">{isLogin ? 'Need an account? Sign Up' : 'Have an account? Login'}</button>
+    </div>
+);
 }
 
 
