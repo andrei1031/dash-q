@@ -225,21 +225,29 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
         };
     }, [barberProfile, session]); // Dependency on profile/session ensures data is current
 
+    // Inside BarberAppLayout or CustomerAppLayout
     const handleLogout = async () => {
         if (!barberProfile || !session?.user || !supabase?.auth) return;
-        
+
         try {
-            // 1. Clear the current_session_id flag and set to offline
-            await axios.put(`${API_URL}/barber/availability`, {
-                 barberId: barberProfile.id, 
-                 isAvailable: false, 
-                 currentSessionId: null, // <-- CLEAR THE SESSION FLAG
-                 userId: session.user.id
-            });
-        } catch (error) { console.error("Error setting offline on logout:", error); }
+            // 1. Attempt to set status offline (Barber only)
+            if (barberProfile) { // Check if we are in the Barber layout
+                await axios.put(`${API_URL}/barber/availability`, {
+                    barberId: barberProfile.id, 
+                    isAvailable: false, 
+                    userId: session.user.id
+                });
+            }
+        } catch (error) { 
+            console.error("Error setting offline on logout:", error); 
+            // Log the error but continue to sign out
+        }
         finally {
-             await supabase.auth.signOut(); // Sign out regardless
-             setBarberProfile(null);
+            // 2. CRITICAL: Clear the session in browser storage
+            await supabase.auth.signOut(); 
+
+            // 3. Clear local state immediately (App component handles this)
+            // No need to manually call setBarberProfile(null) here if you rely on the listener.
         }
     };
 
