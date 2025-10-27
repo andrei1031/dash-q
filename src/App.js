@@ -227,15 +227,19 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
 
     const handleLogout = async () => {
         if (!barberProfile || !session?.user || !supabase?.auth) return;
+        
         try {
-            // Set offline first
+            // 1. Clear the current_session_id flag and set to offline
             await axios.put(`${API_URL}/barber/availability`, {
-                 barberId: barberProfile.id, isAvailable: false, userId: session.user.id
+                 barberId: barberProfile.id, 
+                 isAvailable: false, 
+                 currentSessionId: null, // <-- CLEAR THE SESSION FLAG
+                 userId: session.user.id
             });
         } catch (error) { console.error("Error setting offline on logout:", error); }
         finally {
              await supabase.auth.signOut(); // Sign out regardless
-             setBarberProfile(null); // Clear profile in parent state
+             setBarberProfile(null);
         }
     };
 
