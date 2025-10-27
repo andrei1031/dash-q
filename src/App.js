@@ -199,6 +199,32 @@ function AvailabilityToggle({ barberProfile, session, onAvailabilityChange }) {
 function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
     const [refreshSignal, setRefreshSignal] = useState(0);
 
+    // --- NEW: Handle automatic setting to offline on close/refresh ---
+    useEffect(() => {
+        const handleBeforeUnload = async (e) => {
+            if (barberProfile?.id && session?.user) {
+                // Send an asynchronous request to set availability to false
+                // NOTE: This call is NOT guaranteed to succeed, but it's the best browser hook available.
+                navigator.sendBeacon(
+                    `${API_URL}/barber/availability`, 
+                    JSON.stringify({ 
+                        barberId: barberProfile.id, 
+                        isAvailable: false, 
+                        userId: session.user.id 
+                    })
+                );
+            }
+        };
+
+        // Attach the event listener to the window
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        // Cleanup: remove the listener when the component unmounts
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [barberProfile, session]); // Dependency on profile/session ensures data is current
+
     const handleLogout = async () => {
         if (!barberProfile || !session?.user || !supabase?.auth) return;
         try {
@@ -212,6 +238,7 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
              setBarberProfile(null); // Clear profile in parent state
         }
     };
+
 
     const handleCutComplete = () => { setRefreshSignal(prev => prev + 1); };
 
