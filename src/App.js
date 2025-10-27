@@ -8,7 +8,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 
 import './App.css';
 
-// --- Register Chart.js components ---
+// --- Register Chart.js ---
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 // --- Backend API URL ---
@@ -73,14 +73,12 @@ function AuthForm() {
                          email: response.data.user.email, password: password,
                      });
                      if (clientSignInError) { throw clientSignInError; }
-                     // Auth listener in App will now detect session and trigger role check/redirect
                  } else { throw new Error("Login failed: Invalid response from server."); }
 
             } else {
                 // --- SIGN UP Logic ---
                  if (!email.trim() || !fullName.trim()) { throw new Error("Email and Full Name are required for signup."); }
-                 if (selectedRole === 'barber' && !barberCode.trim()) { throw new Error("Barber Code required for barber signup."); }
-
+                
                 // Call backend signup endpoint
                 const response = await axios.post(`${API_URL}/signup/username`, {
                     username: username.trim(), email: email.trim(), password: password, fullName: fullName.trim(),
@@ -88,7 +86,7 @@ function AuthForm() {
                 });
                 setMessage(response.data.message || 'Signup successful!');
                 setIsLogin(true); // Switch to login view after signup
-                // Clear all fields after successful signup
+                // Clear all fields
                 setUsername(''); setEmail(''); setPassword(''); setFullName(''); setBarberCode(''); setPin(''); setSelectedRole('customer');
             }
         } catch (error) {
@@ -201,11 +199,12 @@ function AvailabilityToggle({ barberProfile, session, onAvailabilityChange }) {
 function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
     const [refreshSignal, setRefreshSignal] = useState(0);
 
-    // --- Auto-Offline on Browser/Tab Close ---
+    // --- NEW: Handle automatic setting to offline on close/refresh ---
     useEffect(() => {
         const handleBeforeUnload = async (e) => {
             if (barberProfile?.id && session?.user) {
-                // Use sendBeacon for reliable request on page close
+                // Send an asynchronous request to set availability to false
+                // NOTE: This call is NOT guaranteed to succeed, but it's the best browser hook available.
                 navigator.sendBeacon(
                     `${API_URL}/barber/availability`, 
                     JSON.stringify({ 
@@ -217,27 +216,26 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
             }
         };
 
+        // Attach the event listener to the window
         window.addEventListener('beforeunload', handleBeforeUnload);
+
+        // Cleanup: remove the listener when the component unmounts
         return () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
     }, [barberProfile, session]); // Dependency on profile/session ensures data is current
 
-
-    // Handles both manual logout and automatic offline setting
     const handleLogout = async () => {
         if (!barberProfile || !session?.user || !supabase?.auth) return;
-
         try {
-            // 1. Attempt to set status offline
+            // Set offline first
             await axios.put(`${API_URL}/barber/availability`, {
                  barberId: barberProfile.id, isAvailable: false, userId: session.user.id
             });
         } catch (error) { console.error("Error setting offline on logout:", error); }
         finally {
-            // 2. CRITICAL: Clear the session in browser storage and redirect
-            await supabase.auth.signOut(); 
-            // setBarberProfile(null); // App component listener handles state reset
+             await supabase.auth.signOut(); // Sign out regardless
+             setBarberProfile(null); // Clear profile in parent state
         }
     };
 
@@ -257,6 +255,7 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
             <header className="app-header">
                 <h1>Barber: {currentBarberName || 'Loading...'}</h1>
                  <div className='header-controls'>
+                     {/* Pass barberProfile from App state */}
                      {barberProfile && <AvailabilityToggle barberProfile={barberProfile} session={session} onAvailabilityChange={handleAvailabilityChange}/>}
                      <button onClick={handleLogout} className='logout-button'>Logout</button>
                  </div>
@@ -304,6 +303,7 @@ function CustomerAppLayout({ session }) {
             </header>
             <div className="container">
                 <CustomerView session={session} />
+                {/* This is the only screen visible to the customer after login */}
             </div>
         </div>
     );
@@ -336,106 +336,184 @@ function CustomerView({ session }) { // Accept session if needed
    const [isGenerating, setIsGenerating] = useState(false);
    const [isLoading, setIsLoading] = useState(false); // For joining queue
 
-   // Fetch Public Queue Data
-   const fetchPublicQueue = async (barberId) => {
-      if (!barberId) return;
-      setQueueMessage('Loading queue...');
-      try {
-        const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
-        setLiveQueue(response.data || []);
-        setQueueMessage('');
-      } catch (error) { console.error("Failed fetch public queue:", error); setQueueMessage('Could not load queue.'); setLiveQueue([]); }
-    };
-
-   // Fetch Available Barbers (Runs every 15s)
-   useEffect(() => {
-        const loadBarbers = async () => {
-          setMessage('Loading available barbers...');
-          try {
-            const response = await axios.get(`${API_URL}/barbers`); // Endpoint filters by is_available=true
-            setBarbers(response.data || []);
-             setMessage('');
-          } catch (error) { console.error('Failed fetch available barbers:', error); setMessage('Could not load barbers.'); setBarbers([]); }
+    const fetchPublicQueue = async (barberId) => {
+        if (!barberId) return;
+        setQueueMessage('Loading queue...');
+        try {
+            // This endpoint returns ID, customer_name, status, created_at
+            const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
+            setLiveQueue(response.data || []);
+            setQueueMessage('');
+        } catch (error) { console.error("Failed fetch public queue:", error); setQueueMessage('Could not load queue.'); setLiveQueue([]); }
         };
 
-        loadBarbers(); // Initial Load
-        const intervalId = setInterval(loadBarbers, 15000); // Auto-Refresh every 15 seconds
-        return () => clearInterval(intervalId);
-    }, []); // Runs only once on mount
+    // --- Fetch Available Barbers (Runs every 15s) ---
+    useEffect(() => {
+    const loadBarbers = async () => {
+      setMessage('Loading available barbers...');
+      try {
+        // This endpoint correctly filters by is_available=true on the backend
+        const response = await axios.get(`${API_URL}/barbers`);
+        setBarbers(response.data || []);
+         setMessage('');
+      } catch (error) { console.error('Failed fetch available barbers:', error); setMessage('Could not load barbers.'); setBarbers([]); }
+    };
 
-    // Realtime and Notification Effect
-   useEffect(() => {
+    // 1. Initial Load
+    loadBarbers();
+
+    // 2. Set up Auto-Refresh for Available Barbers every 15 seconds
+    const intervalId = setInterval(loadBarbers, 15000); // Refresh every 15 seconds
+
+    // 3. Cleanup: Clear the interval when the component unmounts
+    return () => clearInterval(intervalId);
+
+}, []); // Runs only once on mount
+
+    // --- Realtime and Notification Effect (Runs when joinedBarberId changes) ---
+    useEffect(() => {
+        // 1. Ask for Notification permission
         if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") { Notification.requestPermission(); }
-        let queueChannel = null;
-        let refreshInterval = null; // Periodic refresh timer
 
+        let queueChannel = null;
+        let refreshInterval = null; // Variable to hold the periodic refresh timer
+
+        // 2. Only subscribe if the user has joined a queue
         if (joinedBarberId && supabase?.channel) {
             console.log(`Subscribing queue changes: barber ${joinedBarberId}`);
             queueChannel = supabase.channel(`public_queue_${joinedBarberId}`)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `barber_id=eq.${joinedBarberId}` }, (payload) => {
+                    console.log('Queue change! Payload:', payload);
                     fetchPublicQueue(joinedBarberId); // Refresh list on any change
+
+                    // Check for MY notification trigger
                     if (payload.eventType === 'UPDATE' && payload.new.id === myQueueEntryId && payload.new.status === 'Up Next') {
+                        console.log('My status is Up Next! Notify!');
                         if (Notification.permission === "granted") { new Notification("You're next at Dash-Q!", { body: "Please head over now." }); }
                         else { alert("You're next at Dash-Q! Please head over now."); }
                     }
                 })
                 .subscribe((status, err) => {
-                     if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); }
-                     else { console.error('Supabase Realtime subscription error:', status, err); setQueueMessage('Live updates unavailable.'); }
+                    if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); } // Fetch on subscribe
+                    else { console.error('Supabase Realtime subscription error:', status, err); setQueueMessage('Live updates unavailable.'); }
                 });
             
-            refreshInterval = setInterval(() => { fetchPublicQueue(joinedBarberId); }, 15000); // Periodic refresh
+            // 3. Set up the 15-second periodic refresh (Backup for Realtime)
+            refreshInterval = setInterval(() => {
+                console.log('Periodic refresh: Fetching public queue...');
+                fetchPublicQueue(joinedBarberId);
+            }, 15000); // Refreshes every 15 seconds
         }
-        // Cleanup function
+
+        // 4. Cleanup function: Clear both the Realtime channel and the periodic timer
         return () => {
-            if (queueChannel && supabase?.removeChannel) { supabase.removeChannel(queueChannel).then(() => console.log('Cleaned up queue subscription.')); }
-            if (refreshInterval) { clearInterval(refreshInterval); }
+            if (queueChannel && supabase?.removeChannel) {
+                supabase.removeChannel(queueChannel).then(() => console.log('Cleaned up queue subscription.'));
+            }
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
         };
-    }, [joinedBarberId, myQueueEntryId]); // Rerun if joinedBarberId or myQueueEntryId changes
+    }, [joinedBarberId, myQueueEntryId]);
 
    // AI Preview Handler
-   const handleGeneratePreview = async () => { /* ... code from previous version ... */ };
-
-    // Join Queue Handler
-   const handleJoinQueue = async (e) => {
-        e.preventDefault();
-        if (!customerName || !selectedBarber) { setMessage('Name and Barber required.'); return; }
-        if (myQueueEntryId) { setMessage('You are already checked in! Please leave your current queue spot first.'); return; } // Prevent rejoining
-
-        setIsLoading(true); setMessage('Joining queue...');
+   const handleGeneratePreview = async () => {
+        if (!file || !prompt) { setMessage('Please upload a photo and enter a prompt.'); return; }
+        setIsGenerating(true); setIsLoading(true); setGeneratedImage(null); setMessage('Step 1/3: Uploading...');
+        const filePath = `${Date.now()}.${file.name.split('.').pop()}`;
         try {
-            // Check availability again before inserting (This ensures the backend is working correctly)
-            const { data: barberStatus, error: statusError } = await axios.get(`${API_URL}/barber/profile/${selectedBarber}`);
-            if (statusError || !barberStatus.is_available) {
-                 throw new Error("This barber is currently unavailable. Please refresh and choose another.");
-            }
-            
-            const imageUrlToSave = generatedImage;
-            const response = await axios.post(`${API_URL}/queue`, {
-                customer_name: customerName, customer_phone: customerPhone, customer_email: customerEmail,
-                barber_id: selectedBarber, reference_image_url: imageUrlToSave
-            });
-            
-            const newEntry = response.data;
-            setMyQueueEntryId(newEntry.id); setJoinedBarberId(parseInt(selectedBarber));
-            const barberName = barbers.find(b => b.id === parseInt(selectedBarber))?.full_name || `Barber #${selectedBarber}`;
-            setMessage(`Success! You joined for ${barberName}. We'll notify you! See queue below.`);
-            // Clear form fields needed for re-entry
-            setCustomerName(''); setCustomerPhone(''); setCustomerEmail(''); setFile(null); setPrompt('');
-        } catch (error) { 
-            console.error('Failed to join queue:', error); 
-            const errorMessage = error.response?.data?.error || error.message;
-            setMessage(errorMessage.includes('unavailable') ? errorMessage : 'Failed to join. Please try again.'); 
-            setMyQueueEntryId(null); setJoinedBarberId(null); 
-        } finally { setIsLoading(false); }
+            if (!supabase?.storage) throw new Error("Supabase storage not available.");
+            const { error: uploadError } = await supabase.storage.from('haircut_references').upload(filePath, file);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabase.storage.from('haircut_references').getPublicUrl(filePath);
+            if (!urlData?.publicUrl) throw new Error("Could not get public URL for uploaded file."); // Add check
+            const imageUrl = urlData.publicUrl;
+
+            setMessage('Step 2/3: Generating AI haircut... (takes ~15-30s)');
+            const response = await axios.post(`${API_URL}/generate-haircut`, { imageUrl, prompt });
+            setGeneratedImage(response.data.generatedImageUrl); setMessage('Step 3/3: Success! Check preview.');
+        } catch (error) { console.error('AI generation pipeline error:', error); setMessage(`AI failed: ${error.response?.data?.error || error.message}`);
+        } finally { setIsGenerating(false); setIsLoading(false); }
     };
 
+   // Inside the CustomerView function in App.js
+
+    const handleJoinQueue = async (e) => {
+        e.preventDefault();
+
+        // 1. Core Validation
+        if (!customerName || !selectedBarber) {
+        setMessage('Please enter your name and select a barber.');
+        return;
+        }
+        
+        // ** CRITICAL: Prevent rejoining if already in a queue **
+        if (myQueueEntryId) {
+            setMessage('You are already checked in! Please leave your current queue spot first.');
+            return;
+        }
+
+
+        setIsLoading(true);
+        setMessage('Joining queue...'); // Provide feedback
+
+        try {
+        // Use the generated AI image URL if it exists, otherwise null
+        const imageUrlToSave = generatedImage;
+
+        // 2. Send Data to Backend
+        const response = await axios.post(`${API_URL}/queue`, {
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            customer_email: customerEmail,
+            barber_id: selectedBarber,
+            reference_image_url: imageUrlToSave // Send AI image URL
+        });
+
+        // 3. Update Frontend State for Live View and Notification Listener
+        const newEntry = response.data;
+        setMyQueueEntryId(newEntry.id); // Save MY queue entry ID (Triggers Realtime useEffect)
+        setJoinedBarberId(parseInt(selectedBarber)); // Save the barber ID
+
+        // Find barber name for success message
+        const barberName = barbers.find(b => b.id === parseInt(selectedBarber))?.full_name || `Barber #${selectedBarber}`;
+        setMessage(`Success! You joined the queue for ${barberName}. We'll notify you via the app! See your spot below.`);
+
+        // 4. Clear form fields needed for re-entry
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerEmail('');
+        setFile(null);
+        setPrompt('');
+        setGeneratedImage(null); // Clear AI image from preview
+
+        } catch (error) {
+        console.error('Failed to join queue:', error);
+        // Check for our new specific error code
+        if (error.response && error.response.status === 409) {
+            setMessage(error.response.data.error + ' The list will refresh automatically.');
+            // Force a reload of the barber list immediately on this specific error
+            // by setting state to trigger the useEffect to fetch fresh data.
+            // NOTE: Since the useEffect runs continuously, a forced reload might not be strictly needed,
+            // but it provides instant visual feedback. For simplicity, we just display the error.
+
+        } else {
+            setMessage(error.response?.data?.error || 'Failed to join queue. Please try again.');
+        }
+        setMyQueueEntryId(null);
+        setJoinedBarberId(null);
+        } finally {
+        setIsLoading(false);
+        }
+    };
     // Leave Queue Handler
    const handleLeaveQueue = () => {
+        // Unsubscribe from Realtime
         if (joinedBarberId && supabase?.removeChannel) {
             supabase.removeChannel(supabase.channel(`public_queue_${joinedBarberId}`))
                 .then(() => console.log('Unsubscribed on leaving queue.'));
         }
+        // Reset state to show the join form again
         setMyQueueEntryId(null); setJoinedBarberId(null); setLiveQueue([]); setMessage(''); setQueueMessage(''); setSelectedBarber(''); setGeneratedImage(null); setFile(null); setPrompt('');
     };
 
