@@ -386,27 +386,68 @@ function CustomerView({ session }) { // Accept session if needed
         } finally { setIsGenerating(false); setIsLoading(false); }
     };
 
-    // Join Queue Handler
-   const handleJoinQueue = async (e) => {
-        e.preventDefault();
-        if (!customerName || !selectedBarber) { setMessage('Name and Barber required.'); return; }
-        setIsLoading(true); setMessage('Joining queue...');
-        try {
-            const response = await axios.post(`${API_URL}/queue`, {
-                customer_name: customerName, customer_phone: customerPhone, customer_email: customerEmail,
-                barber_id: selectedBarber, reference_image_url: generatedImage // Send AI image if exists
-            });
-            const newEntry = response.data;
-            setMyQueueEntryId(newEntry.id); setJoinedBarberId(parseInt(selectedBarber));
-            const barberName = barbers.find(b => b.id === parseInt(selectedBarber))?.full_name || `Barber #${selectedBarber}`;
-            setMessage(`Success! You joined for ${barberName}. We'll notify you! See queue below.`);
-            // Clear only form fields needed for re-entry
-            setCustomerName(''); setCustomerPhone(''); setCustomerEmail(''); setFile(null); setPrompt('');
-            // Keep selectedBarber for the queue view title
-        } catch (error) { console.error('Failed to join queue:', error); setMessage(error.response?.data?.error || 'Failed to join.'); setMyQueueEntryId(null); setJoinedBarberId(null); // Reset queue state on failure
-        } finally { setIsLoading(false); }
-    };
+   // Inside the CustomerView function in App.js
 
+    const handleJoinQueue = async (e) => {
+        e.preventDefault();
+
+        // 1. Core Validation
+        if (!customerName || !selectedBarber) {
+        setMessage('Please enter your name and select a barber.');
+        return;
+        }
+        
+        // ** CRITICAL: Prevent rejoining if already in a queue **
+        if (myQueueEntryId) {
+            setMessage('You are already checked in! Please leave your current queue spot first.');
+            return;
+        }
+
+
+        setIsLoading(true);
+        setMessage('Joining queue...'); // Provide feedback
+
+        try {
+        // Use the generated AI image URL if it exists, otherwise null
+        const imageUrlToSave = generatedImage;
+
+        // 2. Send Data to Backend
+        const response = await axios.post(`${API_URL}/queue`, {
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            customer_email: customerEmail,
+            barber_id: selectedBarber,
+            reference_image_url: imageUrlToSave // Send AI image URL
+        });
+
+        // 3. Update Frontend State for Live View and Notification Listener
+        const newEntry = response.data;
+        setMyQueueEntryId(newEntry.id); // Save MY queue entry ID (Triggers Realtime useEffect)
+        setJoinedBarberId(parseInt(selectedBarber)); // Save the barber ID
+
+        // Find barber name for success message
+        const barberName = barbers.find(b => b.id === parseInt(selectedBarber))?.full_name || `Barber #${selectedBarber}`;
+        setMessage(`Success! You joined the queue for ${barberName}. We'll notify you via the app! See your spot below.`);
+
+        // 4. Clear form fields needed for re-entry
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerEmail('');
+        setFile(null);
+        setPrompt('');
+        setGeneratedImage(null); // Clear AI image from preview
+
+        } catch (error) {
+        console.error('Failed to join queue:', error);
+        // Display specific error from backend if available
+        setMessage(error.response?.data?.error || 'Failed to join queue. Please try again.');
+        // Reset queue state on failure
+        setMyQueueEntryId(null);
+        setJoinedBarberId(null);
+        } finally {
+        setIsLoading(false); // Stop loading indicator
+        }
+    };
     // Leave Queue Handler
    const handleLeaveQueue = () => {
         // Unsubscribe from Realtime
