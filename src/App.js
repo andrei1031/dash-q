@@ -349,34 +349,36 @@ function CustomerView({ session }) { // Accept session if needed
 
     // --- Fetch Available Barbers (Runs every 15s) ---
     useEffect(() => {
-            const loadBarbers = async () => {
-            setMessage('Loading available barbers...');
-            try {
-                // This endpoint now correctly filters by is_available=true on the backend
-                const response = await axios.get(`${API_URL}/barbers`);
-                setBarbers(response.data || []);
-                setMessage('');
-            } catch (error) { console.error('Failed fetch available barbers:', error); setMessage('Could not load barbers.'); setBarbers([]); }
-            };
+    const loadBarbers = async () => {
+      setMessage('Loading available barbers...');
+      try {
+        // This endpoint correctly filters by is_available=true on the backend
+        const response = await axios.get(`${API_URL}/barbers`);
+        setBarbers(response.data || []);
+         setMessage('');
+      } catch (error) { console.error('Failed fetch available barbers:', error); setMessage('Could not load barbers.'); setBarbers([]); }
+    };
 
-            // 1. Initial Load
-            loadBarbers();
+    // 1. Initial Load
+    loadBarbers();
 
-            // 2. Set up Auto-Refresh every 15 seconds
-            const intervalId = setInterval(loadBarbers, 15000); // Refresh every 15 seconds
+    // 2. Set up Auto-Refresh for Available Barbers every 15 seconds
+    const intervalId = setInterval(loadBarbers, 15000); // Refresh every 15 seconds
 
-            // 3. Cleanup: Clear the interval when the component unmounts
-            return () => clearInterval(intervalId);
+    // 3. Cleanup: Clear the interval when the component unmounts
+    return () => clearInterval(intervalId);
 
-        }, []); // Runs only once
+}, []); // Runs only once on mount
 
-    // Realtime and Notification Effect
-   useEffect(() => {
-        // Ask for Notification permission
+    // --- Realtime and Notification Effect (Runs when joinedBarberId changes) ---
+    useEffect(() => {
+        // 1. Ask for Notification permission
         if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") { Notification.requestPermission(); }
 
         let queueChannel = null;
-        // Only subscribe if the user has joined a queue
+        let refreshInterval = null; // Variable to hold the periodic refresh timer
+
+        // 2. Only subscribe if the user has joined a queue
         if (joinedBarberId && supabase?.channel) {
             console.log(`Subscribing queue changes: barber ${joinedBarberId}`);
             queueChannel = supabase.channel(`public_queue_${joinedBarberId}`)
@@ -392,15 +394,27 @@ function CustomerView({ session }) { // Accept session if needed
                     }
                 })
                 .subscribe((status, err) => {
-                     if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); } // Fetch on subscribe
-                     else { console.error('Supabase Realtime subscription error:', status, err); setQueueMessage('Live updates unavailable.'); }
+                    if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); } // Fetch on subscribe
+                    else { console.error('Supabase Realtime subscription error:', status, err); setQueueMessage('Live updates unavailable.'); }
                 });
+            
+            // 3. Set up the 15-second periodic refresh (Backup for Realtime)
+            refreshInterval = setInterval(() => {
+                console.log('Periodic refresh: Fetching public queue...');
+                fetchPublicQueue(joinedBarberId);
+            }, 15000); // Refreshes every 15 seconds
         }
-        // Cleanup function
+
+        // 4. Cleanup function: Clear both the Realtime channel and the periodic timer
         return () => {
-            if (queueChannel && supabase?.removeChannel) { supabase.removeChannel(queueChannel).then(() => console.log('Cleaned up queue subscription.')); }
+            if (queueChannel && supabase?.removeChannel) {
+                supabase.removeChannel(queueChannel).then(() => console.log('Cleaned up queue subscription.'));
+            }
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
         };
-    }, [joinedBarberId, myQueueEntryId]); // Rerun if joinedBarberId or myQueueEntryId changes
+    }, [joinedBarberId, myQueueEntryId]);
 
    // AI Preview Handler
    const handleGeneratePreview = async () => {
@@ -557,14 +571,43 @@ function BarberDashboard({ barberId, barberName, onCutComplete }) {
 
     // UseEffect for initial load and realtime subscription
     useEffect(() => {
-        if (!barberId || !supabase?.channel) return;
-        fetchQueueDetails(); // Initial fetch
-        const channel = supabase.channel(`barber_queue_${barberId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `barber_id=eq.${barberId}` }, (payload) => { fetchQueueDetails(); }) // Refetch on any change
-            .subscribe((status, err) => { if (status !== 'SUBSCRIBED') console.error(`Barber subscription error: ${status}`, err); });
-        // Cleanup function
-        return () => { if (channel && supabase?.removeChannel) supabase.removeChannel(channel); };
-    }, [barberId]); // Re-subscribe if barberId changes
+    if (!barberId || !supabase?.channel) return;
+
+    let dashboardRefreshInterval = null; // Variable to hold the periodic refresh timer
+
+    fetchQueueDetails(); // Initial fetch
+
+    // 1. Setup Realtime subscription
+    const channel = supabase.channel(`barber_queue_${barberId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `barber_id=eq.${barberId}` }, (payload) => {
+                console.log('Barber dashboard received queue update (via Realtime):', payload);
+                fetchQueueDetails(); // Refetch details when any change occurs
+            })
+            .subscribe((status, err) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log(`Barber dashboard subscribed to queue ${barberId}`);
+                } else {
+                    console.error(`Barber dashboard subscription error: ${status}`, err);
+                }
+            });
+
+    // 2. Set up 15-second periodic refresh (Backup for Realtime)
+    dashboardRefreshInterval = setInterval(() => {
+        console.log('Dashboard periodic refresh: Fetching queue details...');
+        fetchQueueDetails();
+    }, 15000);
+
+    // 3. Cleanup function
+        return () => {
+            if (channel && supabase?.removeChannel) {
+                supabase.removeChannel(channel).then(() => console.log('Barber dashboard unsubscribed.'));
+            }
+        // --- CRITICAL: Clear the interval on unmount/re-run ---
+            if (dashboardRefreshInterval) {
+                clearInterval(dashboardRefreshInterval);
+            }
+        };
+    }, [barberId]); // Depend on barberId
 
     // Handler for calling the next customer
     const handleNextCustomer = async () => {
