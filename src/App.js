@@ -684,6 +684,27 @@ function App() {
   const [barberProfile, setBarberProfile] = useState(null); // Holds { id, user_id, full_name, is_available } for logged in barber
   const [loadingRole, setLoadingRole] = useState(true); // Tracks initial session/role check
 
+  // --- NEW: Tawk.to Chat Widget Integration ---
+  useEffect(() => {
+    var Tawk_API = Tawk_API || {};
+    var Tawk_LoadStart = new Date();
+
+    // Function to create and insert the script element
+    (function(){
+        var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
+        s1.async = true;
+        s1.src = 'https://embed.tawk.to/68ffae1526583a19516fcf37/1j8jc00ua'; // Use your actual URL
+        s1.charset = 'UTF-8';
+        s1.setAttribute('crossorigin','*');
+        s0.parentNode.insertBefore(s1, s0);
+    })();
+
+    return () => {
+        // Cleanup code if necessary
+    };
+  }, []); // Empty dependency array ensures it runs only once on mount
+
+  // ... (rest of the App component returns JSX)
   // --- Check Session and Role on Load & Auth Changes ---
   useEffect(() => {
     if (!supabase?.auth) { console.error("Supabase auth not initialized."); setLoadingRole(false); return; }
