@@ -1,5 +1,3 @@
-// --- Start of App.js Code ---
-
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
@@ -10,7 +8,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 
 import './App.css';
 
-// --- Register Chart.js ---
+// --- Register Chart.js components ---
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 // --- Backend API URL ---
@@ -304,7 +302,6 @@ function CustomerAppLayout({ session }) {
             </header>
             <div className="container">
                 <CustomerView session={session} />
-                {/* This is the only screen visible to the customer after login */}
             </div>
         </div>
     );
@@ -342,7 +339,6 @@ function CustomerView({ session }) { // Accept session if needed
       if (!barberId) return;
       setQueueMessage('Loading queue...');
       try {
-        // This endpoint returns ID, customer_name, status, created_at
         const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
         setLiveQueue(response.data || []);
         setQueueMessage('');
@@ -388,7 +384,7 @@ function CustomerView({ session }) { // Accept session if needed
                     }
                 })
                 .subscribe((status, err) => {
-                     if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); } // Fetch on subscribe
+                     if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); }
                      else { console.error('Supabase Realtime subscription error:', status, err); setQueueMessage('Live updates unavailable.'); }
                 });
             
