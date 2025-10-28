@@ -584,15 +584,50 @@ function BarberDashboard({ barberId, barberName, onCutComplete }) {
 
     // Handler for completing a cut
     const handleCompleteCut = async () => {
-        if (!queueDetails.inProgress) return;
-        const price = prompt(`Tips from Mr.${queueDetails.inProgress.customer_name}:`);
-        if (price === null) return; const p = parseInt(price);
-        if (isNaN(p) || p < 0) { alert('Invalid price.'); return; }
-        setError('');
-        try { await axios.post(`${API_URL}/queue/complete`, { queue_id: queueDetails.inProgress.id, barber_id: barberId, price: p }); onCutComplete(); } // Call callback
-        catch (err) { console.error('Failed complete cut:', err); setError(err.response?.data?.error || 'Failed complete cut.'); }
-        // Realtime listener will handle the state update
-    };
+    // 1. Validation check
+    if (!queueDetails.inProgress) return;
+
+    // --- Retrieve Service Name and Price ---
+    // The details were fetched via the /queue/details/:barberId endpoint
+    // and should be nested under the 'services' key.
+    const serviceName = queueDetails.inProgress.services?.name || 'Service';
+    const servicePrice = parseFloat(queueDetails.inProgress.services?.price_php) || 0;
+    
+    // 2. Prompt for the TIP amount (using PHP symbol)
+    const tipAmount = prompt(`Service: ${serviceName} (₱${servicePrice.toFixed(2)}). Please enter TIP amount (e.g., 50):`);
+    
+    if (tipAmount === null) return; // Handle user canceling prompt
+    
+    // 3. Calculate Final Profit and Validate
+    const parsedTip = parseInt(tipAmount);
+    
+    if (isNaN(parsedTip) || parsedTip < 0) {
+      alert('Invalid tip amount. Please enter a non-negative number.');
+      return;
+    }
+
+    // Calculate the total profit to send to the analytics log
+    const totalProfitToSend = servicePrice + parsedTip;
+    
+    setError(''); // Clear previous errors
+    
+    // 4. Send Completion Request (logging total profit)
+    try {
+      await axios.post(`${API_URL}/queue/complete`, {
+        queue_id: queueDetails.inProgress.id,
+        barber_id: barberId,
+        price: totalProfitToSend // Send the TOTAL PROFIT (Service + Tip)
+      });
+
+      onCutComplete(); // Signal parent to refresh analytics
+      // Realtime listener will handle the local queue update
+      alert(`Cut completed! Total logged profit: ₱${totalProfitToSend.toFixed(2)}`);
+
+    } catch (err) {
+      console.error('Failed complete cut:', err);
+      setError(err.response?.data?.error || 'Failed to complete cut. Server error.');
+    }
+};
 
     // Determine which button to show
     const getActionButton = () => {
