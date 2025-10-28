@@ -452,10 +452,6 @@ function CustomerView({ session }) { // Accept session if needed
 
         setIsLoading(true); setMessage('Joining queue...');
         try {
-            // Check availability again before inserting (This ensures the backend is working correctly)
-            
-            
-            const imageUrlToSave = generatedImage;
             const response = await axios.post(`${API_URL}/queue`, {
                 customer_name: customerName, customer_phone: customerPhone, customer_email: customerEmail,
                 barber_id: selectedBarber, reference_image_url: imageUrlToSave,
