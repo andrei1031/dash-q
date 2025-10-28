@@ -4,7 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 
 // --- Chart.js Imports ---
 import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 
 import './App.css';
 
@@ -73,8 +81,8 @@ function AuthForm() {
                          email: response.data.user.email, password: password,
                      });
                      if (clientSignInError) { throw clientSignInError; }
-                     // Auth listener in App will now detect session and trigger role check/redirect
-                 } else { throw new Error("Login failed: Invalid response from server."); }
+                 } else { 
+                    throw new Error("Login failed: Invalid response from server."); }
 
             } else {
                 // --- SIGN UP Logic ---
@@ -334,6 +342,7 @@ function CustomerView({ session }) { // Accept session if needed
    const [isGenerating, setIsGenerating] = useState(false);
    const [isLoading, setIsLoading] = useState(false); // For joining queue
 
+   // --- NEW: Service State ---
    const [services, setServices] = useState([]); // List of services from API
    const [selectedServiceId, setSelectedServiceId] = useState(''); // Selected service ID
 
@@ -348,7 +357,8 @@ function CustomerView({ session }) { // Accept session if needed
       } catch (error) { console.error("Failed fetch public queue:", error); setQueueMessage('Could not load queue.'); setLiveQueue([]); }
     };
 
-    useEffect(() => {
+   // --- Fetch Service Menu (Runs only once) ---
+   useEffect(() => {
         const fetchServices = async () => {
             try {
                 // Endpoint to fetch service menu (including duration and price)
@@ -361,16 +371,16 @@ function CustomerView({ session }) { // Accept session if needed
         fetchServices();
     }, []); // Run only once
 
+
    // Fetch Available Barbers (Runs every 15s)
    useEffect(() => {
     const loadBarbers = async () => {
       setMessage('Loading available barbers...');
       try {
-        // This endpoint correctly filters by is_available=true on the backend
         const response = await axios.get(`${API_URL}/barbers`);
         setBarbers(response.data || []);
          setMessage('');
-      } catch (error) { console.error('Failed fetch available barbers:', error); setMessage('Could not load barbers.'); setBarbers([]); }
+      }catch (error) { console.error('Failed fetch available barbers:', error); setMessage('Could not load barbers.'); setBarbers([]); }
     };
 
     loadBarbers(); // Initial Load
@@ -400,7 +410,7 @@ function CustomerView({ session }) { // Accept session if needed
                     }
                 })
                 .subscribe((status, err) => {
-                     if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); } // Fetch on subscribe
+                     if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); fetchPublicQueue(joinedBarberId); }
                      else { console.error('Supabase Realtime subscription error:', status, err); setQueueMessage('Live updates unavailable.'); }
                 });
             
@@ -415,7 +425,8 @@ function CustomerView({ session }) { // Accept session if needed
     }, [joinedBarberId, myQueueEntryId]); // Rerun if joinedBarberId or myQueueEntryId changes
 
    // AI Preview Handler
-   const handleGeneratePreview = async () => {if (!file || !prompt) { setMessage('Please upload a photo and enter a prompt.'); return; }
+   const handleGeneratePreview = async () => {
+        if (!file || !prompt) { setMessage('Please upload a photo and enter a prompt.'); return; }
         setIsGenerating(true); setIsLoading(true); setGeneratedImage(null); setMessage('Step 1/3: Uploading...');
         const filePath = `${Date.now()}.${file.name.split('.').pop()}`;
         try {
@@ -436,7 +447,7 @@ function CustomerView({ session }) { // Accept session if needed
     // Join Queue Handler
    const handleJoinQueue = async (e) => {
         e.preventDefault();
-        if (!customerName || !selectedBarber) { setMessage('Name and Barber required.'); return; }
+        if (!customerName || !selectedBarber || !selectedServiceId) { setMessage('Name, Barber, AND Service required.'); return; } // ADDED service check
         if (myQueueEntryId) { setMessage('You are already checked in! Please leave your current queue spot first.'); return; } // Prevent rejoining
 
         setIsLoading(true); setMessage('Joining queue...');
@@ -450,7 +461,8 @@ function CustomerView({ session }) { // Accept session if needed
             const imageUrlToSave = generatedImage;
             const response = await axios.post(`${API_URL}/queue`, {
                 customer_name: customerName, customer_phone: customerPhone, customer_email: customerEmail,
-                barber_id: selectedBarber, reference_image_url: imageUrlToSave // Send AI image if exists
+                barber_id: selectedBarber, reference_image_url: imageUrlToSave,
+                service_id: selectedServiceId // <-- SEND SERVICE ID
             });
             
             const newEntry = response.data;
@@ -458,7 +470,7 @@ function CustomerView({ session }) { // Accept session if needed
             const barberName = barbers.find(b => b.id === parseInt(selectedBarber))?.full_name || `Barber #${selectedBarber}`;
             setMessage(`Success! You joined for ${barberName}. We'll notify you! See queue below.`);
             // Clear only form fields needed for re-entry
-            setCustomerName(''); setCustomerPhone(''); setCustomerEmail(''); setFile(null); setPrompt('');
+            setCustomerName(''); setCustomerPhone(''); setCustomerEmail(''); setFile(null); setPrompt(''); setSelectedServiceId(''); // <-- CLEAR SERVICE ID
             // Keep selectedBarber for the queue view title
         } catch (error) { 
             console.error('Failed to join queue:', error); 
@@ -476,7 +488,7 @@ function CustomerView({ session }) { // Accept session if needed
                 .then(() => console.log('Unsubscribed on leaving queue.'));
         }
         // Reset state to show the join form again
-        setMyQueueEntryId(null); setJoinedBarberId(null); setLiveQueue([]); setMessage(''); setQueueMessage(''); setSelectedBarber(''); setGeneratedImage(null); setFile(null); setPrompt('');
+        setMyQueueEntryId(null); setJoinedBarberId(null); setLiveQueue([]); setMessage(''); setQueueMessage(''); setSelectedBarber(''); setGeneratedImage(null); setFile(null); setPrompt(''); setSelectedServiceId('');
     };
 
    // --- Render Customer View ---
@@ -495,7 +507,7 @@ function CustomerView({ session }) { // Accept session if needed
                       <label>Select Service:</label>
                       <select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required>
                           <option value="">-- Choose service --</option>
-                          {services.map((service) => (
+                          {services.map((service) => ( // <--- USES 'services' state
                             <option key={service.id} value={service.id}>
                                 {service.name} ({service.duration_minutes} min / ₱{service.price_php}) {/* <-- PHP Symbol */}
                             </option>
