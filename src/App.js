@@ -473,7 +473,24 @@ function CustomerView({ session }) {
 
 
    // AI Preview Handler
-   const handleGeneratePreview = async () => { /* ... (Same as before) ... */ };
+   const handleGeneratePreview = async () => { 
+    if (!file || !prompt) { setMessage('Please upload a photo and enter a prompt.'); return; }
+        setIsGenerating(true); setIsLoading(true); setGeneratedImage(null); setMessage('Step 1/3: Uploading...');
+        const filePath = `${Date.now()}.${file.name.split('.').pop()}`;
+        try {
+            if (!supabase?.storage) throw new Error("Supabase storage not available.");
+            const { error: uploadError } = await supabase.storage.from('haircut_references').upload(filePath, file);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabase.storage.from('haircut_references').getPublicUrl(filePath);
+            if (!urlData?.publicUrl) throw new Error("Could not get public URL for uploaded file."); // Add check
+            const imageUrl = urlData.publicUrl;
+
+            setMessage('Step 2/3: Generating AI haircut... (takes ~15-30s)');
+            const response = await axios.post(`${API_URL}/generate-haircut`, { imageUrl, prompt });
+            setGeneratedImage(response.data.generatedImageUrl); setMessage('Step 3/3: Success! Check preview.');
+        } catch (error) { console.error('AI generation pipeline error:', error); setMessage(`AI failed: ${error.response?.data?.error || error.message}`);
+        } finally { setIsGenerating(false); setIsLoading(false); }
+   };
 
     // Join Queue Handler
    const handleJoinQueue = async (e) => {
@@ -507,7 +524,49 @@ function CustomerView({ session }) {
     };
 
     // Leave Queue Handler
-   const handleLeaveQueue = () => { /* ... (Same as before) ... */ };
+   // Inside CustomerView function...
+
+// Leave Queue Handler (MODIFIED)
+const handleLeaveQueue = async () => {
+    if (!myQueueEntryId) return; // Nothing to leave
+
+    if (!window.confirm("Are you sure you want to leave the queue?")) {
+        return;
+    }
+
+    // --- 1. Unsubscribe from Realtime (do this first) ---
+    if (joinedBarberId && supabase?.removeChannel) {
+        supabase.removeChannel(supabase.channel(`public_queue_${joinedBarberId}`))
+            .then(() => console.log('Unsubscribed on leaving queue.'));
+    }
+
+    try {
+        // --- 2. Send Delete Request to Backend ---
+        await axios.delete(`${API_URL}/queue/${myQueueEntryId}`);
+
+        console.log(`Successfully left queue ${myQueueEntryId}`);
+        setMessage("You have successfully left the queue."); // Set success message
+
+    } catch (error) {
+        console.error("Failed to leave queue:", error);
+        setMessage("Error leaving queue. Please try again."); // Show error
+        // Don't reset state if backend failed, so user can try again
+        // Or maybe re-subscribe? For now, we'll just show error.
+        return; // Stop execution
+    }
+
+    // --- 3. Reset Frontend State (Only on Success) ---
+    setMyQueueEntryId(null);
+    setJoinedBarberId(null);
+    setLiveQueue([]);
+    // Keep the success message visible by not clearing it
+    setQueueMessage('');
+    setSelectedBarber('');
+    setGeneratedImage(null);
+    setFile(null);
+    setPrompt('');
+    setSelectedServiceId('');
+};
 
    // --- Render Customer View ---
    return (
