@@ -334,6 +334,9 @@ function CustomerView({ session }) { // Accept session if needed
    const [isGenerating, setIsGenerating] = useState(false);
    const [isLoading, setIsLoading] = useState(false); // For joining queue
 
+   const [services, setServices] = useState([]); // List of services from API
+   const [selectedServiceId, setSelectedServiceId] = useState(''); // Selected service ID
+
    // Fetch Public Queue Data
    const fetchPublicQueue = async (barberId) => {
       if (!barberId) return;
@@ -344,6 +347,19 @@ function CustomerView({ session }) { // Accept session if needed
         setQueueMessage('');
       } catch (error) { console.error("Failed fetch public queue:", error); setQueueMessage('Could not load queue.'); setLiveQueue([]); }
     };
+
+    useEffect(() => {
+        const fetchServices = async () => {
+            try {
+                // Endpoint to fetch service menu (including duration and price)
+                const response = await axios.get(`${API_URL}/services`);
+                setServices(response.data || []);
+            } catch (error) {
+                console.error('Failed to fetch services:', error);
+            }
+        };
+        fetchServices();
+    }, []); // Run only once
 
    // Fetch Available Barbers (Runs every 15s)
    useEffect(() => {
@@ -399,7 +415,23 @@ function CustomerView({ session }) { // Accept session if needed
     }, [joinedBarberId, myQueueEntryId]); // Rerun if joinedBarberId or myQueueEntryId changes
 
    // AI Preview Handler
-   const handleGeneratePreview = async () => { /* ... code from previous version ... */ };
+   const handleGeneratePreview = async () => {if (!file || !prompt) { setMessage('Please upload a photo and enter a prompt.'); return; }
+        setIsGenerating(true); setIsLoading(true); setGeneratedImage(null); setMessage('Step 1/3: Uploading...');
+        const filePath = `${Date.now()}.${file.name.split('.').pop()}`;
+        try {
+            if (!supabase?.storage) throw new Error("Supabase storage not available.");
+            const { error: uploadError } = await supabase.storage.from('haircut_references').upload(filePath, file);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabase.storage.from('haircut_references').getPublicUrl(filePath);
+            if (!urlData?.publicUrl) throw new Error("Could not get public URL for uploaded file."); // Add check
+            const imageUrl = urlData.publicUrl;
+
+            setMessage('Step 2/3: Generating AI haircut... (takes ~15-30s)');
+            const response = await axios.post(`${API_URL}/generate-haircut`, { imageUrl, prompt });
+            setGeneratedImage(response.data.generatedImageUrl); setMessage('Step 3/3: Success! Check preview.');
+        } catch (error) { console.error('AI generation pipeline error:', error); setMessage(`AI failed: ${error.response?.data?.error || error.message}`);
+        } finally { setIsGenerating(false); setIsLoading(false); }
+    };
 
     // Join Queue Handler
    const handleJoinQueue = async (e) => {
@@ -457,6 +489,7 @@ function CustomerView({ session }) { // Accept session if needed
                   <div className="form-group"><label>Your Name:</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required /></div>
                   <div className="form-group"><label>Your Phone (Optional):</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></div>
                   <div className="form-group"><label>Your Email (Optional):</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} /></div>
+                  
                   {/* --- SERVICE SELECTION DROPDOWN --- */}
                   <div className="form-group">
                       <label>Select Service:</label>
