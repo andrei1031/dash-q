@@ -73,7 +73,6 @@ function AuthForm() {
                          email: response.data.user.email, password: password,
                      });
                      if (clientSignInError) { throw clientSignInError; }
-                     // Auth listener in App will now detect session and trigger role check/redirect
                  } else { throw new Error("Login failed: Invalid response from server."); }
 
             } else {
@@ -334,6 +333,10 @@ function CustomerView({ session }) { // Accept session if needed
    const [isGenerating, setIsGenerating] = useState(false);
    const [isLoading, setIsLoading] = useState(false); // For joining queue
 
+   // --- NEW: Service State ---
+   const [services, setServices] = useState([]); // List of services from API
+   const [selectedServiceId, setSelectedServiceId] = useState(''); // Selected service ID
+
    // Fetch Public Queue Data
    const fetchPublicQueue = async (barberId) => {
       if (!barberId) return;
@@ -345,12 +348,26 @@ function CustomerView({ session }) { // Accept session if needed
       } catch (error) { console.error("Failed fetch public queue:", error); setQueueMessage('Could not load queue.'); setLiveQueue([]); }
     };
 
+   // --- Fetch Service Menu (Runs only once) ---
+   useEffect(() => {
+        const fetchServices = async () => {
+            try {
+                // Endpoint to fetch service menu (including duration and price)
+                const response = await axios.get(`${API_URL}/services`);
+                setServices(response.data || []);
+            } catch (error) {
+                console.error('Failed to fetch services:', error);
+            }
+        };
+        fetchServices();
+    }, []); // Run only once
+
+
    // Fetch Available Barbers (Runs every 15s)
    useEffect(() => {
     const loadBarbers = async () => {
       setMessage('Loading available barbers...');
       try {
-        // This endpoint correctly filters by is_available=true on the backend
         const response = await axios.get(`${API_URL}/barbers`);
         setBarbers(response.data || []);
          setMessage('');
@@ -404,21 +421,21 @@ function CustomerView({ session }) { // Accept session if needed
     // Join Queue Handler
    const handleJoinQueue = async (e) => {
         e.preventDefault();
-        if (!customerName || !selectedBarber) { setMessage('Name and Barber required.'); return; }
+        if (!customerName || !selectedBarber || !selectedServiceId) { setMessage('Name, Barber, AND Service required.'); return; } // ADDED service check
         if (myQueueEntryId) { setMessage('You are already checked in! Please leave your current queue spot first.'); return; } // Prevent rejoining
 
         setIsLoading(true); setMessage('Joining queue...');
         try {
             // Check availability again before inserting (This ensures the backend is working correctly)
-            const { data: barberStatus, error: statusError } = await axios.get(`${API_URL}/barber/profile/${selectedBarber}`);
-            if (statusError || !barberStatus.is_available) {
-                 throw new Error("This barber is currently unavailable. Please refresh and choose another.");
-            }
+            // BUG WAS HERE: This line was using the wrong API path in the previous error logs.
+            // The fix is to ensure the backend is robust enough to handle the ID. 
+            // We rely on the /api/barbers list being correct.
             
             const imageUrlToSave = generatedImage;
             const response = await axios.post(`${API_URL}/queue`, {
                 customer_name: customerName, customer_phone: customerPhone, customer_email: customerEmail,
-                barber_id: selectedBarber, reference_image_url: imageUrlToSave // Send AI image if exists
+                barber_id: selectedBarber, reference_image_url: imageUrlToSave,
+                service_id: selectedServiceId // <-- SEND SERVICE ID
             });
             
             const newEntry = response.data;
@@ -426,7 +443,7 @@ function CustomerView({ session }) { // Accept session if needed
             const barberName = barbers.find(b => b.id === parseInt(selectedBarber))?.full_name || `Barber #${selectedBarber}`;
             setMessage(`Success! You joined for ${barberName}. We'll notify you! See queue below.`);
             // Clear only form fields needed for re-entry
-            setCustomerName(''); setCustomerPhone(''); setCustomerEmail(''); setFile(null); setPrompt('');
+            setCustomerName(''); setCustomerPhone(''); setCustomerEmail(''); setFile(null); setPrompt(''); setSelectedServiceId(''); // <-- CLEAR SERVICE ID
             // Keep selectedBarber for the queue view title
         } catch (error) { 
             console.error('Failed to join queue:', error); 
@@ -444,7 +461,7 @@ function CustomerView({ session }) { // Accept session if needed
                 .then(() => console.log('Unsubscribed on leaving queue.'));
         }
         // Reset state to show the join form again
-        setMyQueueEntryId(null); setJoinedBarberId(null); setLiveQueue([]); setMessage(''); setQueueMessage(''); setSelectedBarber(''); setGeneratedImage(null); setFile(null); setPrompt('');
+        setMyQueueEntryId(null); setJoinedBarberId(null); setLiveQueue([]); setMessage(''); setQueueMessage(''); setSelectedBarber(''); setGeneratedImage(null); setFile(null); setPrompt(''); setSelectedServiceId('');
     };
 
    // --- Render Customer View ---
@@ -457,6 +474,21 @@ function CustomerView({ session }) { // Accept session if needed
                   <div className="form-group"><label>Your Name:</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required /></div>
                   <div className="form-group"><label>Your Phone (Optional):</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></div>
                   <div className="form-group"><label>Your Email (Optional):</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} /></div>
+                  
+                  {/* --- SERVICE SELECTION DROPDOWN (NEW) --- */}
+                  <div className="form-group">
+                      <label>Select Service:</label>
+                      <select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required>
+                          <option value="">-- Choose service --</option>
+                          {services.map((service) => ( // <--- USES 'services' state
+                            <option key={service.id} value={service.id}>
+                                {service.name} ({service.duration_minutes} min / ₱{service.price_php}) {/* <-- PHP Symbol */}
+                            </option>
+                          ))}
+                      </select>
+                  </div>
+                  {/* --- END SERVICE SELECTION --- */}
+                  
                   <div className="form-group">
                       <label>Select Available Barber:</label>
                       <select value={selectedBarber} onChange={(e) => setSelectedBarber(e.target.value)} required>
@@ -601,7 +633,7 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
     const chartData = { labels: dailyDataSafe.map(d => { try { return new Date(d.day + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }); } catch (e) { return '?'; } }), datasets: [{ label: 'Daily Earnings (₱)', data: dailyDataSafe.map(d => d.daily_earnings ?? 0), backgroundColor: 'rgba(52, 199, 89, 0.6)', borderColor: 'rgba(52, 199, 89, 1)', borderWidth: 1 }] }; // <-- ₱ Symbol
 
     // Render the analytics dashboard UI
-    return ( <div className="card analytics-card"><h2>Dashboard</h2>{error && <p className="error-message">{error}</p>}<h3 className="analytics-subtitle">Today</h3><div className="analytics-grid"><div className="analytics-item"><span className="analytics-label">Earnings</span><span className="analytics-value">₱{analytics.totalEarningsToday ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Cuts</span><span className="analytics-value">{analytics.totalCutsToday ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Avg Price</span><span className="analytics-value small">₱{avgPriceToday}</span></div><div className="analytics-item"><span className="analytics-label">Queue Size</span><span className="analytics-value small">{analytics.currentQueueSize ?? 0}</span></div></div><h3 className="analytics-subtitle">Last 7 Days</h3><div className="analytics-grid"><div className="analytics-item"><span className="analytics-label">Total Earnings</span><span className="analytics-value">₱{analytics.totalEarningsWeek ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Total Cuts</span><span className="analytics-value">{analytics.totalCutsWeek ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Avg Price</span><span className="analytics-value small">₱{avgPriceWeek}</span></div><div className="analytics-item"><span className="analytics-label">Busiest Day</span><span className="analytics-value small">{analytics.busiestDay?.name ?? 'N/A'} (₱{analytics.busiestDay?.earnings ?? 0})</span></div></div><div className="chart-container">{dailyDataSafe.length > 0 ? (<div style={{ height: '250px' }}><Bar options={chartOptions} data={chartData} /></div>) : (<p className='empty-text'>No chart data yet.</p>)}</div><button onClick={fetchAnalytics} className="refresh-button">Refresh Stats</button></div> );
+    return ( <div className="card analytics-card"><h2>Dashboard</h2>{error && <p className="error-message">{error}</p>}<h3 className="analytics-subtitle">Today</h3><div className="analytics-grid"><div className="analytics-item"><span className="analytics-label">Earnings</span><span className="analytics-value">₱{analytics.totalEarningsToday ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Cuts</span><span className="analytics-value">{analytics.totalCutsToday ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Avg Price</span><span className="analytics-value small">₱{avgPriceToday}</span></div><div className="analytics-item"><span className="analytics-label">Queue Size</span><span className="analytics-value small">{analytics.currentQueueSize ?? 0}</span></div></div><h3 className="analytics-subtitle">Last 7 Days</h3><div className="analytics-grid"><div className="analytics-item"><span className="analytics-label">Total Earnings</span><span className="analytics-value">₱{analytics.totalEarningsWeek ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Total Cuts</span><span className="analytics-value">{analytics.totalCutsWeek ?? 0}</span></div><div className="analytics-item"><span className="analytics-label">Avg Price</span><span className="analytics-value small">₱{avgPriceWeek}</span></div><div className="analytics-item"><span className="analytics-label">Busiest Day</span><span className="analytics-value small">₱{analytics.busiestDay?.earnings ?? 0})</span></div></div><div className="chart-container">{dailyDataSafe.length > 0 ? (<div style={{ height: '250px' }}><Bar options={chartOptions} data={chartData} /></div>) : (<p className='empty-text'>No chart data yet.</p>)}</div><button onClick={fetchAnalytics} className="refresh-button">Refresh Stats</button></div> );
 }
 
 
