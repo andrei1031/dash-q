@@ -457,6 +457,20 @@ function CustomerView({ session }) { // Accept session if needed
                   <div className="form-group"><label>Your Name:</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required /></div>
                   <div className="form-group"><label>Your Phone (Optional):</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></div>
                   <div className="form-group"><label>Your Email (Optional):</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} /></div>
+                  {/* --- SERVICE SELECTION DROPDOWN --- */}
+                  <div className="form-group">
+                      <label>Select Service:</label>
+                      <select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required>
+                          <option value="">-- Choose service --</option>
+                          {services.map((service) => (
+                            <option key={service.id} value={service.id}>
+                                {service.name} ({service.duration_minutes} min / ₱{service.price_php}) {/* <-- PHP Symbol */}
+                            </option>
+                          ))}
+                      </select>
+                  </div>
+                  {/* --- END SERVICE SELECTION --- */}
+                  
                   <div className="form-group">
                       <label>Select Available Barber:</label>
                       <select value={selectedBarber} onChange={(e) => setSelectedBarber(e.target.value)} required>
