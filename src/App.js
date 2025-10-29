@@ -41,21 +41,27 @@ function ChatWindow({ currentUser_id, otherUser_id }) { // Pass user IDs as prop
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const socketRef = useRef(null);
+  const [unreadMessages, setUnreadMessages] = useState({}); // e.g., { "customer-user-id-123": true, "customer-user-id-456": true }
 
   useEffect(() => {
     // Connect to WebSocket server
     socketRef.current = io(SOCKET_URL);
     const socket = socketRef.current;
+    const openChatCustomerId = null;
 
     // Register this user with the server
     socket.emit('register', currentUser_id);
 
     // Listen for incoming messages
     socket.on('chat message', (incomingMessage) => {
-      // Only add messages relevant to this chat window
-      if (incomingMessage.senderId === otherUser_id) {
-          setMessages((prevMessages) => [...prevMessages, incomingMessage]);
-      }
+     console.log(`[Barber] Received message from ${incomingMessage.senderId}:`, incomingMessage.message);
+     const customerId = incomingMessage.senderId;
+
+    // --- NEW: Mark as unread ONLY if chat window is NOT open for this customer ---
+    if (customerId !== openChatCustomerId) {
+        console.log(`[Barber] Marking message from ${customerId} as unread.`);
+        setUnreadMessages(prev => ({ ...prev, [customerId]: true }));
+    }
     });
 
     // Handle connection errors (optional but recommended)
@@ -82,6 +88,7 @@ function ChatWindow({ currentUser_id, otherUser_id }) { // Pass user IDs as prop
       setMessages((prevMessages) => [...prevMessages, { senderId: currentUser_id, message: newMessage }]);
       setNewMessage('');
     }
+
   };
 
   return (
@@ -468,7 +475,25 @@ function CustomerView({ session }) {
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
    const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
+   const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(false);
 
+   // Assuming socket connection is managed in CustomerView:
+    useEffect(() => {
+        // ... (socket connection logic) ...
+        const socket = io(SOCKET_URL); // Simplified for this example
+        socket.on('chat message', (incomingMessage) => {
+        const barberUserId = chatTargetBarberUserId; // Get the ID of the barber we expect messages from
+
+        // Check if the message is from the barber we are potentially chatting with
+        if (incomingMessage.senderId === barberUserId) {
+            // --- NEW: Mark as unread ONLY if chat window is closed ---
+            if (!isChatOpen) {
+                console.log("[Customer] Marking message from barber as unread.");
+                setHasUnreadFromBarber(true);
+            }
+        }
+        });
+    }, [isChatOpen, chatTargetBarberUserId]); // Add isChatOpen and barber ID to dependencies
    // --- Moved Calculations inside component body ---
    // These will re-calculate whenever liveQueue changes
    const nowServing = liveQueue.find(entry => entry.status === 'In Progress');
@@ -1042,6 +1067,11 @@ const handleGeneratePreview = async () => {
                     if (targetBarber && targetBarber.user_id) { 
                         setChatTargetBarberUserId(targetBarber.user_id);
                         setIsChatOpen(true); // <--- This line isn't being reached
+                        
+                        // --- NEW: Mark as read ---
+                        console.log("[Customer] Marking chat with barber as read.");
+                        setHasUnreadFromBarber(false);
+                        // --- END NEW ---
                     } else {
                         // --- THIS MUST BE HAPPENING ---
                         console.error("Could not find barber user ID for chat.", { joinedBarberId, barbers, targetBarber }); 
@@ -1049,7 +1079,13 @@ const handleGeneratePreview = async () => {
                     }
                     }} className="chat-toggle-button">Chat with Barber</button>
                )}
-               {isChatOpen && (<button onClick={() => setIsChatOpen(false)} className="chat-toggle-button close">Close Chat</button>)}
+               {isChatOpen && (<button onClick={() => setIsChatOpen(false)} className="chat-toggle-button close">
+                Chat with Barber
+                {/* --- NEW: Conditional Badge --- */}
+                {hasUnreadFromBarber && (
+                    <span className="notification-badge">1</span>
+                )}
+                {/* --- END NEW --- */}</button>)}
 
                {/* --- Chat Window --- */}
                {isChatOpen && chatTargetBarberUserId && (
@@ -1074,6 +1110,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [chatMessages, setChatMessages] = useState({}); // --- NEW: Store messages {customerId: [msgs]} ---
     const [barberNewMessage, setBarberNewMessage] = useState('');
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null);
+    const [unreadMessages, setUnreadMessages] = useState({}); // e.g., { "customer-user-id-123": true, "customer-user-id-456": true }
     
     // --- NEW: WebSocket Connection Effect for Barber ---
     useEffect(() => {
@@ -1090,15 +1127,16 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
 
         // Listen for incoming chat messages
         socket.on('chat message', (incomingMessage) => {
+        const barberUserId = chatTargetBarberUserId;
           console.log(`[Barber] Received message from ${incomingMessage.senderId}:`, incomingMessage.message);
+          const customerId = incomingMessage.senderId;
           
           // Store message associated with the sender (customer)
           setChatMessages(prev => {
-              const customerId = incomingMessage.senderId;
               const existingMessages = prev[customerId] || [];
               return {
                   ...prev,
-                  [customerId]: [...existingMessages, incomingMessage]
+                  [customerId]: [...existingMessages, { senderId: customerId, message: incomingMessage.message }]
               };
           });
           
@@ -1310,6 +1348,12 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const openChat = (customer) => {
         if (customer && customer.profiles && customer.profiles.id) {
             setOpenChatCustomerId(customer.profiles.id); // Set the customer's USER ID
+            const customerUserId = customer.profiles.id;
+
+            // --- NEW: Mark as read ---
+            console.log(`[Barber] Marking chat with ${customerUserId} as read.`);
+            setUnreadMessages(prev => ({ ...prev, [customerUserId]: false }));
+            // --- END NEW ---
         } else {
             console.error("Cannot open chat: Customer user ID not found.", customer);
             setError("Could not get customer details for chat.");
@@ -1391,7 +1435,13 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                         className="chat-icon-button"
                         title={queueDetails.inProgress.profiles?.id ? "Chat" : "Cannot chat with guest"}
                         disabled={!queueDetails.inProgress.profiles?.id} // Disable if no profile ID
-                    >💬</button>
+                    >
+                        💬
+                        {/* --- NEW: Conditional Badge --- */}
+                        {queueDetails.inProgress.profiles?.id && unreadMessages[queueDetails.inProgress.profiles.id] && (
+                            <span className="notification-badge">1</span> // Show '1' or a count
+                        )}
+                    </button>
                     {/* ... ref photo link ... */}
                 </li></ul>
             ) : (<p className="empty-text">Chair empty</p>)}
@@ -1406,7 +1456,13 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                         className="chat-icon-button"
                         title={queueDetails.upNext.profiles?.id ? "Chat" : "Cannot chat with guest"}
                         disabled={!queueDetails.upNext.profiles?.id} // Disable if no profile ID
-                    >💬</button>
+                    >
+                        💬
+                        {/* --- NEW: Conditional Badge --- */}
+                        {queueDetails.upNext.profiles?.id && unreadMessages[queueDetails.upNext.profiles.id] && (
+                            <span className="notification-badge">1</span> // Show '1- or a count
+                        )}
+                    </button>
                     {/* ... ref photo link ... */}
                 </li></ul>
             ) : (<p className="empty-text">Nobody Up Next</p>)}
@@ -1423,7 +1479,13 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                             className="chat-icon-button"
                             title={c.profiles?.id ? "Chat" : "Cannot chat with guest"}
                             disabled={!c.profiles?.id} // Disable if no profile ID
-                        >💬</button>
+                        >
+                            💬
+                            {/* --- NEW: Conditional Badge --- */}
+                            {c.profiles?.id && unreadMessages[c.profiles.id] && (
+                                <span className="notification-badge">1</span> // Show '1' or a count
+                            )}
+                        </button>
                          {/* ... ref photo link ... */}
                     </li>
                 ))
