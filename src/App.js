@@ -411,8 +411,32 @@ function CustomerView({ session }) {
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `barber_id=eq.${joinedBarberId}` }, (payload) => {
                     fetchPublicQueue(joinedBarberId); // Refresh list on any change
                     if (payload.eventType === 'UPDATE' && payload.new.id === myQueueEntryId && payload.new.status === 'Up Next') {
-                        if (Notification.permission === "granted") { new Notification("You're next at Dash-Q!", { body: "Please head over now." }); }
-                        else { alert("You're next at Dash-Q! Please head over now."); }
+                        console.log('My status is Up Next! Triggering alerts.');
+
+                        // --- NEW: 1. Vibrate (if on a mobile device) ---
+                        if (navigator.vibrate) {
+                            navigator.vibrate([500, 200, 500]); // Vibrate pattern (on, off, on)
+                        }
+
+                        // --- NEW: 2. Play Sound (if browser allows) ---
+                        try {
+                            // Assumes you added "buzzer.mp3" to the /public folder
+                            const audio = new Audio('/buzzer.mp3'); 
+                            audio.play().catch(e => console.warn("Audio autoplay was blocked by the browser. User must interact first."));
+                        } catch (e) {
+                            console.error("Audio play failed:", e);
+                        }
+
+                        // --- 3. Send Web Notification (for background/locked screen) ---
+                        if (Notification.permission === "granted") {
+                            new Notification("You're next at Dash-Q!", {
+                                body: "Please head over to the barbershop now.",
+                                // icon: "/favicon.ico" // Optional
+                            });
+                        } else {
+                            // Fallback for browsers without notification permission
+                            alert("You're next at Dash-Q! Please head over now.");
+                        }
                     }
                 })
                 .subscribe((status, err) => {
