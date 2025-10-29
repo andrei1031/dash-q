@@ -478,6 +478,42 @@ function CustomerView({ session }) {
         }
    };
 
+   // --- NEW: WebSocket Connection Effect for Customer ---
+   useEffect(() => {
+        if (!session?.user?.id) return; // Exit if no customer session
+
+        // Connect only if not already connected
+        if (!socketRef.current) {
+            console.log("[Customer] Connecting WebSocket...");
+            socketRef.current = io(SOCKET_URL);
+            const socket = socketRef.current;
+            const customerUserId = session.user.id;
+
+            socket.emit('register', customerUserId);
+
+            socket.on('connect', () => { console.log(`[Customer] WebSocket connected.`); });
+
+            const messageListener = (incomingMessage) => {
+                console.log(`[Customer] Received message from ${incomingMessage.senderId}:`, incomingMessage.message);
+                // Update message list
+                setChatMessagesFromBarber(prev => [...prev, incomingMessage]);
+
+                // Mark as unread if chat window is not open
+                setIsChatOpen(currentIsOpen => {
+                    if (!currentIsOpen) {
+                        console.log(`[Customer] Chat not open. Marking as unread.`);
+                        setHasUnreadFromBarber(true);
+                    }
+                    return currentIsOpen; // Return current state unchanged
+                });
+            };
+            socket.on('chat message', messageListener);
+
+            socket.on('connect_error', (err) => { console.error("[Customer] WebSocket Connection Error:", err); });
+            socket.on('disconnect', (reason) => { console.log("[Customer] WebSocket disconnected:", reason); socketRef.current = null; });
+        }
+   }, [session]); // Effect only depends on session login state
+
    // Fetch Public Queue Data
    // --- MODIFIED: Added useCallback and loading state ---
    const fetchPublicQueue = useCallback(async (barberId) => {
