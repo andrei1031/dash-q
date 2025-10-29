@@ -1,3 +1,26 @@
+/**
+ * Calculates the distance between two lat/lon points in meters
+ * using the Haversine formula.
+ */
+function getDistanceInMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth's radius in meters
+  const phi1 = (lat1 * Math.PI) / 180; // φ, λ in radians
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) *
+      Math.cos(phi2) *
+      Math.sin(deltaLambda / 2) *
+      Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const d = R * c; // in meters
+  return d;
+}
+
 import React, { useState, useEffect, useCallback, useRef } from 'react'; // --- MODIFIED: Added useCallback ---
 import io from 'socket.io-client';
 import axios from 'axios';
@@ -459,6 +482,10 @@ function CustomerView({ session }) {
 
    // --- NEW: Moved sendCustomerMessage inside CustomerView ---
    const socketRef = useRef(null); // Add the socket ref here
+   const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
+   const [hasBeenWarnedTooFar, setHasBeenWarnedTooFar] = useState(false); // To warn only once
+   const locationWatchId = useRef(null); // To store the ID of the location watcher
+
    const sendCustomerMessage = (recipientId, messageText) => {
         if (messageText.trim() && socketRef.current?.connected && session?.user?.id) {
             const messageData = {
@@ -477,6 +504,87 @@ function CustomerView({ session }) {
             setMessage("Chat disconnected, please refresh."); // User feedback
         }
    };
+
+   useEffect(() => {
+     // --- Define Your Shop's Location & Warning Distance ---
+     const BARBERSHOP_LAT = 16.414830431367967; // <-- REPLACE THIS
+     const BARBERSHOP_LON = 120.59712292628716; // <-- REPLACE THIS
+     const DISTANCE_THRESHOLD_METERS = 1500; // Warn if > 500 meters (0.5 km)
+
+     // Check if geolocation is available in the browser
+     if (!('geolocation' in navigator)) {
+       console.warn('Geolocation not available in this browser.');
+       return;
+     }
+
+     // Start watching location only if user is in the queue
+     if (myQueueEntryId && !hasBeenWarnedTooFar) {
+       console.log('User is in queue, attempting to start location watch...');
+
+       // Success callback: This runs every time the position updates
+       const onPositionUpdate = (position) => {
+         const { latitude, longitude } = position.coords;
+         const distance = getDistanceInMeters(
+           latitude,
+           longitude,
+           BARBERSHOP_LAT,
+           BARBERSHOP_LON
+         );
+
+         console.log(`Current distance from shop: ${Math.round(distance)} meters`);
+
+         // Check if they are too far AND we haven't warned them yet
+         if (distance > DISTANCE_THRESHOLD_METERS) {
+           console.log('Customer is too far! Triggering modal and stopping watch.');
+           setIsTooFarModalOpen(true);
+           setHasBeenWarnedTooFar(true); // Set flag to only warn once
+
+           // Stop watching to save battery
+           if (locationWatchId.current) {
+             navigator.geolocation.clearWatch(locationWatchId.current);
+             locationWatchId.current = null;
+           }
+         }
+       };
+
+       // Error callback
+       const onPositionError = (err) => {
+         console.warn(`Geolocation error (Code ${err.code}): ${err.message}`);
+         // Common errors: 1 (Permission Denied), 3 (Timeout)
+         // If permission denied, we can't do anything.
+       };
+
+       // Ask permission and start the watcher
+       // This will trigger the browser's "Allow location" pop-up
+       locationWatchId.current = navigator.geolocation.watchPosition(
+         onPositionUpdate,
+         onPositionError,
+         {
+           enableHighAccuracy: true, // More accurate, uses more battery
+           timeout: 10000,           // 10 seconds to get a fix
+           maximumAge: 0           // Don't use a cached position
+         }
+       );
+
+       console.log('Geolocation watch started.');
+
+     } else {
+       // If they left the queue, stop watching
+       if (locationWatchId.current) {
+         navigator.geolocation.clearWatch(locationWatchId.current);
+         locationWatchId.current = null;
+         console.log('User left queue, stopping geolocation watch.');
+       }
+     }
+
+     // Cleanup function: This runs when the component unmounts
+     return () => {
+       if (locationWatchId.current) {
+         navigator.geolocation.clearWatch(locationWatchId.current);
+         console.log('Component unmounted, stopping geolocation watch.');
+       }
+     };
+   }, [myQueueEntryId, hasBeenWarnedTooFar]); // Rerun effect if queue status or warning status changes
 
    // --- NEW: WebSocket Connection Effect for Customer ---
    useEffect(() => {
@@ -928,6 +1036,24 @@ const handleGeneratePreview = async () => {
                 <button id="close-cancel-modal-btn" onClick={handleReturnToJoin}>Okay</button>
             </div>
         </div>
+
+        {/* --- NEW: "Too Far" Modal --- */}
+        <div
+            className="modal-overlay"
+            style={{ display: isTooFarModalOpen ? 'flex' : 'none' }}
+        >
+            <div className="modal-content">
+                <h2>A Friendly Reminder!</h2>
+                <p>Hey, please don’t wander off too far—we’d really appreciate it if you stayed close to the queue!</p>
+                <button 
+                    id="close-too-far-modal-btn" 
+                    onClick={() => setIsTooFarModalOpen(false)}
+                >
+                    Okay, I'll stay close
+                </button>
+            </div>
+        </div>
+        {/* --- END NEW MODAL --- */}
 
         {/* --- Join Form or Live Queue View --- */}
         {!myQueueEntryId ? (
