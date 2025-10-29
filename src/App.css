@@ -669,3 +669,9 @@ button:disabled {
 .serving-item.up-next strong {
   color: #28a745; /* Green */
 }
+
+.prefilled-input {
+  background-color: #eee;
+  color: #777;
+  cursor: not-allowed;
+}

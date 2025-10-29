@@ -360,9 +360,13 @@ function stopBlinking() {
 function CustomerView({ session }) {
    const [barbers, setBarbers] = useState([]);
    const [selectedBarber, setSelectedBarber] = useState('');
-   const [customerName, setCustomerName] = useState('');
-   const [customerPhone, setCustomerPhone] = useState('');
-   const [customerEmail, setCustomerEmail] = useState('');
+   const [customerName, setCustomerName] = useState(
+       () => session.user?.user_metadata?.full_name || ''
+   );
+   const [customerPhone, setCustomerPhone] = useState(''); // This one stays blank
+   const [customerEmail, setCustomerEmail] = useState(
+       () => session.user?.email || ''
+   );
    const [message, setMessage] = useState('');
    const [player_id, setPlayerId] = useState(null); 
 
@@ -712,9 +716,34 @@ function CustomerView({ session }) {
            <> {/* --- JOIN FORM JSX --- */}
                <h2>Join the Queue</h2>
                 <form onSubmit={handleJoinQueue}>
-                  <div className="form-group"><label>Your Name:</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required /></div>
-                  <div className="form-group"><label>Your Phone (Optional):</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></div>
-                  <div className="form-group"><label>Your Email (Optional):</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} /></div>
+                  <div className="form-group">
+                    <label>Your Name:</label>
+                    <input 
+                        type="text" 
+                        value={customerName} 
+                        required 
+                        readOnly 
+                        className="prefilled-input" 
+                    />
+                </div>
+                <div className="form-group">
+                    <label>Your Phone (Optional):</label>
+                    <input 
+                        type="tel" 
+                        value={customerPhone} 
+                        onChange={(e) => setCustomerPhone(e.target.value)} 
+                        placeholder="e.g., 09171234567"
+                    />
+                </div>
+                <div className="form-group">
+                    <label>Your Email (Optional):</label>
+                    <input 
+                        type="email" 
+                        value={customerEmail} 
+                        readOnly 
+                        className="prefilled-input" 
+                    />
+                </div>
                   
                   {/* --- SERVICE SELECTION DROPDOWN --- */}
                   <div className="form-group">
