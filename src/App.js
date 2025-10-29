@@ -389,7 +389,8 @@ function CustomerView({ session }) {
 
    // --- NEW: State for the "Your Turn" modal ---
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
-
+   const nowServing = liveQueue.find(entry => entry.status === 'In Progress');
+   const upNext = liveQueue.find(entry => entry.status === 'Up Next');
 
    // Fetch Public Queue Data
    const fetchPublicQueue = async (barberId) => {
@@ -763,6 +764,22 @@ function CustomerView({ session }) {
                <div className="queue-number-display">
                     Your Queue Number is: <strong>#{myQueueEntryId}</strong>
                </div>
+               {/* --- NEW: ADD THIS SECTION --- */}
+               <div className="current-serving-display">
+                   <div className="serving-item now-serving">
+                       <span>Now Serving</span>
+                       <strong>
+                           {nowServing ? `Customer #${nowServing.id}` : '---'}
+                       </strong>
+                   </div>
+                   <div className="serving-item up-next">
+                       <span>Up Next</span>
+                       <strong>
+                           {upNext ? `Customer #${upNext.id}` : '---'}
+                       </strong>
+                   </div>
+               </div>
+               {/* --- END NEW SECTION --- */}
                
                {queueMessage && <p className="message">{queueMessage}</p>}
                
