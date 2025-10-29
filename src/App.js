@@ -893,8 +893,8 @@ const handleGeneratePreview = async () => {
             style={{ display: isYourTurnModalOpen ? 'flex' : 'none' }}
         >
             <div className="modal-content">
-                <h2>It's Your Turn!</h2>
-                <p>The barber is ready for you now.</p>
+                <h2>Your Turn is one customer away!</h2>
+                <p>The barber is ready for you after this.</p>
                 <button id="close-modal-btn" onClick={handleModalClose}>Okay!</button>
             </div>
         </div>
