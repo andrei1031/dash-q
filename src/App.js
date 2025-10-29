@@ -866,7 +866,10 @@ function BarberDashboard({ barberId, barberName, onCutComplete }) {
         if (!next) { alert('Queue empty!'); return; }
         if (queueDetails.inProgress) { alert(`Complete ${queueDetails.inProgress.customer_name} first.`); return; }
         setError('');
-        try { await axios.put(`${API_URL}/queue/next`, { queue_id: next.id, barber_id: barberId }); } // Send request
+        try { 
+            // --- MODIFIED: Use the RPC call ---
+            await axios.put(`${API_URL}/queue/next`, { queue_id: next.id, barber_id: barberId }); 
+        }
         catch (err) { console.error('Failed next customer:', err); setError(err.response?.data?.error || 'Failed call next.'); }
         // Realtime listener will handle the state update
     };
@@ -915,14 +918,82 @@ function BarberDashboard({ barberId, barberName, onCutComplete }) {
 
     // Determine which button to show
     const getActionButton = () => {
-        if (queueDetails.inProgress) return <button onClick={handleCompleteCut} className="complete-button">Complete: {queueDetails.inProgress.customer_name}</button>;
+        if (queueDetails.inProgress) {
+             // --- MODIFIED: Show Customer ID in button ---
+            return <button onClick={handleCompleteCut} className="complete-button">Complete: #{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</button>;
+        }
         const nextPerson = queueDetails.upNext || (queueDetails.waiting.length > 0 ? queueDetails.waiting[0] : null);
-        if (nextPerson) return <button onClick={handleNextCustomer} className="next-button">Call: {nextPerson.customer_name}</button>;
+        if (nextPerson) {
+             // --- MODIFIED: Show Customer ID in button ---
+            return <button onClick={handleNextCustomer} className="next-button">Call: #{nextPerson.id} - {nextPerson.customer_name}</button>;
+        }
         return <button className="next-button disabled" disabled>Queue Empty</button>;
     };
 
     // Render the dashboard UI
-    return ( <div className="card"><h2>My Queue ({barberName || '...'})</h2>{error && <p className="error-message">{error}</p>}{getActionButton()}<h3 className="queue-subtitle">In Chair</h3>{queueDetails.inProgress ? (<ul className="queue-list"><li className="in-progress"><strong>{queueDetails.inProgress.customer_name}</strong>{queueDetails.inProgress.reference_image_url && (<a href={queueDetails.inProgress.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}</li></ul>) : (<p className="empty-text">Chair empty</p>)}<h3 className="queue-subtitle">Up Next</h3>{queueDetails.upNext ? (<ul className="queue-list"><li className="up-next"><strong>{queueDetails.upNext.customer_name}</strong>{queueDetails.upNext.reference_image_url && (<a href={queueDetails.upNext.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}</li></ul>) : (<p className="empty-text">Nobody Up Next</p>)}<h3 className="queue-subtitle">Waiting</h3><ul className="queue-list">{queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>) : (queueDetails.waiting.map(c => (<li key={c.id}>{c.customer_name}{c.reference_image_url && (<a href={c.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}</li>)))}</ul><button onClick={fetchQueueDetails} className="refresh-button small">Refresh Queue</button></div> );
+    return ( 
+        <div className="card">
+            <h2>My Queue ({barberName || '...'})</h2>
+            
+            {/* --- NEW: "Now Serving / Up Next" Display --- */}
+            {/* This uses the same CSS as the customer page */}
+            <div className="current-serving-display">
+                <div className="serving-item now-serving">
+                    <span>Now Serving</span>
+                    <strong>
+                        {queueDetails.inProgress ? `Customer #${queueDetails.inProgress.id}` : '---'}
+                    </strong>
+                </div>
+                <div className="serving-item up-next">
+                    <span>Up Next</span>
+                    <strong>
+                        {queueDetails.upNext ? `Customer #${queueDetails.upNext.id}` : '---'}
+                    </strong>
+                </div>
+            </div>
+            {/* --- END NEW DISPLAY --- */}
+
+            {error && <p className="error-message">{error}</p>}
+            {getActionButton()}
+            
+            <h3 className="queue-subtitle">In Chair</h3>
+            {queueDetails.inProgress ? (
+                <ul className="queue-list">
+                    {/* --- MODIFIED: Show Customer ID --- */}
+                    <li className="in-progress">
+                        <strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
+                        {queueDetails.inProgress.reference_image_url && (<a href={queueDetails.inProgress.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}
+                    </li>
+                </ul>
+            ) : (<p className="empty-text">Chair empty</p>)}
+            
+            <h3 className="queue-subtitle">Up Next</h3>
+            {queueDetails.upNext ? (
+                <ul className="queue-list">
+                     {/* --- MODIFIED: Show Customer ID --- */}
+                    <li className="up-next">
+                        <strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong>
+                        {queueDetails.upNext.reference_image_url && (<a href={queueDetails.upNext.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}
+                    </li>
+                </ul>
+            ) : (<p className="empty-text">Nobody Up Next</p>)}
+            
+            <h3 className="queue-subtitle">Waiting</h3>
+            <ul className="queue-list">
+                {queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>) 
+                : (
+                    // --- MODIFIED: Show Customer ID ---
+                    queueDetails.waiting.map(c => (
+                        <li key={c.id}>
+                            #{c.id} - {c.customer_name}
+                            {c.reference_image_url && (<a href={c.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}
+                        </li>
+                    ))
+                )}
+            </ul>
+            <button onClick={fetchQueueDetails} className="refresh-button small">Refresh Queue</button>
+        </div> 
+    );
 }
 
 // --- AnalyticsDashboard (Displays Barber Stats) ---
