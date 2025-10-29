@@ -450,24 +450,6 @@ function CustomerView({ session }) {
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
    const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(false);
    
-
-   // Assuming socket connection is managed in CustomerView:
-    useEffect(() => {
-        // ... (socket connection logic) ...
-        const socket = io(SOCKET_URL); // Simplified for this example
-        socket.on('chat message', (incomingMessage) => {
-        const barberUserId = chatTargetBarberUserId; // Get the ID of the barber we expect messages from
-
-        // Check if the message is from the barber we are potentially chatting with
-        if (incomingMessage.senderId === barberUserId) {
-            // --- NEW: Mark as unread ONLY if chat window is closed ---
-            if (!isChatOpen) {
-                console.log("[Customer] Marking message from barber as unread.");
-                setHasUnreadFromBarber(true);
-            }
-        }
-        });
-    }, [isChatOpen, chatTargetBarberUserId]); // Add isChatOpen and barber ID to dependencies
    // --- Moved Calculations inside component body ---
    // These will re-calculate whenever liveQueue changes
    const nowServing = liveQueue.find(entry => entry.status === 'In Progress');
@@ -1052,33 +1034,23 @@ const handleGeneratePreview = async () => {
 
                {/* --- Chat Button --- */}
                {!isChatOpen && myQueueEntryId && (
-                   <button onClick={() => { 
-                    // Find the barber's user_id based on joinedBarberId
-                    const targetBarber = barbers.find(b => b.id === parseInt(joinedBarberId));
-                    
-                    // --- THIS IS THE CRITICAL CHECK ---
-                    if (targetBarber && targetBarber.user_id) { 
-                        setChatTargetBarberUserId(targetBarber.user_id);
-                        setIsChatOpen(true); // <--- This line isn't being reached
-                        
-                        // --- NEW: Mark as read ---
-                        console.log("[Customer] Marking chat with barber as read.");
-                        setHasUnreadFromBarber(false);
-                        // --- END NEW ---
-                    } else {
-                        // --- THIS MUST BE HAPPENING ---
-                        console.error("Could not find barber user ID for chat.", { joinedBarberId, barbers, targetBarber }); 
-                        setMessage("Could not initiate chat: Barber details missing."); // Show user feedback
-                    }
-                    }} className="chat-toggle-button">Chat with Barber</button>
+                   <button onClick={() => {
+                       const targetBarber = barbers.find(b => b.id === parseInt(joinedBarberId));
+                       if (targetBarber && targetBarber.user_id) {
+                           setChatTargetBarberUserId(targetBarber.user_id);
+                           setIsChatOpen(true);
+                           console.log("[Customer] Marking chat with barber as read.");
+                           setHasUnreadFromBarber(false); // Mark as read
+                       } else {
+                           console.error("Could not find barber user ID for chat.", { joinedBarberId, barbers, targetBarber });
+                           setMessage("Could not initiate chat: Barber details missing.");
+                       }
+                   }} className="chat-toggle-button">
+                       Chat with Barber
+                       {hasUnreadFromBarber && <span className="notification-badge">1</span>}
+                   </button>
                )}
-               {isChatOpen && (<button onClick={() => setIsChatOpen(false)} className="chat-toggle-button close">
-                Chat with Barber
-                {/* --- NEW: Conditional Badge --- */}
-                {hasUnreadFromBarber && (
-                    <span className="notification-badge">1</span>
-                )}
-                {/* --- END NEW --- */}</button>)}
+               {isChatOpen && (<button onClick={() => setIsChatOpen(false)} className="chat-toggle-button close">Close Chat</button>)}
 
                {/* --- Chat Window --- */}
                {isChatOpen && chatTargetBarberUserId && (
@@ -1101,7 +1073,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [fetchError, setFetchError] = useState(''); // State for specific fetch errors
     const socketRef = useRef(null); // --- NEW: Ref for WebSocket ---
     const [chatMessages, setChatMessages] = useState({}); // --- NEW: Store messages {customerId: [msgs]} ---
-    const [barberNewMessage, setBarberNewMessage] = useState('');
+    const [barberNewMessage, setBarberNewMessage] = useState(''); // This state is now managed inside the ChatWindow component via its own logic
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null);
     const [unreadMessages, setUnreadMessages] = useState({}); // e.g., { "customer-user-id-123": true, "customer-user-id-456": true }
     
@@ -1125,12 +1097,12 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 const messageListener = (incomingMessage) => {
                     console.log("[Customer] Received chat message:", incomingMessage);
                     // Check if message is from the barber we are currently queued for
+                    const targetBarber = barbers.find(b => b.id === parseInt(joinedBarberId));
+                    const currentChatTargetBarberUserId = targetBarber?.user_id;
                     if (currentChatTargetBarberUserId && incomingMessage.senderId === currentChatTargetBarberUserId) {
                         // Add message to local state
                         setChatMessagesFromBarber(prev => [...prev, incomingMessage]);
 
-                        // Check if chat window is currently closed to set unread flag
-                        // Read isChatOpen directly - functional update not needed here if effect depends on it
                         if (!isChatOpen) {
                             console.log("[Customer] Chat closed. Marking as unread.");
                             setHasUnreadFromBarber(true);
@@ -1166,7 +1138,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         };
     // Dependencies: Connect/disconnect based on login status and queue status
     // Listen for messages based on the current target barber ID and whether chat is open
-    }, [session, joinedBarberId, currentChatTargetBarberUserId, isChatOpen, barbers]); // Refined dependencies
+    }, [session, joinedBarberId, isChatOpen, barbers]); // Refined dependencies
     // --- END NEW WebSocket Effect ---
 
     // Fetch queue details function
@@ -1561,31 +1533,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             {openChatCustomerId && (
                 <div className="barber-chat-container"> {/* Added a container */}
                     <h4>Chat with Customer</h4> 
-                    {/* Use the existing ChatWindow component, but slightly differently */}
-                     <div className="chat-window"> {/* Re-using customer CSS */}
-                        <div className="message-list">
-                           {/* Display messages for the currently open chat */}
-                           {(chatMessages[openChatCustomerId] || []).map((msg, index) => (
-                              <div key={index} className={msg.senderId === session.user.id ? 'my-message' : 'other-message'}>
-                                {msg.message}
-                              </div>
-                            ))}
-                        </div>
-                        {/* Barber's message input form */}
-                        <form onSubmit={(e) => { 
-                                e.preventDefault(); 
-                                sendBarberMessage(openChatCustomerId, barberNewMessage); 
-                                setBarberNewMessage(''); // Clear input after send
-                            }} className="message-input-form">
-                            <input
-                              type="text"
-                              value={barberNewMessage}
-                              onChange={(e) => setBarberNewMessage(e.target.value)}
-                              placeholder="Type a message..."
-                            />
-                            <button type="submit">Send</button>
-                        </form>
-                    </div>
+                    <ChatWindow currentUser_id={session.user.id} otherUser_id={openChatCustomerId} messages={chatMessages[openChatCustomerId] || []} onSendMessage={sendBarberMessage} />
                     <button onClick={closeChat} className="chat-toggle-button close small">Close Chat</button>
                 </div>
             )}

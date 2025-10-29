@@ -832,3 +832,27 @@ button:disabled {
 .chat-toggle-button {
      position: relative; /* Helps position the badge */
 }
+/* Simple Notification Badge */
+.notification-badge {
+  background-color: red;
+  color: white;
+  border-radius: 50%; /* Make it round */
+  padding: 2px 6px; /* Adjust padding for size */
+  font-size: 0.7em; /* Smaller font */
+  position: absolute; /* Position relative to the button */
+  top: -5px; /* Adjust vertical position */
+  right: -5px; /* Adjust horizontal position */
+  display: inline-block; /* Allow positioning */
+  line-height: 1; /* Keep it tight */
+  min-width: 10px; /* Ensure minimum width for single digit */
+  text-align: center;
+  border: 1px solid white; /* Optional: adds a small border */
+}
+
+/* Add relative positioning to the chat icon button if needed */
+.chat-icon-button {
+    position: relative; /* Helps position the badge */
+}
+.chat-toggle-button {
+     position: relative; /* Helps position the badge */
+}
