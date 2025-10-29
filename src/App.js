@@ -743,7 +743,8 @@ const handleGeneratePreview = async () => {
                 barber_id: selectedBarber,
                 reference_image_url: imageUrlToSave, // Note: imageUrlToSave is defined just above this line
                 service_id: selectedServiceId,
-                player_id: player_id // <-- Make sure player_id state is correctly set
+                player_id: player_id, // <-- Make sure player_id state is correctly set
+                user_id: session.user.id // <-- ADD THIS LINE
             });
             const newEntry = response.data;
             const newBarberId = parseInt(selectedBarber);
