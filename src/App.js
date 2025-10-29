@@ -329,6 +329,7 @@ function CustomerView({ session }) {
    const [customerPhone, setCustomerPhone] = useState('');
    const [customerEmail, setCustomerEmail] = useState('');
    const [message, setMessage] = useState('');
+   const [player_id, setPlayerId] = useState(null); // <-- ADD THIS
 
    // --- FIX: Initialize state from localStorage ---
    const [myQueueEntryId, setMyQueueEntryId] = useState(
@@ -380,6 +381,22 @@ function CustomerView({ session }) {
         fetchServices();
     }, []); // Run only once
 
+    useEffect(() => {
+    if (window.OneSignal) {
+            // 1. Show the native browser prompt
+            window.OneSignal.push(function() {
+                window.OneSignal.showSlidedownPrompt();
+            });
+
+            // 2. Get the Player ID (user's notification ID)
+            window.OneSignal.push(function() {
+                window.OneSignal.getUserId(function(userId) {
+                    console.log("OneSignal Player ID:", userId);
+                    setPlayerId(userId); // Save it to state
+                });
+            });
+        }
+    }, []); // Runs once when CustomerView loads
 
    // Fetch Available Barbers (Runs every 15s)
    useEffect(() => {
@@ -519,9 +536,13 @@ function CustomerView({ session }) {
         try {
             const imageUrlToSave = generatedImage;
             const response = await axios.post(`${API_URL}/queue`, {
-                customer_name: customerName, customer_phone: customerPhone, customer_email: customerEmail,
-                barber_id: selectedBarber, reference_image_url: imageUrlToSave,
-                service_id: selectedServiceId
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                customer_email: customerEmail,
+                barber_id: selectedBarber,
+                reference_image_url: imageUrlToSave,
+                service_id: selectedServiceId,
+                player_id: player_id // <-- ADD THIS NEW FIELD
             });
             
             const newEntry = response.data;
@@ -880,6 +901,26 @@ function App() {
     })();
     // Cleanup is not standard for Tawk.to but good practice
     return () => { /* No removal logic */ };
+  }, []); // Empty dependency array ensures it runs only once on mount
+  // --- NEW: OneSignal Setup ---
+  useEffect(() => {
+    if (!window.OneSignal) { // Prevent re-running
+      window.OneSignal = window.OneSignal || [];
+      window.OneSignal.push(function() {
+        window.OneSignal.init({
+          appId: process.env.REACT_APP_ONESIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true, // Good for testing
+          autoResubscribe: true, // Resubscribe if they clear cache
+          notifyButton: {
+            enable: false, // We will use our own button/prompt
+          },
+        });
+      });
+    }
+
+    return () => {
+      // Cleanup if needed, but OneSignal usually persists
+    };
   }, []); // Empty dependency array ensures it runs only once on mount
 
 
