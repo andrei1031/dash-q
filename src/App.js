@@ -476,6 +476,7 @@ function CustomerView({ session }) {
    const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
    const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(false);
+   
 
    // Assuming socket connection is managed in CustomerView:
     useEffect(() => {
@@ -1127,7 +1128,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
 
         // Listen for incoming chat messages
         socket.on('chat message', (incomingMessage) => {
-        const barberUserId = chatTargetBarberUserId;
           console.log(`[Barber] Received message from ${incomingMessage.senderId}:`, incomingMessage.message);
           const customerId = incomingMessage.senderId;
           
