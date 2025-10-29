@@ -898,6 +898,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const socketRef = useRef(null); // --- NEW: Ref for WebSocket ---
     const [chatMessages, setChatMessages] = useState({}); // --- NEW: Store messages {customerId: [msgs]} ---
     const [barberNewMessage, setBarberNewMessage] = useState('');
+    const [openChatCustomerId, setOpenChatCustomerId] = useState(null);
     
     // --- NEW: WebSocket Connection Effect for Barber ---
     useEffect(() => {
