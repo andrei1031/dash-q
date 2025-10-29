@@ -1310,19 +1310,26 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     };
 
     const openChat = (customer) => {
-        // --- FIX: Ensure customer.profiles.id exists before proceeding ---
+        console.log("[openChat] Clicked. Customer data:", customer);
+
+        // Use optional chaining for safer access
         const customerUserId = customer?.profiles?.id;
 
         if (customerUserId) {
+            console.log(`[openChat] Found customerUserId: ${customerUserId}. Setting state...`);
             setOpenChatCustomerId(customerUserId); // Set the customer's USER ID
-            const customerUserId = customer.profiles.id;
 
-            // --- NEW: Mark as read ---
-            console.log(`[Barber] Marking chat with ${customerUserId} as read.`);
-            setUnreadMessages(prev => ({ ...prev, [customerUserId]: false }));
-            // --- END NEW ---
+            // --- Temporarily Simplified Mark as Read ---
+            // Instead of functional update, just update based on current state
+            // This might have timing issues in rare cases, but helps debug the ReferenceError
+            console.log(`[openChat] Clearing unread flag for ${customerUserId}`);
+            const updatedUnread = { ...unreadMessages }; // Get current unread state
+            delete updatedUnread[customerUserId];      // Remove the flag
+            setUnreadMessages(updatedUnread);          // Set the new state
+            // --- End Simplification ---
+
         } else {
-            console.error("Cannot open chat: Customer user ID not found.", customer);
+            console.error("Cannot open chat: Customer user ID missing or invalid.", customer);
             setError("Could not get customer details for chat.");
         }
     };
