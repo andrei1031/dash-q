@@ -772,12 +772,7 @@ function CustomerView({ session }) {
                      }
                 });
 
-            // Fallback refresh interval
-            refreshInterval = setInterval(() => {
-                console.log("Periodic refresh fetching queue...");
-                fetchPublicQueue(joinedBarberId);
-             }, 15000);
-        }
+            
 
         // Cleanup function
         return () => {
