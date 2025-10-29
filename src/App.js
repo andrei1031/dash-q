@@ -392,6 +392,10 @@ function CustomerView({ session }) {
    const nowServing = liveQueue.find(entry => entry.status === 'In Progress');
    const upNext = liveQueue.find(entry => entry.status === 'Up Next');
 
+   // --- ADD THIS DEBUG LINE ---
+   console.log("DEBUG:", { liveQueue, nowServing, upNext });
+   // --- END DEBUG LINE ---
+
    // Fetch Public Queue Data
    const fetchPublicQueue = async (barberId) => {
       if (!barberId) {
