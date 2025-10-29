@@ -796,7 +796,7 @@ const handleGeneratePreview = async () => {
 
     // --- NEW: Function to reset state and return to Join form ---
    const handleReturnToJoin = () => {
-        console.log("Resetting customer view to Join Queue form.");
+        console.log("[handleReturnToJoin] Function called.");
         // Close all modals
         setIsServiceCompleteModalOpen(false);
         setIsCancelledModalOpen(false);
@@ -821,6 +821,7 @@ const handleGeneratePreview = async () => {
         setIsChatOpen(false); // Close chat if open
         setChatTargetBarberUserId(null);
 
+        console.log("[handleReturnToJoin] State reset attempted. myQueueEntryId should be null now.");
         // No need to explicitly navigate, removing myQueueEntryId handles it
    };
 
