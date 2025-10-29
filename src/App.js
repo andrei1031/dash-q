@@ -828,7 +828,28 @@ function CustomerView({ session }) {
         calculateWaitTime();
     }, [liveQueue, myQueueEntryId]); // Recalculate when queue or my position changes
 
+    useEffect(() => {
+       // 2. Runs the 1-minute countdown timer
+       // Don't run a timer if not in queue
+       if (!myQueueEntryId) {
+           return;
+       }
+       const timerId = setInterval(() => {
+           setDisplayWait(prevTime => {
+               if (prevTime > 0) {
+                   return prevTime - 1; // Count down by 1 minute
+               }
+               return 0; // Stay at 0
+           });
+       }, 60000); // 60,000 ms = 1 minute
 
+       // Cleanup function
+       return () => {
+           clearInterval(timerId);
+       };
+   }, [myQueueEntryId]);
+   // --- END OF NEW HOOKS ---
+   
    // AI Preview Handler
 const handleGeneratePreview = async () => {
     // Check if file and prompt exist
