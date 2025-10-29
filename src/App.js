@@ -897,7 +897,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [error, setError] = useState('');
     const socketRef = useRef(null); // --- NEW: Ref for WebSocket ---
     const [chatMessages, setChatMessages] = useState({}); // --- NEW: Store messages {customerId: [msgs]} ---
-    const [openChatCustomerId, setOpenChatCustomerId] = useState(null); // --- NEW: Which chat is open? ---
+    const [barberNewMessage, setBarberNewMessage] = useState('');
     
     // --- NEW: WebSocket Connection Effect for Barber ---
     useEffect(() => {
@@ -1081,69 +1081,105 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         return <button className="next-button disabled" disabled>Queue Empty</button>;
     };
 
+    const openChat = (customer) => {
+        if (customer && customer.profiles && customer.profiles.id) {
+            setOpenChatCustomerId(customer.profiles.id); // Set the customer's USER ID
+        } else {
+            console.error("Cannot open chat: Customer user ID not found.", customer);
+            setError("Could not get customer details for chat.");
+        }
+    };
+    
+    // --- Helper function to close chat ---
+    const closeChat = () => {
+        setOpenChatCustomerId(null);
+        setBarberNewMessage(''); // Clear input when closing
+    };
+
     // Render the dashboard UI
-    return ( 
+    return (
         <div className="card">
             <h2>My Queue ({barberName || '...'})</h2>
-            
-            {/* --- NEW: "Now Serving / Up Next" Display --- */}
-            {/* This uses the same CSS as the customer page */}
-            <div className="current-serving-display">
-                <div className="serving-item now-serving">
-                    <span>Now Serving</span>
-                    <strong>
-                        {queueDetails.inProgress ? `Customer #${queueDetails.inProgress.id}` : '---'}
-                    </strong>
-                </div>
-                <div className="serving-item up-next">
-                    <span>Up Next</span>
-                    <strong>
-                        {queueDetails.upNext ? `Customer #${queueDetails.upNext.id}` : '---'}
-                    </strong>
-                </div>
-            </div>
-            {/* --- END NEW DISPLAY --- */}
 
-            {error && <p className="error-message">{error}</p>}
-            {getActionButton()}
-            
+            {/* ... (Keep Now Serving / Up Next display) ... */}
+            {/* ... (Keep error message and action button) ... */}
+
             <h3 className="queue-subtitle">In Chair</h3>
             {queueDetails.inProgress ? (
                 <ul className="queue-list">
-                    {/* --- MODIFIED: Show Customer ID --- */}
                     <li className="in-progress">
                         <strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
-                        {queueDetails.inProgress.reference_image_url && (<a href={queueDetails.inProgress.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}
+                        {/* --- NEW: Chat Icon --- */}
+                        <button onClick={() => openChat(queueDetails.inProgress)} className="chat-icon-button" title="Chat">💬</button>
+                        
                     </li>
                 </ul>
             ) : (<p className="empty-text">Chair empty</p>)}
-            
+
             <h3 className="queue-subtitle">Up Next</h3>
             {queueDetails.upNext ? (
                 <ul className="queue-list">
-                     {/* --- MODIFIED: Show Customer ID --- */}
                     <li className="up-next">
                         <strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong>
-                        {queueDetails.upNext.reference_image_url && (<a href={queueDetails.upNext.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}
+                         {/* --- NEW: Chat Icon --- */}
+                        <button onClick={() => openChat(queueDetails.upNext)} className="chat-icon-button" title="Chat">💬</button>
+                        
                     </li>
                 </ul>
             ) : (<p className="empty-text">Nobody Up Next</p>)}
-            
+
             <h3 className="queue-subtitle">Waiting</h3>
             <ul className="queue-list">
-                {queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>) 
+                {queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>)
                 : (
-                    // --- MODIFIED: Show Customer ID ---
                     queueDetails.waiting.map(c => (
                         <li key={c.id}>
                             #{c.id} - {c.customer_name}
-                            {c.reference_image_url && (<a href={c.reference_image_url} target="_blank" rel="noopener noreferrer" className="photo-link">Ref Photo</a>)}
+                            {/* --- NEW: Chat Icon (Optional for waiting? Maybe disable?) --- */}
+                            {/* You might only want chat for In Progress/Up Next */}
+                            <button onClick={() => openChat(c)} className="chat-icon-button" title="Chat">💬</button> */
+                            c.reference_image_url && (/* ... ref photo link ... */)
                         </li>
                     ))
                 )}
             </ul>
+
+             {/* --- NEW: Conditionally Render Chat Window --- */}
+            {openChatCustomerId && (
+                <div className="barber-chat-container"> {/* Added a container */}
+                    <h4>Chat with Customer</h4> 
+                    {/* Use the existing ChatWindow component, but slightly differently */}
+                     <div className="chat-window"> {/* Re-using customer CSS */}
+                        <div className="message-list">
+                           {/* Display messages for the currently open chat */}
+                           {(chatMessages[openChatCustomerId] || []).map((msg, index) => (
+                              <div key={index} className={msg.senderId === session.user.id ? 'my-message' : 'other-message'}>
+                                {msg.message}
+                              </div>
+                            ))}
+                        </div>
+                        {/* Barber's message input form */}
+                        <form onSubmit={(e) => { 
+                                e.preventDefault(); 
+                                sendBarberMessage(openChatCustomerId, barberNewMessage); 
+                                setBarberNewMessage(''); // Clear input after send
+                            }} className="message-input-form">
+                            <input
+                              type="text"
+                              value={barberNewMessage}
+                              onChange={(e) => setBarberNewMessage(e.target.value)}
+                              placeholder="Type a message..."
+                            />
+                            <button type="submit">Send</button>
+                        </form>
+                    </div>
+                    <button onClick={closeChat} className="chat-toggle-button close small">Close Chat</button>
+                </div>
+            )}
+            {/* --- END NEW --- */}
+
             <button onClick={fetchQueueDetails} className="refresh-button small">Refresh Queue</button>
-        </div> 
+        </div>
     );
 }
 

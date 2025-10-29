@@ -747,3 +747,45 @@ button:disabled {
     margin-right: auto; /* Push to left */
     max-width: 70%;
 }
+/* === Add this to app.css === */
+
+.chat-icon-button {
+  background: none;
+  border: none;
+  font-size: 1.1em; /* Adjust size */
+  cursor: pointer;
+  margin-left: 8px; /* Space from name */
+  padding: 0 5px;
+  vertical-align: middle; /* Align with text */
+}
+
+.barber-chat-container {
+  margin-top: 20px;
+  border-top: 1px solid #eee;
+  padding-top: 15px;
+}
+
+.barber-chat-container h4 {
+    text-align: center;
+    margin-bottom: 10px;
+    color: #555;
+}
+
+.chat-toggle-button.small {
+    width: auto; /* Allow button to shrink */
+    padding: 5px 10px;
+    font-size: 0.9em;
+    margin-top: 5px; /* Add some space */
+}
+
+/* Make sure queue list items can contain the button */
+.queue-list li {
+    display: flex; /* Use flexbox for alignment */
+    justify-content: space-between; /* Push elements apart */
+    align-items: center; /* Vertically align */
+}
+
+.queue-list li strong {
+    flex-grow: 1; /* Allow name to take up space */
+    margin-right: 5px; /* Space before icon */
+}
