@@ -772,7 +772,7 @@ function CustomerView({ session }) {
                      }
                 });
 
-            
+        }
 
         // Cleanup function
         return () => {
