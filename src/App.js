@@ -1263,43 +1263,51 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             {getActionButton()}
             <h3 className="queue-subtitle">In Chair</h3>
             {queueDetails.inProgress ? (
-                <ul className="queue-list">
-                    <li className="in-progress">
-                        <strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
-                        {/* --- NEW: Chat Icon --- */}
-                        <button onClick={() => openChat(queueDetails.inProgress)} className="chat-icon-button" title="Chat">💬</button>
-                        
-                    </li>
-                </ul>
+                <ul className="queue-list"><li className="in-progress">
+                    <strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
+                    {/* --- MODIFIED --- */}
+                    <button
+                        onClick={() => openChat(queueDetails.inProgress)}
+                        className="chat-icon-button"
+                        title={queueDetails.inProgress.profiles?.id ? "Chat" : "Cannot chat with guest"}
+                        disabled={!queueDetails.inProgress.profiles?.id} // Disable if no profile ID
+                    >💬</button>
+                    {/* ... ref photo link ... */}
+                </li></ul>
             ) : (<p className="empty-text">Chair empty</p>)}
 
             <h3 className="queue-subtitle">Up Next</h3>
             {queueDetails.upNext ? (
-                <ul className="queue-list">
-                    <li className="up-next">
-                        <strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong>
-                         {/* --- NEW: Chat Icon --- */}
-                        <button onClick={() => openChat(queueDetails.upNext)} className="chat-icon-button" title="Chat">💬</button>
-                        
-                    </li>
-                </ul>
+                <ul className="queue-list"><li className="up-next">
+                    <strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong>
+                    {/* --- MODIFIED --- */}
+                     <button
+                        onClick={() => openChat(queueDetails.upNext)}
+                        className="chat-icon-button"
+                        title={queueDetails.upNext.profiles?.id ? "Chat" : "Cannot chat with guest"}
+                        disabled={!queueDetails.upNext.profiles?.id} // Disable if no profile ID
+                    >💬</button>
+                    {/* ... ref photo link ... */}
+                </li></ul>
             ) : (<p className="empty-text">Nobody Up Next</p>)}
 
             <h3 className="queue-subtitle">Waiting</h3>
-            <ul className="queue-list">
-                {queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>)
-                : (
-                    queueDetails.waiting.map(c => (
-                        <li key={c.id}>
-                            #{c.id} - {c.customer_name}
-                            {/* --- NEW: Chat Icon (Optional for waiting? Maybe disable?) --- */}
-                            {/* You might only want chat for In Progress/Up Next */}
-                            <button onClick={() => openChat(c)} className="chat-icon-button" title="Chat">💬</button> */
-                            c.reference_image_url && (/* ... ref photo link ... */)
-                        </li>
-                    ))
-                )}
-            </ul>
+            <ul className="queue-list">{queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>)
+            : (
+                queueDetails.waiting.map(c => (
+                    <li key={c.id}>
+                        #{c.id} - {c.customer_name}
+                        {/* --- MODIFIED --- */}
+                        <button
+                            onClick={() => openChat(c)}
+                            className="chat-icon-button"
+                            title={c.profiles?.id ? "Chat" : "Cannot chat with guest"}
+                            disabled={!c.profiles?.id} // Disable if no profile ID
+                        >💬</button>
+                         {/* ... ref photo link ... */}
+                    </li>
+                ))
+            )}</ul>
 
              {/* --- NEW: Conditionally Render Chat Window --- */}
             {openChatCustomerId && (
