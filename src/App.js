@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'; // --- MODIFIED: Added useCallback ---
+import React, { useState, useEffect, useCallback, useRef } from 'react'; // --- MODIFIED: Added useCallback ---
+import io from 'socket.io-client';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 
@@ -8,6 +9,8 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 
 import './App.css';
 
+const SOCKET_URL = 'https://dash-q-backend.onrender.com'; // Your backend URL
+// const SOCKET_URL = 'http://localhost:3001'; // For local testing
 // --- Register Chart.js components ---
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -33,6 +36,76 @@ if (supabaseUrl && supabaseAnonKey) {
     storage: { from: () => ({ upload: () => {throw new Error('Supabase storage not configured')}, getPublicUrl: () => ({ data: { publicUrl: null } }) }) }
   };
 }
+
+function ChatWindow({ currentUser_id, otherUser_id }) { // Pass user IDs as props
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    // Connect to WebSocket server
+    socketRef.current = io(SOCKET_URL);
+    const socket = socketRef.current;
+
+    // Register this user with the server
+    socket.emit('register', currentUser_id);
+
+    // Listen for incoming messages
+    socket.on('chat message', (incomingMessage) => {
+      // Only add messages relevant to this chat window
+      if (incomingMessage.senderId === otherUser_id) {
+          setMessages((prevMessages) => [...prevMessages, incomingMessage]);
+      }
+    });
+
+    // Handle connection errors (optional but recommended)
+    socket.on('connect_error', (err) => {
+        console.error("WebSocket Connection Error:", err);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      socket.disconnect();
+    };
+  }, [currentUser_id, otherUser_id]); // Reconnect if users change
+
+  const sendMessage = (e) => {
+    e.preventDefault();
+    if (newMessage.trim() && socketRef.current) {
+      const messageData = { 
+          senderId: currentUser_id, 
+          recipientId: otherUser_id, 
+          message: newMessage 
+      };
+      socketRef.current.emit('chat message', messageData);
+      // Add message to local state immediately (optimistic update)
+      setMessages((prevMessages) => [...prevMessages, { senderId: currentUser_id, message: newMessage }]);
+      setNewMessage('');
+    }
+  };
+
+  return (
+    <div className="chat-window">
+      <div className="message-list">
+        {messages.map((msg, index) => (
+          <div key={index} className={msg.senderId === currentUser_id ? 'my-message' : 'other-message'}>
+            {msg.message}
+          </div>
+        ))}
+      </div>
+      <form onSubmit={sendMessage} className="message-input-form">
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder="Type a message..."
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+
 
 // ##############################################
 // ##          LOGIN/SIGNUP COMPONENTS         ##
@@ -390,6 +463,8 @@ function CustomerView({ session }) {
    const [isLoading, setIsLoading] = useState(false);
    const [services, setServices] = useState([]);
    const [selectedServiceId, setSelectedServiceId] = useState('');
+   const [isChatOpen, setIsChatOpen] = useState(false);
+   const [chatTargetBarberUserId, setChatTargetBarberUserId] = useState(null);
 
    // --- NEW: State for the "Your Turn" modal ---
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
@@ -792,43 +867,49 @@ function CustomerView({ session }) {
            </>
         ) : (
            <div className="live-queue-view"> {/* --- LIVE QUEUE VIEW JSX --- */}
-               <h2>Live Queue for {barbers.find(b => b.id === parseInt(joinedBarberId))?.full_name || `Barber #${joinedBarberId}`}</h2> {/* Added parseInt */}
-               
-               <div className="queue-number-display">
-                    Your Queue Number is: <strong>#{myQueueEntryId}</strong>
-               </div>
-               {/* --- NEW: ADD THIS SECTION --- */}
-               <div className="current-serving-display">
-                   <div className="serving-item now-serving">
-                       <span>Now Serving</span>
-                       <strong>
-                           {nowServing ? `Customer #${nowServing.id}` : '---'}
-                       </strong>
-                   </div>
-                   <div className="serving-item up-next">
-                       <span>Up Next</span>
-                       <strong>
-                           {upNext ? `Customer #${upNext.id}` : '---'}
-                       </strong>
-                   </div>
-               </div>
-               {/* --- END NEW SECTION --- */}
-               
-               {queueMessage && <p className="message">{queueMessage}</p>}
-               
-                {/* --- EWT Display (Also shown after joining) --- */}
-                <div className="ewt-container">
-                    <div className="ewt-item">
-                        <span>Currently waiting</span>
-                        <strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong> 
-                    </div>
-                    <div className="ewt-item">
-                        <span>Estimated wait</span>
-                        <strong>~ {estimatedWait} min</strong>
-                    </div>
-                </div>
-               
-               <ul className="queue-list live">{liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => (<li key={entry.id} className={`${entry.id === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''}`}><span>{index + 1}. {entry.id === myQueueEntryId ? `You (${entry.customer_name})` : `Customer #${entry.id}`}</span><span className="queue-status">{entry.status}</span></li>)))}</ul>
+               <h2>Live Queue for {barbers.find(b => b.id === parseInt(joinedBarberId))?.full_name || `Barber #${joinedBarberId}`}</h2> 
+                {/* ... (Your Queue Number, Now Serving Display, EWT, etc.) ... */}
+
+                {/* --- NEW: Chat Button --- */}
+                {!isChatOpen && myQueueEntryId && ( // Show button only if queue joined AND chat isn't open
+                    <button 
+                        onClick={() => {
+                            // Find the barber's user_id based on joinedBarberId
+                            const targetBarber = barbers.find(b => b.id === parseInt(joinedBarberId));
+                            if (targetBarber && targetBarber.user_id) {
+                                setChatTargetBarberUserId(targetBarber.user_id);
+                                setIsChatOpen(true);
+                            } else {
+                                console.error("Could not find barber user ID for chat.");
+                                // Optionally show an error message to the user
+                            }
+                        }}
+                        className="chat-toggle-button" // Add styling for this button
+                    >
+                        Chat with Barber
+                    </button>
+                )}
+                    {/* Button to close chat */}
+                {isChatOpen && (
+                    <button onClick={() => setIsChatOpen(false)} className="chat-toggle-button close">
+                        Close Chat
+                    </button>
+                )}
+                {/* --- END NEW --- */}
+
+
+                <ul className="queue-list live">{/* ... */}</ul>
+
+                {/* --- NEW: Conditionally Render Chat Window --- */}
+                {isChatOpen && chatTargetBarberUserId && (
+                    <ChatWindow 
+                        // Pass the logged-in customer's user ID
+                        currentUser_id={session.user.id} 
+                        // Pass the target barber's user ID
+                        otherUser_id={chatTargetBarberUserId} 
+                    />
+                )}
+                {/* --- END NEW --- */}
                <button onClick={handleLeaveQueue} className='leave-queue-button'>Leave Queue / Join Another</button>
            </div>
         )}
@@ -1092,30 +1173,6 @@ function App() {
   const [barberProfile, setBarberProfile] = useState(null); // Holds { id, user_id, full_name, is_available } for logged in barber
   const [loadingRole, setLoadingRole] = useState(true); // Tracks initial session/role check
 
-  // --- NEW: Tawk.to Chat Widget Integration (FIXED) ---
-  useEffect(() => {
-    // Tawk.to setup code (Initializes the global Tawk_API object)
-    var Tawk_API = window.Tawk_API || {};
-    var Tawk_LoadStart = new Date();
-    
-    // Function to create and insert the script element
-    (function(){
-        var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
-        s1.async = true;
-        s1.src = 'https://embed.tawk.to/68ffae1526583a19516fcf37/1j8jc00ua'; // Use your actual URL
-        s1.charset = 'UTF-8';
-        s1.setAttribute('crossorigin','*');
-        // Check if s0 exists (it should be the first script tag)
-        if (s0 && s0.parentNode) {
-            s0.parentNode.insertBefore(s1, s0);
-        } else {
-             // Fallback if no script tags exist
-             document.body.appendChild(s1); 
-        }
-    })();
-    // Cleanup is not standard for Tawk.to but good practice
-    return () => { /* No removal logic */ };
-  }, []); // Empty dependency array ensures it runs only once on mount
   // --- NEW: OneSignal Setup ---
   useEffect(() => {
     if (!window.OneSignal) { // Prevent re-running
