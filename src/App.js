@@ -946,9 +946,18 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
 
     // Fetch queue details function
     const fetchQueueDetails = async () => {
+        console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
+        setFetchError(''); // Clear previous fetch error
         if (!barberId) return; setError('');
         try { const response = await axios.get(`${API_URL}/queue/details/${barberId}`); setQueueDetails(response.data); }
-        catch (err) { console.error('Failed fetch queue details:', err); setError('Could not load queue.'); setQueueDetails({ waiting: [], inProgress: null, upNext: null }); }
+        catch (err) { c
+            console.error('[BarberDashboard] Failed fetch queue details:', err);
+            const errMsg = err.response?.data?.error || err.message || 'Could not load queue details.';
+            setError(errMsg); // Set general error state
+            setFetchError(errMsg); // Set specific fetch error state
+            setQueueDetails({ waiting: [], inProgress: null, upNext: null }); // Reset on error
+            // --- END MODIFIED ---
+        }
     };
 
     // UseEffect for initial load and realtime subscription
@@ -1096,7 +1105,15 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         setOpenChatCustomerId(null);
         setBarberNewMessage(''); // Clear input when closing
     };
-
+    // --- ADD LOG before return ---
+    console.log("[BarberDashboard] Rendering with state:", {
+        barberId,
+        queueDetails,
+        error,
+        fetchError, // Log the fetch error state too
+        openChatCustomerId
+    });
+    // --- END ADD ---
     // Render the dashboard UI
     return (
         <div className="card">
