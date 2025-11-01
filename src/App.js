@@ -1772,19 +1772,24 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
     useEffect(() => { fetchAnalytics(); }, [refreshSignal, barberId]);
 
     // --- NEW: Carbon Footprint Calculation ---
-   // We'll use 5g CO2e as a proxy for one paper entry
-    const CARBON_SAVED_PER_CUSTOMER_G = 5; 
-
-    const carbonSavedToday = (analytics.totalCutsToday ?? 0) * CARBON_SAVED_PER_CUSTOMER_G;
-    const carbonSavedAllTime = (analytics.totalCutsAllTime ?? 0) * CARBON_SAVED_PER_CUSTOMER_G;
-   
-    // Calculate derived values (averages)
+   // Calculate derived values (averages)
     const avgPriceToday = (analytics.totalCutsToday ?? 0) > 0 ? ((analytics.totalEarningsToday ?? 0) / analytics.totalCutsToday).toFixed(2) : '0.00';
     const avgPriceWeek = (analytics.totalCutsWeek ?? 0) > 0 ? ((analytics.totalEarningsWeek ?? 0) / analytics.totalCutsWeek).toFixed(2) : '0.00';
 
     // Chart configuration for the earnings bar chart
     const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Earnings per Day (Last 7 Days)' } }, scales: { y: { beginAtZero: true } } };
+    
+    // --- MOVED dailyDataSafe definition up here ---
     const dailyDataSafe = Array.isArray(analytics.dailyData) ? analytics.dailyData : []; // Ensure it's an array
+
+    // --- NEW: Fixed Carbon Footprint Calculation ---
+    // "Today" is always 5g, as requested.
+    const carbonSavedToday = 5; 
+    
+    // "Last 7 Days" is 5g * (number of active days in the 7-day report)
+    // This matches your "5g today, 10g tomorrow" cumulative logic.
+    const carbonSavedWeekly = (dailyDataSafe.length) * 5; 
+    // --- END NEW ---
     // Prepare chart data
     const chartData = { labels: dailyDataSafe.map(d => { try { return new Date(d.day + 'T00:00:00Z').toLocaleString(undefined, { month: 'numeric', day: 'numeric' }); } catch (e) { return '?'; } }), datasets: [{ label: 'Daily Earnings (₱)', data: dailyDataSafe.map(d => d.daily_earnings ?? 0), backgroundColor: 'rgba(52, 199, 89, 0.6)', borderColor: 'rgba(52, 199, 89, 1)', borderWidth: 1 }] }; // <-- ₱ Symbol
 
@@ -1811,26 +1816,26 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
             {showEarnings && <div className="analytics-item"><span className="analytics-label">Avg Price</span><span className="analytics-value small">₱{avgPriceWeek}</span></div>}
             <div className="analytics-item"><span className="analytics-label">Busiest Day</span><span className="analytics-value small">{analytics.busiestDay?.name ?? 'N/A'} {showEarnings && `(₱${analytics.busiestDay?.earnings ?? 0})`}</span></div>
         </div>
-        <div 
-        className="carbon-footprint-section"><h3 className="analytics-subtitle">Carbon Footprint Reduced</h3>
-        <div className="analytics-grid carbon-grid">
-            <div className="analytics-item">
-                <span className="analytics-label">Today</span>
-                <span className="analytics-value carbon">
-                    {carbonSavedToday}g <span className="carbon-unit">(gCO2e)</span>
-                </span>
-            </div>
-            <div className="analytics-item">
-                <span className="analytics-label">Total (All-Time)</span>
-                <span className="analytics-value carbon">
-                    {carbonSavedAllTime}g <span className="carbon-unit">(gCO2e)</span>
-                </span>
+        <div className="carbon-footprint-section">
+            <h3 className="analytics-subtitle">Carbon Footprint Reduced</h3>
+            <div className="analytics-grid carbon-grid">
+                <div className="analytics-item">
+                    <span className="analytics-label">Today</span>
+                    <span className="analytics-value carbon">
+                        {/* This will now show the fixed 5g */}
+                        {carbonSavedToday}g <span className="carbon-unit">(gCO2e)</span>
+                    </span>
+                </div>
+                <div className="analytics-item">
+                    {/* --- CHANGED LABEL --- */}
+                    <span className="analytics-label">Last 7 Days</span>
+                    <span className="analytics-value carbon">
+                        {/* --- CHANGED VARIABLE --- */}
+                        {carbonSavedWeekly}g <span className="carbon-unit">(gCO2e)</span>
+                    </span>
+                </div>
             </div>
         </div>
-        <p className="carbon-footnote">
-            By going digital, you reduce your carbon footprint from transportation, paper, and plastic.
-        </p>
-    </div>
         {showEarnings && (
             <div className="chart-container">
                 {dailyDataSafe.length > 0 ? (<div style={{ height: '250px' }}><Bar options={chartOptions} data={chartData} /></div>) : (<p className='empty-text'>No chart data yet.</p>)}
