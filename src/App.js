@@ -189,16 +189,14 @@ function AuthForm() {
                     <h2>Welcome to Dash-Q!</h2>
                     <p>
                         This web based application was proudly developed by:
-                        <br />
+                        <br/>
                         <strong>Aquino, Zaldy Castro Jr.</strong>
-                        <br />
-                        <br />
                         <strong>Galima, Denmark Perpose</strong>
-                        <br />
-                        <br />
                         <strong>Saldivar, Reuben Andrei Santos</strong>
                         <br />
+                        <br />
                         from
+                        <br />
                         <br />
                         <strong>University of the Cordilleras</strong>
                     </p>
