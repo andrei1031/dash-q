@@ -877,3 +877,17 @@ button:disabled {
 .chat-toggle-button {
      position: relative; /* Helps position the badge */
 }
+.instructions-modal {
+  text-align: left; /* Align text to the left for lists */
+}
+
+.instructions-list {
+  padding-left: 25px; /* Add some indentation */
+  margin-top: 15px;
+  margin-bottom: 20px;
+}
+
+.instructions-list li {
+  margin-bottom: 10px; /* Space out the list items */
+  line-height: 1.4;
+}
