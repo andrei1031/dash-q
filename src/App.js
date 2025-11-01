@@ -183,7 +183,7 @@ function AuthForm() {
         <div className="card auth-card">
             <div
                 className="modal-overlay"
-                style={{ display: isWelcomeModalOpen ? 'flex' : 'none' }}
+                style={{ display: (isWelcomeModalOpen && !isLogin) ? 'flex' : 'none' }}
             >
                 <div className="modal-content">
                     <h2>Welcome to Dash-Q!</h2>
