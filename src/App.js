@@ -188,13 +188,19 @@ function AuthForm() {
                 <div className="modal-content">
                     <h2>Welcome to Dash-Q!</h2>
                     <p>
-                        This application was proudly developed by:
+                        This web based application was proudly developed by:
                         <br />
-                        <strong>[Your Developer Names]</strong>
+                        <strong>Aquino, Zaldy Castro Jr.</strong>
+                        <br />
+                        <br />
+                        <strong>Galima, Denmark Perpose</strong>
+                        <br />
+                        <br />
+                        <strong>Saldivar, Reuben Andrei Santos</strong>
                         <br />
                         from
                         <br />
-                        <strong>[Your School Name]</strong>
+                        <strong>University of the Cordilleras</strong>
                     </p>
                     <button 
                         id="close-welcome-modal-btn" 
