@@ -118,6 +118,7 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
 
 function AuthForm() {
     // State for username/email/password etc.
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(true);
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -128,6 +129,7 @@ function AuthForm() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [selectedRole, setSelectedRole] = useState('customer'); // 'customer' or 'barber'
+    
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -179,6 +181,30 @@ function AuthForm() {
     // Render Auth Form
     return (
         <div className="card auth-card">
+            <div
+                className="modal-overlay"
+                style={{ display: isWelcomeModalOpen ? 'flex' : 'none' }}
+            >
+                <div className="modal-content">
+                    <h2>Welcome to Dash-Q!</h2>
+                    <p>
+                        This application was proudly developed by:
+                        <br />
+                        <strong>[Your Developer Names]</strong>
+                        <br />
+                        from
+                        <br />
+                        <strong>[Your School Name]</strong>
+                    </p>
+                    <button 
+                        id="close-welcome-modal-btn" 
+                        onClick={() => setIsWelcomeModalOpen(false)}
+                    >
+                        Get Started
+                    </button>
+                </div>
+            </div>
+            {/* --- END ADD --- */}
             <h2>{isLogin ? 'Login' : 'Sign Up'}</h2>
             <form onSubmit={handleAuth}>
                 {/* Username */}
@@ -437,6 +463,7 @@ function stopBlinking() {
 
 // --- CustomerView (Handles Joining Queue & Live View for Customers) ---
 function CustomerView({ session }) {
+   const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const [barbers, setBarbers] = useState([]);
    const [selectedBarber, setSelectedBarber] = useState('');
    const [customerName, setCustomerName] = useState(
@@ -487,6 +514,23 @@ function CustomerView({ session }) {
    const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
    const [hasBeenWarnedTooFar, setHasBeenWarnedTooFar] = useState(false); // To warn only once
    const locationWatchId = useRef(null); // To store the ID of the location watcher
+
+   // --- ADD THIS NEW HANDLER ---
+   const handleCloseInstructions = () => {
+        // Set a flag in local storage so this modal doesn't show again
+        localStorage.setItem('hasSeenInstructions_v1', 'true');
+        setIsInstructionsModalOpen(false);
+   };
+
+   // --- ADD THIS NEW EFFECT ---
+   // Check if it's the user's first time on this page
+   useEffect(() => {
+        const hasSeen = localStorage.getItem('hasSeenInstructions_v1');
+        if (!hasSeen) {
+            // If they've never seen it, show the modal
+            setIsInstructionsModalOpen(true);
+        }
+   }, []);
 
    const sendCustomerMessage = (recipientId, messageText) => {
         if (messageText.trim() && socketRef.current?.connected && session?.user?.id) {
@@ -1017,7 +1061,27 @@ const handleGeneratePreview = async () => {
    // --- Render Customer View ---
    return (
       <div className="card"> {/* <<< Starting point */}
-
+        {/* --- ADD THIS NEW MODAL --- */}
+        <div
+            className="modal-overlay"
+            style={{ display: isInstructionsModalOpen ? 'flex' : 'none' }}
+        >
+            <div className="modal-content instructions-modal">
+                <h2>How to Join the Queue</h2>
+                <ol className="instructions-list">
+                    <li>Select your desired <strong>Service</strong>.</li>
+                    <li>Choose an <strong>Available Barber</strong>.</li>
+                    <li>(Optional) Use the <strong>AI Preview</strong> to try a new look.</li>
+                    <li>Click <strong>"Join Queue"</strong> and wait for your turn!</li>
+                </ol>
+                <button 
+                    id="close-instructions-modal-btn" 
+                    onClick={handleCloseInstructions}
+                >
+                    Got It!
+                </button>
+            </div>
+        </div>
         {/* --- "Your Turn" Modal --- */}
         <div
             id="your-turn-modal-overlay"
