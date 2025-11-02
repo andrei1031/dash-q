@@ -518,7 +518,7 @@ function CustomerView({ session }) {
    // --- NEW: Moved sendCustomerMessage inside CustomerView ---
    const socketRef = useRef(null); // Add the socket ref here
    const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
-   const [hasBeenWarnedTooFar, setHasBeenWarnedTooFar] = useState(false); // To warn only once
+   const [isOnCooldown, setIsOnCooldown] = useState(false); // To prevent spamming the modal
    const locationWatchId = useRef(null); // To store the ID of the location watcher
 
    // --- ADD THIS NEW HANDLER ---
@@ -557,44 +557,43 @@ function CustomerView({ session }) {
         }
    };
 
+   // --- Geolocation Watcher Effect ---
    useEffect(() => {
      // --- Define Your Shop's Location & Warning Distance ---
      const BARBERSHOP_LAT = 16.414830431367967; 
      const BARBERSHOP_LON = 120.59712292628716; 
-     const DISTANCE_THRESHOLD_METERS = 1500; // Warn if > 500 meters (0.5 km)
+     const DISTANCE_THRESHOLD_METERS = 900;
 
-     // Check if geolocation is available in the browser
+     // Check if geolocation is available
      if (!('geolocation' in navigator)) {
-       console.warn('Geolocation not available in this browser.');
+       console.warn('Geolocation not available.');
        return;
      }
 
-     // Start watching location only if user is in the queue
-     if (myQueueEntryId && !hasBeenWarnedTooFar) {
-       console.log('User is in queue, attempting to start location watch...');
+     // Start watching location ONLY if user is in the queue
+     if (myQueueEntryId) {
+       console.log('User is in queue, starting location watch...');
 
        // Success callback: This runs every time the position updates
        const onPositionUpdate = (position) => {
          const { latitude, longitude } = position.coords;
-         const distance = getDistanceInMeters(
-           latitude,
-           longitude,
-           BARBERSHOP_LAT,
-           BARBERSHOP_LON
-         );
+         const distance = getDistanceInMeters(latitude, longitude, BARBERSHOP_LAT, BARBERSHOP_LON);
 
-         console.log(`Current distance from shop: ${Math.round(distance)} meters`);
+         console.log(`Current distance: ${Math.round(distance)}m. Cooldown: ${isOnCooldown}`);
 
-         // Check if they are too far AND we haven't warned them yet
+         // Check if they are too far...
          if (distance > DISTANCE_THRESHOLD_METERS) {
-           console.log('Customer is too far! Triggering modal and stopping watch.');
-           setIsTooFarModalOpen(true);
-           setHasBeenWarnedTooFar(true); // Set flag to only warn once
-
-           // Stop watching to save battery
-           if (locationWatchId.current) {
-             navigator.geolocation.clearWatch(locationWatchId.current);
-             locationWatchId.current = null;
+           // ...AND the modal isn't already open AND they are not on cooldown
+           if (!isTooFarModalOpen && !isOnCooldown) {
+             console.log('Customer is too far! Triggering modal.');
+             setIsTooFarModalOpen(true);
+             setIsOnCooldown(true); // Start cooldown *when modal is shown*
+           }
+         } else {
+           // --- User is back in range ---
+           if (isOnCooldown) {
+             console.log('Customer is back in range. Resetting cooldown.');
+             setIsOnCooldown(false); // Reset the cooldown if they return
            }
          }
        };
@@ -602,41 +601,25 @@ function CustomerView({ session }) {
        // Error callback
        const onPositionError = (err) => {
          console.warn(`Geolocation error (Code ${err.code}): ${err.message}`);
-         // Common errors: 1 (Permission Denied), 3 (Timeout)
-         // If permission denied, we can't do anything.
        };
 
-       // Ask permission and start the watcher
-       // This will trigger the browser's "Allow location" pop-up
+       // Start the watcher
        locationWatchId.current = navigator.geolocation.watchPosition(
          onPositionUpdate,
          onPositionError,
-         {
-           enableHighAccuracy: true, // More accurate, uses more battery
-           timeout: 10000,           // 10 seconds to get a fix
-           maximumAge: 0           // Don't use a cached position
-         }
+         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
        );
-
-       console.log('Geolocation watch started.');
-
-     } else {
-       // If they left the queue, stop watching
-       if (locationWatchId.current) {
-         navigator.geolocation.clearWatch(locationWatchId.current);
-         locationWatchId.current = null;
-         console.log('User left queue, stopping geolocation watch.');
-       }
      }
 
-     // Cleanup function: This runs when the component unmounts
+     // Cleanup function: This runs when user leaves queue (myQueueEntryId changes)
      return () => {
        if (locationWatchId.current) {
          navigator.geolocation.clearWatch(locationWatchId.current);
-         console.log('Component unmounted, stopping geolocation watch.');
+         console.log('Stopping geolocation watch.');
        }
      };
-   }, [myQueueEntryId, hasBeenWarnedTooFar]); // Rerun effect if queue status or warning status changes
+     // --- Rerun this effect if these states change ---
+   }, [myQueueEntryId, isTooFarModalOpen, isOnCooldown]);
 
    // --- NEW: WebSocket Connection Effect for Customer ---
    useEffect(() => {
@@ -1068,23 +1051,29 @@ const handleGeneratePreview = async () => {
    return (
       <div className="card"> {/* <<< Starting point */}
         {/* --- ADD THIS NEW MODAL --- */}
+        {/* --- "Too Far" Modal (with Cooldown Logic) --- */}
         <div
             className="modal-overlay"
-            style={{ display: isInstructionsModalOpen ? 'flex' : 'none' }}
+            style={{ display: isTooFarModalOpen ? 'flex' : 'none' }}
         >
-            <div className="modal-content instructions-modal">
-                <h2>How to Join the Queue</h2>
-                <ol className="instructions-list">
-                    <li>Select your desired <strong>Service</strong>.</li>
-                    <li>Choose an <strong>Available Barber</strong>.</li>
-                    <li>(Optional) Use the <strong>AI Preview</strong> to try a new look.</li>
-                    <li>Click <strong>"Join Queue"</strong> and wait for your turn!</li>
-                </ol>
+            <div className="modal-content">
+                <h2>A Friendly Reminder!</h2>
+                <p>Hey, please don’t wander off too far—we’d really appreciate it if you stayed close to the queue!</p>
                 <button 
-                    id="close-instructions-modal-btn" 
-                    onClick={handleCloseInstructions}
+                    id="close-too-far-modal-btn" 
+                    onClick={() => {
+                        // 1. Close the modal
+                        setIsTooFarModalOpen(false);
+                        
+                        // 2. Start the 5-minute (300,000 ms) cooldown timer
+                        console.log("Modal closed. Starting 5-minute cooldown.");
+                        setTimeout(() => {
+                            console.log("Cooldown finished. Can warn again.");
+                            setIsOnCooldown(false);
+                        }, 300000); 
+                    }}
                 >
-                    Got It!
+                    Okay, I'll stay close
                 </button>
             </div>
         </div>
