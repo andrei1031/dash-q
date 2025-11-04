@@ -493,7 +493,7 @@ function CustomerView({ session }) {
    const [queueMessage, setQueueMessage] = useState('');
    const [estimatedWait, setEstimatedWait] = useState(0);
    const [peopleWaiting, setPeopleWaiting] = useState(0);
-   const [file, setFile] = useState(null);
+   
    const [prompt, setPrompt] = useState('');
    const [generatedImage, setGeneratedImage] = useState(null);
    const [isGenerating, setIsGenerating] = useState(false);
@@ -880,64 +880,37 @@ function CustomerView({ session }) {
 
    // AI Preview Handler
 const handleGeneratePreview = async () => {
-    // Check if file and prompt exist
-    if (!file || !prompt) { 
-        setMessage('Please upload a photo and enter a prompt.'); 
-        return; 
-    }
-    
-    // Set loading/generating states
-    setIsGenerating(true); 
-    setIsLoading(true); // Also set general loading state
-    setGeneratedImage(null); // Clear previous image
-    setMessage('Step 1/3: Uploading...'); 
-    
-    // Create a unique file path
-    const filePath = `${Date.now()}.${file.name.split('.').pop()}`;
-    
-    try {
-        // Check if Supabase storage is configured
-        if (!supabase?.storage) throw new Error("Supabase storage not available.");
-        
-        // Upload the file to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-            .from('haircut_references') // Your bucket name
-            .upload(filePath, file);
+        if (!prompt) { 
+            setMessage('A haircut prompt is required.'); 
+            return; 
+        }
+
+        setIsGenerating(true); 
+        setIsLoading(true);
+        setImageOptions([]); // Clear previous options
+        setSelectedAiImage(null); // Clear previous selection
+
+        try {
+            setMessage('Generating 4 haircut options...');
             
-        if (uploadError) throw uploadError; // Throw error if upload fails
-        
-        // Get the public URL of the uploaded file
-        const { data: urlData } = supabase.storage
-            .from('haircut_references')
-            .getPublicUrl(filePath);
-            
-        if (!urlData?.publicUrl) throw new Error("Could not get public URL for uploaded file.");
-        
-        const imageUrl = urlData.publicUrl; // Store the URL
-        
-        // Update status message
-        setMessage('Step 2/3: Generating AI haircut... (takes ~15-30s)');
-        
-        // Call your backend endpoint to trigger AI generation
-        const response = await axios.post(`${API_URL}/generate-haircut`, { 
-            imageUrl, // Send the image URL
-            prompt    // Send the user's prompt
-        });
-        
-        // Set the generated image URL received from the backend
-        setGeneratedImage(response.data.generatedImageUrl); 
-        setMessage('Step 3/3: Success! Check preview.'); // Update status message
-        
-    } catch (error) { 
-        // Handle errors during the process
-        console.error('AI generation pipeline error:', error); 
-        setMessage(`AI failed: ${error.response?.data?.error || error.message}`); // Show error message
-    } finally { 
-        // Reset loading states regardless of success or failure
-        setIsGenerating(false); 
-        setIsLoading(false); 
-    }
-};
+            // Call backend (Endpoint 7) - NOW PURE TEXT
+            const response = await axios.post(`${API_URL}/generate-haircut`, { prompt });
+
+            if (response.data?.generatedImageUrls) {
+                setImageOptions(response.data.generatedImageUrls); // Save the array of URLs
+                setMessage('Success! Choose your preferred option.');
+            } else {
+                 throw new Error('No images received from the AI service.');
+            }
+
+        } catch (error) {
+            console.error('AI generation failed:', error);
+            setMessage(`AI failed: ${error.response?.data?.error || error.message}`);
+        } finally {
+            setIsGenerating(false);
+            setIsLoading(false);
+        }
+    };
 
     // Join Queue Handler
    const handleJoinQueue = async (e) => {
@@ -1044,7 +1017,8 @@ const handleGeneratePreview = async () => {
        peopleWaiting,
        estimatedWait,
        isQueueLoading, // Log loading state
-       queueMessage // Log message state
+       queueMessage, // Log message state
+       displayWait
    });
 
    // --- Render Customer View ---
@@ -1054,26 +1028,21 @@ const handleGeneratePreview = async () => {
         {/* --- "Too Far" Modal (with Cooldown Logic) --- */}
         <div
             className="modal-overlay"
-            style={{ display: isTooFarModalOpen ? 'flex' : 'none' }}
+            style={{ display: isInstructionsModalOpen ? 'flex' : 'none' }}
         >
-            <div className="modal-content">
-                <h2>A Friendly Reminder!</h2>
-                <p>Hey, please don’t wander off too far—we’d really appreciate it if you stayed close to the queue!</p>
+            <div className="modal-content instructions-modal">
+                <h2>How to Join the Queue</h2>
+                <ol className="instructions-list">
+                    <li>Select your desired <strong>Service</strong>.</li>
+                    <li>Choose an <strong>Available Barber</strong>.</li>
+                    <li>(Optional) Use the <strong>AI Preview</strong> to generate haircut ideas.</li>
+                    <li>Click <strong>"Join Queue"</strong> and wait for your turn!</li>
+                </ol>
                 <button 
-                    id="close-too-far-modal-btn" 
-                    onClick={() => {
-                        // 1. Close the modal
-                        setIsTooFarModalOpen(false);
-                        
-                        // 2. Start the 5-minute (300,000 ms) cooldown timer
-                        console.log("Modal closed. Starting 5-minute cooldown.");
-                        setTimeout(() => {
-                            console.log("Cooldown finished. Can warn again.");
-                            setIsOnCooldown(false);
-                        }, 300000); 
-                    }}
+                    id="close-instructions-modal-btn" 
+                    onClick={handleCloseInstructions}
                 >
-                    Okay, I'll stay close
+                    Got It!
                 </button>
             </div>
         </div>
@@ -1180,48 +1149,59 @@ const handleGeneratePreview = async () => {
                         </div>
                     )}
                     {/* --- AI Section --- */}
+                    {/* --- AI Section (Text-to-Image) --- */}
                     <div className="ai-generator">
                         <p className="ai-title">AI Haircut Preview (Optional)</p>
-                        {/* File Upload */}
+                        
+                        {/* Prompt Input (Now Step 1) */}
                         <div className="form-group">
-                            <label>1. Upload photo:</label>
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={(e) => { 
-                                    setFile(e.target.files[0]); // Get the first file selected
-                                    setGeneratedImage(null); // Clear previous preview on new file select
-                                }} 
-                            />
-                        </div>
-                        {/* Prompt Input */}
-                        <div className="form-group">
-                            <label>2. Describe haircut:</label>
+                            <label>1. Describe Your Desired Haircut:</label>
                             <input 
                                 type="text" 
                                 value={prompt} 
-                                placeholder="e.g., 'buzz cut', 'modern mullet'" // Added example
+                                placeholder="e.g., 'buzz cut', 'modern mullet'" 
                                 onChange={(e) => setPrompt(e.target.value)} 
                             />
                         </div>
+
                         {/* Generate Button */}
                         <button 
                             type="button" 
-                            onClick={handleGeneratePreview} 
+                            onClick={handleGeneratePreview}
                             className="generate-button" 
-                            // Disable button if no file/prompt, or if loading/generating
-                            disabled={!file || !prompt || isLoading || isGenerating} 
+                            disabled={!prompt || isLoading || isGenerating}
                         >
-                            {isGenerating ? 'Generating...' : 'Generate AI Preview'}
+                            {isGenerating ? 'Generating...' : 'Generate AI Options'}
                         </button>
+                        
                         {/* Loading Indicator */}
-                        {isLoading && isGenerating && <p className='loading-text'>Generating preview...</p>} 
-                        {/* Image Preview */}
-                        {generatedImage && (
-                            <div className="image-preview">
-                                <p>AI Preview:</p>
-                                <img src={generatedImage} alt="AI Generated Haircut Preview"/>
-                                <p className="success-text">Like it? Join the queue!</p>
+                        {isLoading && isGenerating && <p className='loading-text'>Generating options...</p>}
+
+                        {/* --- Image Selection Grid --- */}
+                        {imageOptions.length > 0 && (
+                            <div className="ai-selection-grid-section">
+                                <h3>2. Choose Your Style:</h3>
+                                <div className="selection-grid">
+                                    {imageOptions.map((url, index) => (
+                                        <div 
+                                            key={index} 
+                                            onClick={() => setSelectedAiImage(url)} 
+                                            className={`image-option ${selectedAiImage === url ? 'selected' : ''}`}
+                                        >
+                                            <img src={url} alt={`Option ${index + 1}`} />
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Share Option */}
+                                {selectedAiImage && (
+                                    <div className="join-with-ai-options">
+                                        <div className="form-group checkbox-group">
+                                            <input type="checkbox" id="share-ai-final" checked={shareAiImage} onChange={(e) => setShareAiImage(e.target.checked)} />
+                                            <label htmlFor="share-ai-final">Share selected style with the barber?</label>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
