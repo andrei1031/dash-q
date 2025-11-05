@@ -315,6 +315,7 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
 }
 
 // --- BarberDashboard (Handles Barber's Queue Management) ---
+// --- BarberDashboard (Handles Barber's Queue Management) ---
 function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [queueDetails, setQueueDetails] = useState({ waiting: [], inProgress: null, upNext: null });
     const [error, setError] = useState('');
@@ -322,6 +323,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const socketRef = useRef(null);
     const [chatMessages, setChatMessages] = useState({});
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null); // This is the CUSTOMER'S USER ID
+    const [openChatQueueId, setOpenChatQueueId] = useState(null); // The Queue ID of the current open chat
     const [unreadMessages, setUnreadMessages] = useState({});
 
     const fetchQueueDetails = useCallback(async () => {
@@ -355,7 +357,12 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             const messageListener = (incomingMessage) => {
                 console.log(`[Barber] Received message from ${incomingMessage.senderId}:`, incomingMessage.message);
                 const customerId = incomingMessage.senderId;
-                setChatMessages(prev => { const msgs = prev[customerId] || []; return { ...prev, [customerId]: [...msgs, incomingMessage] }; });
+                // Add message to chat history
+                setChatMessages(prev => { 
+                    const msgs = prev[customerId] || []; 
+                    return { ...prev, [customerId]: [...msgs, incomingMessage] }; 
+                });
+                // Handle unread status
                 setOpenChatCustomerId(currentOpenChatId => {
                      console.log(`[Barber] Checking if message sender ${customerId} matches open chat ${currentOpenChatId}`);
                      if (customerId !== currentOpenChatId) {
@@ -370,7 +377,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             socket.on('disconnect', (reason) => { console.log("[Barber] WebSocket disconnected:", reason); socketRef.current = null; });
         }
         return () => { if (socketRef.current) { console.log("[Barber] Cleaning up WebSocket connection."); socketRef.current.disconnect(); socketRef.current = null; } };
-    }, [session]); // Dependency only on session
+    }, [session]); 
 
     // UseEffect for initial load and realtime subscription
     useEffect(() => {
@@ -437,42 +444,51 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             setError(err.response?.data?.error || 'Failed to mark as cancelled.');
         }
     };
+
+    // --- FIX: Message Sender (Sends queueId for persistence) ---
     const sendBarberMessage = (recipientId, messageText) => {
         const queueId = openChatQueueId; // Use the stored queue ID
-        if (messageText.trim() && socketRef.current?.connected && session?.user?.id) {
-            const messageData = { senderId: session.user.id, recipientId, message: messageText };
+        if (messageText.trim() && socketRef.current?.connected && session?.user?.id && queueId) {
+            const messageData = { senderId: session.user.id, recipientId, message: messageText, queueId }; 
             socketRef.current.emit('chat message', messageData);
             setChatMessages(prev => {
               const customerId = recipientId;
               const existingMessages = prev[customerId] || [];
               return { ...prev, [customerId]: [...existingMessages, { senderId: session.user.id, message: messageText }] };
             });
-        } else { console.warn("Cannot send barber msg, socket disconnected?"); }
+        } else { console.warn("Cannot send barber msg, socket disconnected or queueId missing."); }
     };
+    
+    // --- FIX: Chat Opener (Fetches history and sets queueId) ---
     const openChat = (customer) => {
         const customerUserId = customer?.profiles?.id;
-        const queueId = customer?.id;
-
-        if (customerUserId) {
-            console.log(`[openChat] Opening chat for ${customerUserId}`);
+        const queueId = customer?.id; // The queue entry ID is the 'id' field
+        
+        if (customerUserId && queueId) {
+            console.log(`[openChat] Opening chat for ${customerUserId} on queue ${queueId}`);
             setOpenChatCustomerId(customerUserId);
-            setOpenChatQueueId(queueId);
+            setOpenChatQueueId(queueId); // SET THE QUEUE ID
+            
             setUnreadMessages(prev => {
                 const updated = { ...prev };
                 delete updated[customerUserId]; // Mark as read
                 return updated;
             });
+
+            // Fetch history when chat opens
             const fetchHistory = async () => {
-            try {
-                const { data } = await supabase.from('chat_messages').select('sender_id, message').eq('queue_entry_id', queueId).order('created_at', { ascending: true });
-                const formattedHistory = data.map(msg => ({ senderId: msg.sender_id, message: msg.message }));
-                setChatMessages(prev => ({ ...prev, [customerUserId]: formattedHistory }));
-            } catch(err) { console.error("Barber failed to fetch history:", err); }
-        };
-        fetchHistory();
-        } else { console.error("Cannot open chat: Customer user ID missing.", customer); setError("Could not get customer details."); }
+                try {
+                    const { data } = await supabase.from('chat_messages').select('sender_id, message').eq('queue_entry_id', queueId).order('created_at', { ascending: true });
+                    const formattedHistory = data.map(msg => ({ senderId: msg.sender_id, message: msg.message }));
+                    setChatMessages(prev => ({ ...prev, [customerUserId]: formattedHistory }));
+                } catch(err) { console.error("Barber failed to fetch history:", err); }
+            };
+            fetchHistory();
+            
+        } else { console.error("Cannot open chat: Customer user ID or Queue ID missing.", customer); setError("Could not get customer details."); }
     };
-    const closeChat = () => { setOpenChatCustomerId(null); };
+    
+    const closeChat = () => { setOpenChatCustomerId(null); setOpenChatQueueId(null); }; // CLEAR BOTH
 
     // --- Render Barber Dashboard ---
     return (
@@ -499,16 +515,13 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                         ) : ( <button className="next-button disabled" disabled>Queue Empty</button> )}
                     </div>
                     <h3 className="queue-subtitle">In Chair</h3>
-                    {/* <<< REMOVED AI PREVIEW LINK >>> */}
                     {queueDetails.inProgress ? (<ul className="queue-list"><li className="in-progress"><div><strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong></div><button onClick={() => openChat(queueDetails.inProgress)} className="chat-icon-button" title={queueDetails.inProgress.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.inProgress.profiles?.id}>💬{queueDetails.inProgress.profiles?.id && unreadMessages[queueDetails.inProgress.profiles.id] && (<span className="notification-badge">1</span>)}</button></li></ul>) : (<p className="empty-text">Chair empty</p>)}
                     <h3 className="queue-subtitle">Up Next</h3>
-                    {/* <<< REMOVED AI PREVIEW LINK >>> */}
                     {queueDetails.upNext ? (<ul className="queue-list"><li className="up-next"><div><strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong></div><button onClick={() => openChat(queueDetails.upNext)} className="chat-icon-button" title={queueDetails.upNext.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.upNext.profiles?.id}>💬{queueDetails.upNext.profiles?.id && unreadMessages[queueDetails.upNext.profiles.id] && (<span className="notification-badge">1</span>)}</button></li></ul>) : (<p className="empty-text">Nobody Up Next</p>)}
                     <h3 className="queue-subtitle">Waiting</h3>
                     <ul className="queue-list">{queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>) : (queueDetails.waiting.map(c => (
                         <li key={c.id}>
                             <div>#{c.id} - {c.customer_name}</div>
-                            {/* <<< REMOVED AI PREVIEW LINK >>> */}
                             <button onClick={() => openChat(c)} className="chat-icon-button" title={c.profiles?.id ? "Chat" : "Guest"} disabled={!c.profiles?.id}>💬{c.profiles?.id && unreadMessages[c.profiles.id] && (<span className="notification-badge">1</span>)}</button>
                         </li>
                     )))}</ul>
