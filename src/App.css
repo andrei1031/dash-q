@@ -1,1006 +1,723 @@
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f4f7f6;
-  padding: 20px;
-  color: #333;
+/* ===================================================================
+   GLOBAL STYLES (BLACK & ORANGE THEME)
+   =================================================================== */
+
+/* Define our color palette */
+:root {
+  --bg-dark: #121212;
+  --surface-color: #1E1E1E;
+  --primary-orange: #FF9500;
+  --primary-orange-hover: #E08400;
+  --text-primary: #FFFFFF;
+  --text-secondary: #AAAAAA;
+  --border-color: #333333;
+  --success-color: #34C759;
+  --error-color: #FF3B30;
+  --go-online-color: var(--success-color);
+  --go-offline-color: #FF3B30;
 }
+
+/* Global reset and theme */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+}
+
+.loading-fullscreen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--primary-orange);
+}
+
+/* ===================================================================
+   MAIN LAYOUT & HEADER
+   =================================================================== */
 
 .App-header {
-  text-align: center;
-  margin-bottom: 30px;
+  background-color: var(--surface-color);
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--primary-orange);
 }
 
-.container {
+.App-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.header-actions {
   display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 20px;
 }
 
+.container {
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+/* Barber dashboard gets 2 columns */
+@media (min-width: 900px) {
+  .barber-app-layout .container {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ===================================================================
+   CARD STYLES (The main containers)
+   =================================================================== */
+
 .card {
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  padding: 24px;
-  width: 400px;
-  min-width: 300px;
-  display: flex;
-  flex-direction: column;
+  background-color: var(--surface-color);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 20px 25px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .card h2 {
   margin-top: 0;
-  color: #1a1a1a;
-  border-bottom: 2px solid #eee;
+  color: var(--primary-orange);
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 10px;
-  margin-bottom: 20px;
+}
+
+/* ===================================================================
+   AUTH FORM & LOGIN/SIGNUP STYLES
+   =================================================================== */
+
+.auth-card {
+  max-width: 450px;
+  margin: 50px auto;
+  padding: 30px;
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 15px;
 }
 
 .form-group label {
   display: block;
   font-weight: 600;
+  font-size: 0.9rem;
   margin-bottom: 6px;
-  font-size: 0.9em;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .form-group input,
 .form-group select {
-  width: calc(100% - 22px); /* Account for padding */
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1em;
-}
-.form-group input[type="file"] {
-  padding: 8px; /* Adjust padding for file input */
+  width: 100%;
+  padding: 12px;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 1rem;
 }
 
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 2px rgba(255, 149, 0, 0.3);
+}
 
+.prefilled-input {
+  background-color: #333 !important;
+  color: var(--text-secondary) !important;
+}
+
+.form-group small {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding-top: 4px;
+}
+
+/* All main action buttons */
 button {
-  background-color: #007aff;
-  color: white;
-  border: none;
-  padding: 12px 16px;
-  border-radius: 4px;
-  font-size: 1em;
-  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
-  margin-top: 10px; /* Add some space above buttons */
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
-button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
 button:disabled {
-  background-color: #aaa;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-
-.message {
-  font-weight: 600;
-  margin-top: 15px;
-  padding: 10px;
-  border-radius: 4px;
-  background-color: #e6f7ff;
-  border: 1px solid #91d5ff;
-  color: #0056b3;
-}
-.error-message {
-  font-weight: 600;
-  margin-top: 15px;
-  padding: 10px;
-  border-radius: 4px;
-  background-color: #fff1f0;
-  border: 1px solid #ffccc7;
-  color: #cf1322;
-}
-.loading-text {
-    font-style: italic;
-    color: #555;
-    margin-top: 10px;
-}
-
-
-.queue-subtitle {
-  font-size: 1.1em;
-  color: #555;
-  margin-top: 20px;
-  margin-bottom: 5px;
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 5px;
-}
-
-.queue-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 15px 0; /* Add bottom margin */
-}
-
-.queue-list li {
-  padding: 10px 5px; /* Adjust padding */
-  border-bottom: 1px solid #eee;
-  font-size: 1.1em;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.queue-list li:last-child {
-  border-bottom: none;
-}
-
-.in-progress {
-  font-weight: 700;
-  color: #007aff;
-  background-color: #f0f7ff;
-  border-radius: 4px;
-  padding: 10px 5px;
-}
-.up-next { /* Style for Barber Dashboard's 'Up Next' section */
-  font-weight: 700;
-  color: #e67e22; /* Orange for Up Next */
-  background-color: #fff8f0;
-  border-radius: 4px;
-   padding: 10px 5px;
-}
-.up-next-public { /* Style for Customer's view of 'Up Next' */
-    background-color: #fff8f0; /* Light orange */
-     border-left: 4px solid #e67e22;
-     font-weight: 600;
-}
-
-
-.empty-text {
-  font-style: italic;
-  color: #888;
-  font-size: 0.9em;
-  padding: 10px 5px;
-}
-
-
-/* --- Action Buttons --- */
-.next-button {
+/* Primary "Submit" button */
+form button[type="submit"] {
   width: 100%;
-  background-color: #34c759; /* Green */
-}
-.next-button:hover:not(:disabled) {
-  background-color: #2a9e46;
-}
-.next-button.disabled {
-    background-color: #aaa;
-    cursor: not-allowed;
-}
-
-.complete-button {
-  width: 100%;
-  background-color: #ff9500; /* Orange */
-}
-.complete-button:hover {
-  background-color: #d98000;
-}
-
-/* --- Analytics Card --- */
-.analytics-card {
-  background-color: #f9f9f9;
-  border: 1px solid #e0e0e0;
-}
-
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 10px;
-  margin-bottom: 20px;
-}
-
-.dashboard-header h2 {
-  margin: 0;
+  padding: 12px;
+  font-size: 1rem;
+  color: #000;
+  background-color: var(--primary-orange);
   border: none;
-  padding: 0;
 }
 
-.toggle-visibility-button {
-  background-color: #6c757d; /* Grey */
-  font-size: 0.8em;
-  padding: 6px 10px;
+form button[type="submit"]:hover:not(:disabled) {
+  background-color: var(--primary-orange-hover);
 }
 
-.analytics-subtitle {
-  font-size: 1.1em;
-  color: #333;
-  margin-top: 25px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 5px;
-  font-weight: 600;
-}
-
-/* Use Grid for better alignment */
-.analytics-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* Two columns */
-    gap: 15px; /* Space between items */
-    margin-bottom: 15px;
-}
-
-.analytics-item {
-  display: flex; /* Use flex within each grid item */
-  flex-direction: column; /* Stack label and value vertically */
-  align-items: flex-start; /* Align text to the start */
-  padding: 10px;
-  background-color: #fff;
-  border-radius: 4px;
-  border: 1px solid #eee;
-  /* Remove bottom border from previous style */
-  border-bottom: 1px solid #eee;
-}
-.analytics-item:last-of-type {
-   border-bottom: 1px solid #eee; /* Ensure last item still has border if needed */
-}
-
-
-.analytics-label {
-  font-size: 0.85em; /* Smaller label */
-  color: #555;
-  margin-bottom: 3px; /* Space between label and value */
-  font-weight: 500;
-}
-
-.analytics-value {
-  font-size: 1.5em; /* Adjust size */
-  font-weight: 700;
-  color: #34c759; /* Keep green for main values */
-}
-/* Style for smaller values like Avg Price, Queue Size */
-.analytics-value.small {
-    font-size: 1.2em;
-    color: #555; /* Neutral color */
-}
-
-
-.chart-container {
+.toggle-auth-button {
+  background: none;
+  border: none;
+  color: var(--primary-orange);
+  display: block;
+  width: 100%;
   margin-top: 20px;
-  margin-bottom: 15px;
-  position: relative; /* Needed for chart responsiveness */
-  /* height: 250px; /* Give chart container explicit height */
+  padding: 5px;
 }
 
-.refresh-button {
-  width: 100%;
-  background-color: #5856d6; /* Indigo */
-}
-.refresh-button:hover {
-  background-color: #4946b9;
-}
-.refresh-button.small {
-    width: auto;
-    padding: 6px 10px;
-    font-size: 0.8em;
-    margin-top: 10px;
-}
-
-
-/* --- AI Generator Section --- */
-.ai-generator {
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
-  padding: 15px 0;
-  margin: 20px 0;
-}
-
-.ai-title {
-  font-size: 1.1em;
-  font-weight: 600;
-  color: #333;
-  margin-top: 0;
-  margin-bottom: 15px;
-}
-
-.generate-button {
-  width: 100%;
-  background-color: #5e5ce6; /* Indigo */
-  margin-bottom: 15px;
-}
-.generate-button:hover:not(:disabled) {
-  background-color: #4946b9;
-}
-
-.image-preview img {
-  width: 100%;
-  max-width: 350px; /* Limit max size */
-  border-radius: 8px;
-  margin-top: 10px;
-  border: 1px solid #eee;
-}
-
-.success-text {
-  font-weight: 600;
-  color: #34c759;
-  font-size: 0.9em;
-  margin-top: 5px;
-}
-
-.join-queue-button {
-  width: 100%;
-  font-size: 1.1em;
-  background-color: #007aff; /* Standard blue */
-}
-
-.photo-link {
-  margin-left: 10px;
-  font-size: 0.8em;
-  font-weight: 600;
-  color: #007aff;
-  text-decoration: none;
-  background-color: #f0f7ff;
-  padding: 3px 6px;
-  border-radius: 3px;
-  white-space: nowrap; /* Prevent link from wrapping */
-}
-.photo-link:hover {
+.toggle-auth-button:hover {
   text-decoration: underline;
-  background-color: #e6f2ff;
 }
 
-/* --- Styles for Live Queue View --- */
-.live-queue-view h2 {
-    margin-bottom: 15px; /* Less margin */
-}
-
-.queue-list.live {
-    margin-bottom: 20px;
-    max-height: 300px; /* Limit height and allow scroll if needed */
-    overflow-y: auto;
-    border: 1px solid #eee; /* Add border around the list */
-    border-radius: 4px;
-}
-
-.queue-list.live li {
-    font-size: 1em; /* Slightly smaller */
-    padding: 8px 10px;
-    background-color: #f9f9f9;
-    border: none; /* Remove individual borders */
-    border-bottom: 1px solid #eee; /* Use bottom border as separator */
-    margin-bottom: 0; /* Remove margin */
-    border-radius: 0; /* No radius on list items */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-/* Remove border from last item */
-.queue-list.live li:last-child {
-    border-bottom: none;
-}
-
-.queue-list.live li.my-position {
-    background-color: #e6f7ff; /* Light blue for user's position */
-    border-left: 4px solid #007aff;
-    font-weight: 600;
-}
-
-.queue-list.live li.up-next-public {
-    background-color: #fff8f0; /* Light orange for up next */
-     border-left: 4px solid #e67e22;
-     font-weight: 600;
-}
-
-
-.queue-status {
-    font-size: 0.8em;
-    font-weight: 500;
-    color: #777;
-    background-color: #eee;
-    padding: 2px 6px;
-    border-radius: 10px;
-    text-transform: capitalize; /* Make status look nicer */
-}
-.up-next-public .queue-status {
-    background-color: #e67e22;
-    color: white;
-}
-.my-position .queue-status {
-    background-color: #007aff;
-    color: white;
-}
-
-
-.leave-queue-button {
-    background-color: #ff3b30; /* Red */
-    width: 100%;
-}
-.leave-queue-button:hover {
-    background-color: #c53028;
-}
-
-/* Ensure chart container has height */
-.chart-container > div {
-    height: 250px !important; /* Force height for chart canvas */
-    width: 100% !important;
-}
-/* --- Add these styles for Login Role Toggle --- */
-
-.login-role-select {
-    margin-top: 20px;
-    margin-bottom: 10px;
-    border-top: 1px solid #eee;
-    padding-top: 15px;
-}
-
-.login-role-select label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 8px;
-    font-size: 0.9em;
-    color: #555;
-}
-
+/* Role Toggle (Customer/Barber) */
 .role-toggle {
-    display: flex;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    overflow: hidden; /* Ensures rounded corners contain buttons */
+  display: flex;
+  width: 100%;
+  margin-bottom: 15px;
 }
 
 .role-toggle button {
-    flex: 1; /* Each button takes half the space */
-    padding: 10px;
-    margin: 0;
-    border: none;
-    background-color: #f0f0f0;
-    color: #555;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-weight: 500;
-    border-radius: 0; /* Remove individual radius */
-    transition: background-color 0.2s, color 0.2s;
+  width: 50%;
+  padding: 10px;
+  font-size: 0.9rem;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .role-toggle button:first-child {
-    border-right: 1px solid #ccc; /* Separator */
+  border-radius: 6px 0 0 6px;
+  border-right: none;
+}
+
+.role-toggle button:last-child {
+  border-radius: 0 6px 6px 0;
 }
 
 .role-toggle button.active {
-    background-color: #007aff;
-    color: white;
-    font-weight: 600;
+  background: var(--primary-orange);
+  color: #000;
+  border-color: var(--primary-orange);
 }
 
-.form-group.pin-input {
-    margin-top: 10px;
-}
-/* --- Add these styles for Signup Role Toggle --- */
-
-.signup-role-select {
-    margin-bottom: 15px; /* Space below toggle */
-}
-
-.signup-role-select label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 8px;
-    font-size: 0.9em;
-    color: #555;
-}
-
-/* Reuse existing role-toggle styles */
-.signup-role-select .role-toggle {
-    display: flex;
-    margin-bottom: 0; /* No margin below buttons themselves */
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.signup-role-select .role-toggle button {
-    flex: 1;
-    padding: 10px;
-    margin: 0;
-    border: none;
-    background-color: #f0f0f0;
-    color: #555;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-weight: 500;
-    border-radius: 0;
-    transition: background-color 0.2s, color 0.2s;
-}
-.signup-role-select .role-toggle button:first-child {
-    border-right: 1px solid #ccc;
-}
-.signup-role-select .role-toggle button.active {
-    background-color: #007aff;
-    color: white;
-    font-weight: 600;
-}
-/* --- NEW: Styles for EWT Display --- */
-.ewt-container {
-    display: flex;
-    justify-content: space-between;
-    background-color: #f9f9f9;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 20px;
-}
-
-.ewt-item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-}
-
-.ewt-item span {
-    font-size: 0.9em;
-    color: #555;
-    /* You can add icons here later if you want */
-}
-
-.ewt-item strong {
-    font-size: 1.4em;
-    font-weight: 600;
-    color: #000;
-}
-
-/* Style for In Progress on customer's live queue view */
-.queue-list.live li.in-progress-public {
-    background-color: #f0f7ff;
-    border-left: 4px solid #007aff;
-    opacity: 0.7; /* Make 'In Progress' slightly faded */
-}
-/* --- NEW: Style for the Queue Number Display --- */
-.queue-number-display {
-    font-size: 1.1em;
-    font-weight: 500;
-    text-align: center;
-    margin-bottom: 15px;
-    background-color: #e6f7ff; /* Light blue background */
-    border: 1px solid #91d5ff; /* Blue border */
-    color: #0056b3; /* Dark blue text */
-    padding: 12px;
-    border-radius: 6px;
-}
-
-.queue-number-display strong {
-    font-size: 1.3em;
-    font-weight: 700;
-    display: block; /* Makes the number appear on its own line */
-    margin-top: 4px;
-}
-/* --- NEW: Styles for Carbon Footprint --- */
-
-.analytics-value.carbon {
-    color: #28a745; /* A standard green color */
-    font-size: 1.4em; /* Match other values */
-}
-
-.carbon-unit {
-    font-size: 0.7em;
-    color: #555;
-    font-weight: 500;
-    margin-left: 4px;
-}
-
-/* Style based on your screenshot */
-.carbon-footnote {
-    font-size: 0.9em;
-    color: #065535; /* Darker green text */
-    margin-top: 20px;
-    margin-bottom: 5px; /* Space before chart */
-    padding: 12px;
-    background-color: #d7f3e0; /* Light green background */
-    border-radius: 6px;
-    text-align: center;
-}
-/* The dark background overlay */
-.modal-overlay {
-  display: none; /* Hidden by default */
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.6); /* Black with opacity */
-  
-  /* To center the content */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* The modal pop-up box */
-.modal-content {
-  background-color: #ffffff;
-  color: #333;
-  margin: auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 80%;
-  max-width: 400px;
-  border-radius: 8px;
-  text-align: center;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-/* Style the close button */
-#close-modal-btn {
-  background-color: #007bff; /* Change to your app's primary color */
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
+.pin-input {
   margin-top: 15px;
 }
-/* === Add this to app.css === */
 
-/* === Add this to app.css (REPLACE the old styles) === */
+/* ===================================================================
+   BARBER DASHBOARD STYLES
+   =================================================================== */
 
-.current-serving-display {
+/* --- Availability Toggle --- */
+.availability-toggle {
   display: flex;
-  justify-content: center; /* Center the items */
-  width: 100%;
-  margin: 15px 0;
-  background-color: #f4f4f4;
-  border-radius: 8px;
-  padding: 10px 0; /* Vertical padding */
+  align-items: center;
+  gap: 10px;
+}
+.availability-toggle p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.availability-toggle strong {
+  color: var(--text-primary);
+}
+
+/* Go Online/Offline Buttons */
+.go-online-button,
+.go-offline-button {
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  border: none;
+  color: white;
+}
+.go-online-button {
+  background-color: var(--go-online-color);
+}
+.go-online-button:hover {
+  background-color: #30a34c;
+}
+.go-offline-button {
+  background-color: var(--go-offline-color);
+}
+.go-offline-button:hover {
+  background-color: #d13025;
+}
+
+.logout-button {
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  border: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+  color: var(--text-secondary);
+}
+.logout-button:hover {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+}
+
+/* --- Serving Display --- */
+.current-serving-display {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
 }
 
 .serving-item {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  width: 50%; /* <-- Force each item to take 50% width */
-  box-sizing: border-box; 
+  padding: 15px;
+  border-radius: 8px;
+  background: var(--bg-dark);
 }
-
-/* Add a divider between the two */
-.serving-item.now-serving {
-   border-right: 1px solid #ddd;
-}
-
 .serving-item span {
-  font-size: 0.9em;
-  color: #666;
-  margin-bottom: 4px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
 }
-
 .serving-item strong {
-  font-size: 1.4em;
-  font-weight: 600;
+  font-size: 1.8rem;
+  color: var(--text-primary);
 }
-
-/* Specific colors */
-.serving-item.now-serving strong {
-  color: #dc3545; /* Red */
-}
-
 .serving-item.up-next strong {
-  color: #28a745; /* Green */
+  color: var(--primary-orange);
 }
 
-.prefilled-input {
-  background-color: #eee;
-  color: #777;
-  cursor: not-allowed;
+/* --- Action Buttons --- */
+.action-buttons-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
 }
-/* === Add this to app.css === */
-.chat-toggle-button {
-  display: block;
-  width: calc(100% - 40px); /* Match other elements */
-  margin: 15px auto;
-  padding: 10px 15px;
-  background-color: #6c757d; /* Grey color */
-  color: white;
+.action-buttons-container button {
+  padding: 12px;
+  font-size: 1rem;
   border: none;
-  border-radius: 5px;
-  font-size: 1em;
-  cursor: pointer;
-  text-align: center;
+}
+.next-button, .complete-button {
+  background-color: var(--primary-orange);
+  color: #000;
+  grid-column: 1 / -1; /* Make it span full width */
+}
+.next-button:hover, .complete-button:hover {
+  background-color: var(--primary-orange-hover);
+}
+.cancel-button {
+  background-color: var(--error-color);
+  color: white;
+  grid-column: 1 / -1; /* Make it span full width */
 }
 
-.chat-toggle-button.close {
-    background-color: #dc3545; /* Red for close */
+/* --- Queue Lists --- */
+.queue-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-orange);
+  margin: 20px 0 10px 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-color);
 }
-
-/* Basic Chat Window Styling (Add more as needed) */
-.chat-window {
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    margin: 15px 20px; /* Consistent margin */
-    background-color: #f9f9f9;
-    height: 300px; /* Example height */
-    display: flex;
-    flex-direction: column;
+.queue-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
-.message-list {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 10px;
+.queue-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 10px;
+  border-radius: 6px;
+  background: var(--bg-dark);
+  margin-bottom: 8px;
+  font-weight: 500;
 }
-.message-input-form {
-    display: flex;
-    border-top: 1px solid #ccc;
-    padding: 5px;
+.queue-list li.in-progress {
+  border: 1px solid var(--success-color);
 }
-.message-input-form input {
-    flex-grow: 1;
-    border: 1px solid #ddd;
-    padding: 8px;
-    border-radius: 3px;
-    margin-right: 5px;
+.queue-list li.up-next {
+  border: 1px solid var(--primary-orange);
 }
-.message-input-form button {
-    padding: 8px 12px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-}
-.my-message {
-    text-align: right;
-    margin: 5px 0;
-    padding: 8px 12px;
-    background-color: #d1ecf1; /* Light blue */
-    border-radius: 10px;
-    margin-left: auto; /* Push to right */
-    max-width: 70%;
-}
-.other-message {
-    text-align: left;
-    margin: 5px 0;
-    padding: 8px 12px;
-    background-color: #e2e3e5; /* Light grey */
-    border-radius: 10px;
-    margin-right: auto; /* Push to left */
-    max-width: 70%;
-}
-/* === Add this to app.css === */
-
 .chat-icon-button {
   background: none;
   border: none;
-  font-size: 1.1em; /* Adjust size */
-  cursor: pointer;
-  margin-left: 8px; /* Space from name */
-  padding: 0 5px;
-  vertical-align: middle; /* Align with text */
+  font-size: 1.2rem;
+  padding: 5px;
+  position: relative;
+}
+.notification-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--error-color);
+  border: 1px solid var(--surface-color);
 }
 
-.barber-chat-container {
+/* --- Analytics --- */
+.analytics-card .dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.toggle-visibility-button {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding: 5px 8px;
+}
+
+.analytics-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 20px 0 10px 0;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.analytics-item {
+  background: var(--bg-dark);
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+}
+.analytics-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+.analytics-value {
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: var(--primary-orange);
+}
+.analytics-value.small {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+.analytics-value.carbon {
+  color: var(--success-color);
+}
+.carbon-unit {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.chart-container {
   margin-top: 20px;
-  border-top: 1px solid #eee;
-  padding-top: 15px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+.refresh-button {
+  width: 100%;
+  padding: 10px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  margin-top: 15px;
+}
+.refresh-button:hover {
+  background: #2a2a2a;
+  color: var(--text-primary);
 }
 
-.barber-chat-container h4 {
-    text-align: center;
-    margin-bottom: 10px;
-    color: #555;
-}
+/* ===================================================================
+   CUSTOMER VIEW STYLES
+   =================================================================== */
 
-.chat-toggle-button.small {
-    width: auto; /* Allow button to shrink */
-    padding: 5px 10px;
-    font-size: 0.9em;
-    margin-top: 5px; /* Add some space */
-}
-
-/* Make sure queue list items can contain the button */
-.queue-list li {
-    display: flex; /* Use flexbox for alignment */
-    justify-content: space-between; /* Push elements apart */
-    align-items: center; /* Vertically align */
-}
-
-.queue-list li strong {
-    flex-grow: 1; /* Allow name to take up space */
-    margin-right: 5px; /* Space before icon */
-}
-.cancel-button {
-  /* Style similarly to complete/next, maybe red? */
-  background-color: #dc3545; /* Red */
-  color: white;
+.join-queue-button {
+  width: 100%;
+  padding: 14px;
+  font-size: 1.1rem;
+  color: #000;
+  background-color: var(--primary-orange);
   border: none;
-  padding: 10px 15px;
-  margin-top: 5px; /* Add some space if needed */
-   margin-left: 10px; /* Space from complete button */
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.9em; /* Slightly smaller maybe */
+  margin-top: 10px;
+}
+.join-queue-button:hover {
+  background-color: var(--primary-orange-hover);
 }
 
-.action-buttons-container {
-    margin-bottom: 15px; /* Space below buttons */
-    display: flex; /* Align buttons side-by-side */
-    justify-content: center; /* Center buttons */
-    gap: 10px; /* Space between buttons */
-}
-/* Simple Notification Badge */
-.notification-badge {
-  background-color: red;
-  color: white;
-  border-radius: 50%; /* Make it round */
-  padding: 2px 6px; /* Adjust padding for size */
-  font-size: 0.7em; /* Smaller font */
-  position: relative; /* Needed for potential positioning adjustments */
-  top: -5px; /* Adjust vertical position */
-  left: -3px; /* Adjust horizontal position */
-  margin-left: 2px; /* Space from the element it's next to */
-  display: inline-block; /* Allow positioning */
-  line-height: 1; /* Keep it tight */
-  min-width: 10px; /* Ensure minimum width for single digit */
+.live-queue-view .queue-number-display {
   text-align: center;
+  margin-bottom: 20px;
+}
+.live-queue-view .queue-number-display strong {
+  font-size: 2.5rem;
+  color: var(--primary-orange);
+  display: block;
 }
 
-/* Add relative positioning to the chat icon button if needed */
-.chat-icon-button {
-    position: relative; /* Helps position the badge */
+.queue-list.live li.my-position {
+  border: 2px solid var(--primary-orange);
+  background: #3a2a00;
+  font-weight: 600;
+}
+.queue-list.live .queue-status {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.queue-list.live .in-progress-public .queue-status {
+  color: var(--success-color);
+}
+.queue-list.live .up-next-public .queue-status {
+  color: var(--primary-orange);
+}
+
+.leave-queue-button, .chat-toggle-button {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  margin-top: 15px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-dark);
+  color: var(--text-secondary);
+}
+.leave-queue-button:hover, .chat-toggle-button:hover {
+  background: #2a2a2a;
+  color: var(--text-primary);
+}
+.leave-queue-button {
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+.leave-queue-button:hover {
+  background-color: rgba(255, 59, 48, 0.1);
+  color: #ff5e52;
 }
 .chat-toggle-button {
-     position: relative; /* Helps position the badge */
+  position: relative;
 }
-/* Simple Notification Badge */
-.notification-badge {
-  background-color: red;
-  color: white;
-  border-radius: 50%; /* Make it round */
-  padding: 2px 6px; /* Adjust padding for size */
-  font-size: 0.7em; /* Smaller font */
-  position: absolute; /* Position relative to the button */
-  top: -5px; /* Adjust vertical position */
-  right: -5px; /* Adjust horizontal position */
-  display: inline-block; /* Allow positioning */
-  line-height: 1; /* Keep it tight */
-  min-width: 10px; /* Ensure minimum width for single digit */
-  text-align: center;
-  border: 1px solid white; /* Optional: adds a small border */
+.chat-toggle-button .notification-badge {
+  top: 10px;
+  right: 15px;
+  width: 12px;
+  height: 12px;
 }
 
-/* Add relative positioning to the chat icon button if needed */
-.chat-icon-button {
-    position: relative; /* Helps position the badge */
+/* EWT Display */
+.ewt-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 15px 0;
+  background: var(--bg-dark);
+  padding: 10px;
+  border-radius: 8px;
 }
-.chat-toggle-button {
-     position: relative; /* Helps position the badge */
+.ewt-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.instructions-modal {
-  text-align: left; /* Align text to the left for lists */
+.ewt-item span {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.ewt-item strong {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ===================================================================
+   MODAL & CHAT STYLES
+   =================================================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--surface-color);
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+.modal-content h2 {
+  color: var(--primary-orange);
+  margin-top: 0;
+}
+.modal-content p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.modal-content button {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  color: #000;
+  background-color: var(--primary-orange);
+  border: none;
+  margin-top: 10px;
 }
 
 .instructions-list {
-  padding-left: 25px; /* Add some indentation */
-  margin-top: 15px;
-  margin-bottom: 20px;
+  text-align: left;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
-.instructions-list li {
-  margin-bottom: 10px; /* Space out the list items */
-  line-height: 1.4;
-}
-.ai-recommendation-section {
-  margin-top: 20px;
-}
-.recommendation-list {
+.chat-window {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-dark);
+  margin-top: 15px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
+  height: 300px; /* Or whatever height you prefer */
 }
-.recommendation-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.message-list {
+  flex-grow: 1;
+  overflow-y: auto;
   padding: 10px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  transition: all 0.2s;
 }
-.recommendation-item.selected {
-  border-color: #007bff;
-  box-shadow: 0 2px 8px rgba(0,123,255,0.2);
+.my-message, .other-message {
+  padding: 8px 12px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+  max-width: 80%;
+  word-wrap: break-word;
 }
-.rec-text {
+.my-message {
+  background: var(--primary-orange);
+  color: #000;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+.other-message {
+  background: #333;
+  color: var(--text-primary);
+  margin-right: auto;
+  border-bottom-left-radius: 4px;
+}
+.message-input-form {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: flex-start;
+  border-top: 1px solid var(--border-color);
 }
-.rec-text .ai-link {
-  font-size: 0.8em;
-  padding: 2px 6px;
-  margin-left: 0; /* Remove margin from photo link */
-}
-.select-button.small {
-  padding: 5px 10px;
-  font-size: 0.9em;
-  min-width: 70px;
-}
-.join-with-ai-options {
-  margin-top: 15px;
-}
-/* --- Add this to your App.css file --- */
-
-.ai-generator .recommendation-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-.ai-generator .recommendation-option {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.message-input-form input {
+  flex-grow: 1;
+  border: none;
+  background: none;
   padding: 12px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+.message-input-form input:focus {
+  outline: none;
+}
+.message-input-form button {
+  background: none;
+  border: none;
+  color: var(--primary-orange);
+  padding: 0 15px;
+  font-size: 0.9rem;
+}
+.message-input-form button:disabled {
+  color: var(--text-secondary);
 }
 
-.ai-generator .recommendation-option:hover {
-  background-color: #f9f9f9;
-  border-color: #ccc;
-}
+/* ===================================================================
+   NEW FEEDBACK FEATURE STYLES (BLACK & ORANGE)
+   =================================================================== */
 
-.ai-generator .recommendation-option.selected {
-  border-color: #007aff;
-  background-color: #f0f7ff;
-  box-shadow: 0 0 5px rgba(0,122,255,0.5);
-}
-
-.ai-generator .recommendation-name {
-  font-weight: 600;
-  margin-right: 10px;
-}
-
-.ai-generator .recommendation-option a {
-  font-size: 0.9em;
-  text-decoration: none;
-  color: #007aff;
-  font-weight: 500;
-  padding: 5px 8px;
-  border-radius: 5px;
-  background-color: #f0f0f0;
-}
-
-.ai-generator .recommendation-option a:hover {
-  background-color: #e0e0e0;
-  text-decoration: underline;
-}
 .feedback-list-container {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Makes the customer feedback smaller */
+.customer-feedback {
+  margin-top: 0;
+  padding-top: 10px;
+  border-top: none;
+  max-height: 150px; /* Gives it a scrollbar if too long */
+  overflow-y: auto;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 15px;
+}
+
+.feedback-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 5px 0;
+  padding-left: 5px;
+}
+
+.analytics-card .feedback-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 5px; /* For scrollbar space */
 }
 
 .feedback-list {
   list-style: none;
   padding: 0;
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 .feedback-item {
-  background: #f9f9f9;
-  border: 1px solid #eee;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 10px;
+}
+
+.customer-feedback .feedback-item {
+  padding: 8px;
+  margin-bottom: 5px;
 }
 
 .feedback-header {
@@ -1014,18 +731,28 @@ button:disabled {
   margin-right: 8px;
 }
 
+.customer-feedback .feedback-score {
+  font-size: 1rem;
+  margin-right: 5px;
+}
+
 .feedback-customer {
   font-weight: 600;
   font-size: 0.9rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .feedback-comment {
   font-size: 0.95rem;
-  color: #555;
+  color: var(--text-secondary);
   font-style: italic;
   margin: 0;
   padding-left: 26px; /* Aligns with customer name */
+}
+
+.customer-feedback .feedback-comment {
+  font-size: 0.9rem;
+  padding-left: 24px;
 }
 
 /* Feedback form in modal */
@@ -1040,29 +767,65 @@ button:disabled {
   width: 100%;
   min-height: 70px;
   border-radius: 6px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   padding: 8px;
   font-family: inherit;
   font-size: 0.95rem;
   margin-bottom: 10px;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
 }
+.feedback-form textarea:focus {
+  outline: none;
+  border-color: var(--primary-orange);
+}
+
 
 .feedback-form button {
   width: 100%;
   padding: 12px;
-  background-color: #007aff;
-  color: white;
+  background-color: var(--primary-orange);
+  color: #000;
   border: none;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
 }
+.feedback-form button:hover {
+  background-color: var(--primary-orange-hover);
+}
 
 .modal-content .skip-button {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   margin-top: 5px;
   cursor: pointer;
+}
+.modal-content .skip-button:hover {
+  color: var(--text-primary);
+}
+
+/* Utility classes */
+.empty-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 10px 5px;
+}
+
+.error-message {
+  color: var(--error-color);
+  background: rgba(255, 59, 48, 0.1);
+  border: 1px solid var(--error-color);
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.message.error {
+  color: var(--error-color);
+}
+.message.success {
+  color: var(--success-color);
 }

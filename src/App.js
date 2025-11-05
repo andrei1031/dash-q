@@ -34,9 +34,6 @@ if (supabaseUrl && supabaseAnonKey) {
 }
 
 // --- Helper Function: Calculate Distance ---
-/**
- * Calculates the distance between two lat/lon points in meters
- */
 function getDistanceInMeters(lat1, lon1, lat2, lon2) {
   const R = 6371e3; // Earth's radius in meters
   const phi1 = (lat1 * Math.PI) / 180;
@@ -544,8 +541,6 @@ function CustomerView({ session }) {
    const [queueMessage, setQueueMessage] = useState('');
    const [estimatedWait, setEstimatedWait] = useState(0);
    const [peopleWaiting, setPeopleWaiting] = useState(0);
-   // const [prompt, setPrompt] = useState(''); // <<< REMOVED
-   // const [isGenerating, setIsGenerating] = useState(false); // <<< REMOVED
    const [isLoading, setIsLoading] = useState(false);
    const [isQueueLoading, setIsQueueLoading] = useState(true);
    const [services, setServices] = useState([]);
@@ -601,14 +596,11 @@ function CustomerView({ session }) {
            console.error("Failed fetch public queue:", error); setLiveQueue([]); liveQueueRef.current = []; setQueueMessage("Could not load queue data."); 
        } finally { setIsQueueLoading(false); }
    }, []);
-   
-   // <<< REMOVED handleGeneratePreview function >>>
-   
+      
    const handleJoinQueue = async (e) => {
         e.preventDefault();
         if (!customerName || !selectedBarberId || !selectedServiceId) { setMessage('Name, Barber, AND Service required.'); return; }
         if (myQueueEntryId) { setMessage('You are already checked in!'); return; }
-        // <<< REMOVED AI check >>>
         setIsLoading(true); setMessage('Joining queue...');
         try {
             const response = await axios.post(`${API_URL}/queue`, {
@@ -620,7 +612,6 @@ function CustomerView({ session }) {
                 service_id: selectedServiceId,
                 player_id: player_id,
                 user_id: session.user.id,
-                // <<< REMOVED ai_haircut_image_url and share_ai_image >>>
             });
             const newEntry = response.data;
             if (newEntry && newEntry.id) {
@@ -630,7 +621,6 @@ function CustomerView({ session }) {
                 setMyQueueEntryId(newEntry.id.toString());
                 setJoinedBarberId(newEntry.barber_id.toString());
                 setSelectedBarberId(''); setSelectedServiceId(''); 
-                // <<< REMOVED AI state resets >>>
             } else { throw new Error("Invalid response from server."); }
         } catch (error) {
             console.error('Failed to join queue:', error);
@@ -657,7 +647,6 @@ function CustomerView({ session }) {
         setSelectedServiceId(''); setMessage('');
         setIsChatOpen(false); setChatTargetBarberUserId(null); setHasUnreadFromBarber(false);
         setChatMessagesFromBarber([]); setDisplayWait(0); setEstimatedWait(0);
-        // <<< REMOVED AI state resets >>>
         
         // <<< ADDED Feedback state resets >>>
         setFeedbackText('');
