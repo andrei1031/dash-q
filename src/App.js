@@ -315,7 +315,9 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
 }
 
 // --- BarberDashboard (Handles Barber's Queue Management) ---
+// --- BarberDashboard (Handles Barber's Queue Management) ---
 function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
+    // --- State Definitions (These are correctly defined here) ---
     const [queueDetails, setQueueDetails] = useState({ waiting: [], inProgress: null, upNext: null });
     const [error, setError] = useState('');
     const [fetchError, setFetchError] = useState('');
@@ -323,8 +325,9 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [chatMessages, setChatMessages] = useState({});
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null); // This is the CUSTOMER'S USER ID
     const [openChatQueueId, setOpenChatQueueId] = useState(null); // The Queue ID of the current open chat
-    const [unreadMessages, setUnreadMessages] = useState({});
+    const [unreadMessages, setUnreadMessages] = useState({}); // This holds the badge state
 
+    // --- Utility Functions (Correctly defined here) ---
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
         setFetchError('');
@@ -342,7 +345,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         }
     }, [barberId]); 
 
-    // --- WebSocket Connection Effect for Barber (FIXED) ---
+    // --- WebSocket Connection Effect for Barber (FIXED scope) ---
     useEffect(() => {
         if (!session?.user?.id) return;
         if (!socketRef.current) {
@@ -378,7 +381,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         return () => { if (socketRef.current) { console.log("[Barber] Cleaning up WebSocket connection."); socketRef.current.disconnect(); socketRef.current = null; } };
     }, [session]); 
 
-    // UseEffect for initial load and realtime subscription
+    // --- UseEffect for initial load and realtime subscription ---
     useEffect(() => {
         if (!barberId || !supabase?.channel) return;
         let dashboardRefreshInterval = null;
