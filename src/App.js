@@ -963,6 +963,62 @@ function CustomerView({ session }) {
 }
 
 // ##############################################
+// ##           BARBER APP LAYOUT              ##
+// ##############################################
+function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
+  const [refreshAnalyticsSignal, setRefreshAnalyticsSignal] = useState(0);
+
+  const handleCutComplete = useCallback(() => {
+    setRefreshAnalyticsSignal(prev => prev + 1); // Trigger analytics refresh
+  }, []);
+
+  return (
+    <div className="barber-app-layout">
+      <header className="App-header">
+        <h1>Welcome, {barberProfile.full_name}!</h1>
+        <div className="header-actions">
+          <AvailabilityToggle
+            barberProfile={barberProfile}
+            session={session}
+            onAvailabilityChange={(newStatus) => setBarberProfile(prev => ({ ...prev, is_available: newStatus }))}
+          />
+          <button onClick={() => supabase.auth.signOut()} className="logout-button">Logout</button>
+        </div>
+      </header>
+      <div className="container">
+        <BarberDashboard
+          barberId={barberProfile.id}
+          barberName={barberProfile.full_name}
+          onCutComplete={handleCutComplete}
+          session={session}
+        />
+        <AnalyticsDashboard
+          barberId={barberProfile.id}
+          refreshSignal={refreshAnalyticsSignal}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ##############################################
+// ##           CUSTOMER APP LAYOUT            ##
+// ##############################################
+function CustomerAppLayout({ session }) {
+  return (
+    <div className="customer-app-layout">
+      <header className="App-header">
+        <h1>Welcome, {session.user?.user_metadata?.full_name || 'Customer'}!</h1>
+        <button onClick={() => supabase.auth.signOut()} className="logout-button">Logout</button>
+      </header>
+      <div className="container">
+        <CustomerView session={session} />
+      </div>
+    </div>
+  );
+}
+
+// ##############################################
 // ##           MAIN APP COMPONENT             ##
 // ##############################################
 function App() {
