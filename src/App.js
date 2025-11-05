@@ -316,6 +316,7 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
 
 // --- BarberDashboard (Handles Barber's Queue Management) ---
 function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
+    // --- State Definitions ---
     const [queueDetails, setQueueDetails] = useState({ waiting: [], inProgress: null, upNext: null });
     const [error, setError] = useState('');
     const [fetchError, setFetchError] = useState('');
@@ -323,7 +324,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [chatMessages, setChatMessages] = useState({});
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null); 
     const [openChatQueueId, setOpenChatQueueId] = useState(null); 
-    const [unreadMessages, setUnreadMessages] = useState({}); 
+    const [unreadMessages, setUnreadMessages] = useState({}); // This holds the badge state
 
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
@@ -342,7 +343,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         }
     }, [barberId]); 
 
-    // --- WebSocket Connection Effect for Barber ---
+    // --- WebSocket Connection Effect for Barber (FIXED) ---
     useEffect(() => {
         if (!session?.user?.id) return;
         if (!socketRef.current) {
@@ -365,6 +366,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 // 2. Handle unread status (This is the badge logic)
                 setOpenChatCustomerId(currentOpenChatId => { 
                      if (customerId !== currentOpenChatId) {
+                         // Message came from a different customer, or chat is closed.
                          setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true }));
                      }
                      return currentOpenChatId;
@@ -381,11 +383,11 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     useEffect(() => {
         if (!barberId || !supabase?.channel) return;
         let dashboardRefreshInterval = null;
-        fetchQueueDetails(); 
+        fetchQueueDetails(); // Initial fetch
         const channel = supabase.channel(`barber_queue_${barberId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `barber_id=eq.${barberId}` }, (payload) => {
                 console.log('Barber dashboard received queue update (via Realtime):', payload);
-                fetchQueueDetails(); 
+                fetchQueueDetails(); // Refetch details
             })
             .subscribe((status, err) => {
                 if (status === 'SUBSCRIBED') { console.log(`Barber dashboard subscribed to queue ${barberId}`); } 
@@ -444,7 +446,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     };
 
     const sendBarberMessage = (recipientId, messageText) => {
-        const queueId = openChatQueueId; 
+        const queueId = openChatQueueId; // Use the stored queue ID
         if (messageText.trim() && socketRef.current?.connected && session?.user?.id && queueId) {
             const messageData = { senderId: session.user.id, recipientId, message: messageText, queueId }; 
             socketRef.current.emit('chat message', messageData);
@@ -458,16 +460,16 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     
     const openChat = (customer) => {
         const customerUserId = customer?.profiles?.id;
-        const queueId = customer?.id; 
+        const queueId = customer?.id; // The queue entry ID is the 'id' field
         
         if (customerUserId && queueId) {
             console.log(`[openChat] Opening chat for ${customerUserId} on queue ${queueId}`);
             setOpenChatCustomerId(customerUserId);
-            setOpenChatQueueId(queueId); 
+            setOpenChatQueueId(queueId); // SET THE QUEUE ID
             
             setUnreadMessages(prev => {
                 const updated = { ...prev };
-                delete updated[customerUserId]; 
+                delete updated[customerUserId]; // Mark as read
                 return updated;
             });
 
@@ -476,7 +478,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 try {
                     const { data } = await supabase.from('chat_messages').select('sender_id, message').eq('queue_entry_id', queueId).order('created_at', { ascending: true });
                     const formattedHistory = data.map(msg => ({ senderId: msg.sender_id, message: msg.message }));
-                    setChatMessages(prev => ({ ...prev, [customerUserId]: formattedHistory }));
+                    setChatMessages(prev => ({ ...prev, [customerUserId]: formattedHistory })); // CORRECTLY UPDATES STATE
                 } catch(err) { console.error("Barber failed to fetch history:", err); }
             };
             fetchHistory();
@@ -484,7 +486,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         } else { console.error("Cannot open chat: Customer user ID or Queue ID missing.", customer); setError("Could not get customer details."); }
     };
     
-    const closeChat = () => { setOpenChatCustomerId(null); setOpenChatQueueId(null); }; 
+    const closeChat = () => { setOpenChatCustomerId(null); setOpenChatQueueId(null); }; // CLEAR BOTH
 
     // --- Render Barber Dashboard ---
     return (
