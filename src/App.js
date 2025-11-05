@@ -208,7 +208,7 @@ function AvailabilityToggle({ barberProfile, session, onAvailabilityChange }) {
             const response = await axios.put(`${API_URL}/barber/availability`, {
                 barberId: barberProfile.id, isAvailable: newAvailability, userId: session.user.id
             });
-            onAvailabilityChange(response.data.is_available);
+            onAvailabilityChange(response.data.is_available); // This prop is passed from BarberAppLayout
         } catch (err) { console.error("Failed toggle availability:", err); setError(err.response?.data?.error || "Could not update."); }
         finally { setLoading(false); }
     };
@@ -221,6 +221,7 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
    const [error, setError] = useState('');
    const [showEarnings, setShowEarnings] = useState(true);
 
+   // --- FIX: Wrap in useCallback ---
    const fetchAnalytics = useCallback(async () => {
       if (!barberId) return; setError('');
       try { 
@@ -229,8 +230,9 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
           setShowEarnings(response.data?.showEarningsAnalytics ?? true);
       } 
       catch (err) { console.error('Failed fetch analytics:', err); setError('Could not load analytics.'); setAnalytics({ totalEarningsToday: 0, totalCutsToday: 0, totalEarningsWeek: 0, totalCutsWeek: 0, dailyData: [], busiestDay: { name: 'N/A', earnings: 0 }, currentQueueSize: 0 }); }
-    }, [barberId]);
+    }, [barberId]); // Correct dependency
 
+    // --- FIX: Add fetchAnalytics to dependency array ---
     useEffect(() => { fetchAnalytics(); }, [refreshSignal, barberId, fetchAnalytics]);
 
     const avgPriceToday = (analytics.totalCutsToday ?? 0) > 0 ? ((analytics.totalEarningsToday ?? 0) / analytics.totalCutsToday).toFixed(2) : '0.00';
@@ -286,9 +288,10 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [fetchError, setFetchError] = useState('');
     const socketRef = useRef(null);
     const [chatMessages, setChatMessages] = useState({});
-    const [openChatCustomerId, setOpenChatCustomerId] = useState(null);
+    const [openChatCustomerId, setOpenChatCustomerId] = useState(null); // This is the CUSTOMER'S USER ID
     const [unreadMessages, setUnreadMessages] = useState({});
 
+    // --- FIX: Wrap fetchQueueDetails in useCallback ---
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
         setFetchError('');
@@ -304,8 +307,9 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             setFetchError(errMsg);
             setQueueDetails({ waiting: [], inProgress: null, upNext: null });
         }
-    }, [barberId]);
+    }, [barberId]); // Correct dependency
 
+    // --- WebSocket Connection Effect for Barber ---
     useEffect(() => {
         if (!session?.user?.id) return;
         if (!socketRef.current) {
@@ -320,6 +324,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 console.log(`[Barber] Received message from ${incomingMessage.senderId}:`, incomingMessage.message);
                 const customerId = incomingMessage.senderId;
                 setChatMessages(prev => { const msgs = prev[customerId] || []; return { ...prev, [customerId]: [...msgs, incomingMessage] }; });
+                // Use functional update to get latest state
                 setOpenChatCustomerId(currentOpenChatId => {
                      console.log(`[Barber] Checking if message sender ${customerId} matches open chat ${currentOpenChatId}`);
                      if (customerId !== currentOpenChatId) {
@@ -334,16 +339,17 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             socket.on('disconnect', (reason) => { console.log("[Barber] WebSocket disconnected:", reason); socketRef.current = null; });
         }
         return () => { if (socketRef.current) { console.log("[Barber] Cleaning up WebSocket connection."); socketRef.current.disconnect(); socketRef.current = null; } };
-    }, [session]);
+    }, [session]); // Dependency only on session
 
+    // UseEffect for initial load and realtime subscription
     useEffect(() => {
         if (!barberId || !supabase?.channel) return;
         let dashboardRefreshInterval = null;
-        fetchQueueDetails();
+        fetchQueueDetails(); // Initial fetch
         const channel = supabase.channel(`barber_queue_${barberId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `barber_id=eq.${barberId}` }, (payload) => {
                 console.log('Barber dashboard received queue update (via Realtime):', payload);
-                fetchQueueDetails();
+                fetchQueueDetails(); // Refetch details
             })
             .subscribe((status, err) => {
                 if (status === 'SUBSCRIBED') { console.log(`Barber dashboard subscribed to queue ${barberId}`); } 
@@ -354,8 +360,9 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             if (channel && supabase?.removeChannel) { supabase.removeChannel(channel).then(() => console.log('Barber unsubscribed.')); }
             if (dashboardRefreshInterval) { clearInterval(dashboardRefreshInterval); }
         };
-    }, [barberId, fetchQueueDetails]);
+    }, [barberId, fetchQueueDetails]); // <<< FIX: Added fetchQueueDetails
 
+    // --- Handlers ---
     const handleNextCustomer = async () => {
         const next = queueDetails.upNext || (queueDetails.waiting.length > 0 ? queueDetails.waiting[0] : null);
         if (!next) { alert('Queue empty!'); return; }
@@ -424,8 +431,10 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     };
     const closeChat = () => { setOpenChatCustomerId(null); };
 
+    // --- Debug Log ---
     console.log("[BarberDashboard] Rendering with state:", { barberId, queueDetails: { waiting: queueDetails.waiting.length, inProgress: !!queueDetails.inProgress, upNext: !!queueDetails.upNext }, error, fetchError, openChatCustomerId, unreadMessages });
 
+    // --- Render Barber Dashboard ---
     return (
         <div className="card">
             <h2>My Queue ({barberName || '...'})</h2>
