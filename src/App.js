@@ -526,6 +526,8 @@ function CustomerView({ session }) {
    const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const socketRef = useRef(null);
    const liveQueueRef = useRef([]); // For smart EWT
+   const [feedbackText, setFeedbackText] = useState('');
+   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
    
    // --- AI Text-to-Image State (FIXED) ---
     // <<< FIX: Renamed state to be more accurate for text/links
@@ -660,6 +662,9 @@ function CustomerView({ session }) {
         // <<< FIX: Clear AI state on leave
         setRecommendations([]); setSelectedAiLink(null); setShareAiImage(false);
         console.log("[handleReturnToJoin] State reset complete.");
+
+        setFeedbackText('');
+        setFeedbackSubmitted(false);
    };
    
    const handleModalClose = () => { setIsYourTurnModalOpen(false); stopBlinking(); };
@@ -849,7 +854,63 @@ function CustomerView({ session }) {
          {/* --- THIS IS YOUR NEW MODAL TEXT --- */}
          <div id="your-turn-modal-overlay" className="modal-overlay" style={{ display: isYourTurnModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>Great, you’re up next!</h2><p>Please take a seat and stay put.</p><button id="close-modal-btn" onClick={handleModalClose}>Okay!</button></div></div>
          
-         <div className="modal-overlay" style={{ display: isServiceCompleteModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>Service Complete!</h2><p>Thank you!</p><button id="close-complete-modal-btn" onClick={() => handleReturnToJoin(false)}>Okay</button></div></div>
+         <div className="modal-overlay" style={{ display: isServiceCompleteModalOpen ? 'flex' : 'none' }}>
+            <div className="modal-content">
+
+                {!feedbackSubmitted ? (
+                    <>
+                        <h2>Service Complete!</h2>
+                        <p>Thank you! How was your experience with {currentBarberName}?</p>
+
+                        <form className="feedback-form" onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (!feedbackText.trim()) {
+                                setFeedbackSubmitted(true); // Allow skipping
+                                return;
+                            }
+                            try {
+                                await axios.post(`${API_URL}/feedback`, {
+                                    barber_id: joinedBarberId,
+                                    customer_name: customerName,
+                                    comments: feedbackText
+                                });
+                            } catch (err) {
+                                console.error("Failed to submit feedback", err);
+                            }
+                            setFeedbackSubmitted(true); // Mark as submitted
+                        }}>
+                            <textarea
+                                value={feedbackText}
+                                onChange={(e) => setFeedbackText(e.target.value)}
+                                placeholder="Leave optional feedback..."
+                            />
+                            <button type="submit">Submit Feedback</button>
+                        </form>
+                        <button 
+                            className="skip-button" 
+                            onClick={() => setFeedbackSubmitted(true)}
+                        >
+                            Skip
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <h2>Feedback Sent!</h2>
+                        <p>Thank you for visiting!</p>
+                        <button 
+                            id="close-complete-modal-btn" 
+                            onClick={() => {
+                                handleReturnToJoin(false);
+                                setFeedbackText(''); // Reset for next time
+                                setFeedbackSubmitted(false); // Reset for next time
+                            }}
+                        >
+                            Okay
+                        </button>
+                    </>
+                )}
+            </div>
+        </div>
          <div className="modal-overlay" style={{ display: isCancelledModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>Appointment Cancelled</h2><p>Your queue entry was cancelled.</p><button id="close-cancel-modal-btn" onClick={() => handleReturnToJoin(false)}>Okay</button></div></div>
          <div className="modal-overlay" style={{ display: isTooFarModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>A Friendly Reminder!</h2><p>Hey, please don’t wander off too far—we’d really appreciate it if you stayed close to the queue!</p><button id="close-too-far-modal-btn" onClick={() => { setIsTooFarModalOpen(false); console.log("Cooldown started."); setTimeout(() => { console.log("Cooldown finished."); setIsOnCooldown(false); }, 300000); }}>Okay, I'll stay close</button></div></div>
 
