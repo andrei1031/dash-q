@@ -580,6 +580,7 @@ function CustomerView({ session }) {
    const targetBarber = barbers.find(b => b.id === parseInt(joinedBarberId));
    const currentBarberName = targetBarber?.full_name || `Barber #${joinedBarberId}`;
    const currentChatTargetBarberUserId = targetBarber?.user_id;
+   
 
    // --- Handlers ---
    const handleCloseInstructions = () => {
@@ -709,6 +710,26 @@ function CustomerView({ session }) {
    const handleModalClose = () => { setIsYourTurnModalOpen(false); stopBlinking(); };
 
    // --- Effects ---
+
+   // --- NEW useEffect: Fetch feedback when barber is selected ---
+  useEffect(() => {
+      if (selectedBarberId) {
+          console.log(`Fetching feedback for barber ${selectedBarberId}`);
+          setBarberFeedback([]); // Clear old feedback
+          const fetchFeedback = async () => {
+              try {
+                  const response = await axios.get(`${API_URL}/feedback/${selectedBarberId}`);
+                  setBarberFeedback(response.data || []);
+              } catch (err) {
+                  console.error("Failed to fetch barber feedback:", err);
+              }
+          };
+          fetchFeedback();
+      } else {
+          setBarberFeedback([]); // Clear if no barber is selected
+      }
+  }, [selectedBarberId]); // This runs every time 'selectedBarberId' changes
+
     // --- NEW useEffect: Fetch feedback when barber is selected ---
     useEffect(() => {
         if (selectedBarberId) {
@@ -984,28 +1005,28 @@ function CustomerView({ session }) {
                     {/* --- FIX: Use selectedBarberId --- */}
                     <div className="form-group"><label>Select Available Barber:</label><select value={selectedBarberId} onChange={(e) => setSelectedBarberId(e.target.value)} required><option value="">-- Choose --</option>{barbers.length > 0 ? barbers.map((b) => (<option key={b.id} value={b.id}>{b.full_name}</option>)) : <option disabled>No barbers available</option>}</select></div>
                     {selectedBarberId && (
-                        <div className="feedback-list-container customer-feedback">
-                            <h3 className="feedback-subtitle">Recent Feedback</h3>
-                            <ul className="feedback-list">
-                                {barberFeedback.length > 0 ? (
-                                    barberFeedback.map((item, index) => (
-                                        <li key={index} className="feedback-item">
-                                            <div className="feedback-header">
-                                                <span className="feedback-score">
-                                                    {item.score > 0 ? '😊' : item.score < 0 ? '😠' : '😐'}
-                                                </span>
-                                                <span className="feedback-customer">
-                                                    {item.customer_name || 'Customer'}
-                                                </span>
-                                            </div>
-                                            <p className="feedback-comment">"{item.comments}"</p>
-                                        </li>
-                                    ))
-                                ) : (
-                                    <p className="empty-text">No feedback yet for this barber.</p>
-                                )}
-                            </ul>
-                        </div>
+                      <div className="feedback-list-container customer-feedback">
+                          <h3 className="feedback-subtitle">Recent Feedback</h3>
+                          <ul className="feedback-list">
+                              {barberFeedback.length > 0 ? (
+                                  barberFeedback.map((item, index) => (
+                                      <li key={index} className="feedback-item">
+                                          <div className="feedback-header">
+                                              <span className="feedback-score">
+                                                  {item.score > 0 ? '😊' : item.score < 0 ? '😠' : '😐'}
+                                              </span>
+                                              <span className="feedback-customer">
+                                                  {item.customer_name || 'Customer'}
+                                              </span>
+                                          </div>
+                                          <p className="feedback-comment">"{item.comments}"</p>
+                                      </li>
+                                  ))
+                              ) : (
+                                  <p className="empty-text">No feedback yet for this barber.</p>
+                              )}
+                          </ul>
+                      </div>
                     )}
                     {selectedBarberId && (<div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>)}
                     
@@ -1216,53 +1237,70 @@ function App() {
    }, []); // Empty dependency array, it doesn't depend on props/state
 
   // --- Helper to Check Role (wrapped in useCallback) ---
+  // --- Helper to Check Role (wrapped in useCallback) ---
   const checkUserRole = useCallback(async (user) => {
-       if (!user) {
-           setUserRole('customer'); setBarberProfile(null); setLoadingRole(false); return;
-       }
-       setLoadingRole(true);
-       try {
-           const response = await axios.get(`${API_URL}/barber/profile/${user.id}`);
-           setUserRole('barber');
-           setBarberProfile(response.data);
-           console.log("User role determined: Barber", response.data);
-           if (response.data && !response.data.is_available) {
-               updateAvailability(response.data.id, user.id, true);
-           }
-       } catch(error) {
-           if (error.response && error.response.status === 404) {
-               setUserRole('customer');
-               console.log("User role determined: Customer (profile not found for ID:", user.id, ")");
-           } else {
-               console.error("Error checking/fetching barber profile:", error);
-               setUserRole('customer');
-           }
-           setBarberProfile(null);
-       } finally {
-           setLoadingRole(false);
-       }
-   }, [updateAvailability]); // Depends on updateAvailability
+    // This new 'if' block prevents errors if the user object is incomplete
+    if (!user || !user.id) {
+      console.warn("checkUserRole called with incomplete user, defaulting to customer.");
+      setUserRole('customer');
+      setBarberProfile(null);
+      setLoadingRole(false);
+      return;
+    }
+
+    console.log(`Checking role for user: ${user.id}`);
+    setLoadingRole(true);
+    try {
+        const response = await axios.get(`${API_URL}/barber/profile/${user.id}`);
+        // If this succeeds, they are a barber
+        console.log("Role check successful: This is a BARBER.");
+        setUserRole('barber');
+        setBarberProfile(response.data);
+    } catch(error) {
+        if (error.response && error.response.status === 404) {
+          // 404 is a clean "Not Found," meaning they are a customer
+          console.log("Role check: Not a barber (404), setting role to CUSTOMER.");
+          setUserRole('customer');
+        } else {
+          // Any other error (500, etc.)
+          console.error("Error checking/fetching barber profile:", error);
+          setUserRole('customer'); // Default to customer on other errors
+        }
+        setBarberProfile(null);
+    } finally {
+        setLoadingRole(false);
+    }
+  }, [updateAvailability]); // Depends on updateAvailability
 
   // --- Auth State Change Listener ---
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      checkUserRole(currentSession?.user);
-    }).catch(err => { console.error("Error getting initial session:", err); setLoadingRole(false); });
+    if (!supabase?.auth) {
+      console.error("Supabase auth not initialized.");
+      setLoadingRole(false);
+      return;
+    }
 
+    // This ONE listener handles everything: page load, login, and logout.
+    // It removes the race condition.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-        console.log("Auth State Change Detected:", _event, currentSession);
-        setSession(currentSession);
-        setUserRole(null); setBarberProfile(null); setLoadingRole(true);
-        if (currentSession?.user) {
-             checkUserRole(currentSession.user);
-        } else {
-             setLoadingRole(false);
-        }
+      console.log("Auth State Change Detected:", _event, currentSession);
+      setSession(currentSession);
+      
+      if (currentSession?.user) {
+        // We have a user. Check their role.
+        console.log("Valid user session found, checking role...");
+        checkUserRole(currentSession.user); 
+      } else {
+        // We have no user. They are logged out.
+        console.log("No user session. Setting role to customer.");
+        setUserRole('customer');
+        setBarberProfile(null);
+        setLoadingRole(false);
+      }
     });
 
     return () => subscription?.unsubscribe();
-  }, [checkUserRole]); // <<< FIX: Added checkUserRole to dependencies
+  }, [checkUserRole]); // This dependency is correct
 
   // --- Render Logic ---
   if (loadingRole) { return <div className="loading-fullscreen">Loading Application...</div>; }
