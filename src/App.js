@@ -380,6 +380,24 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         return () => { if (socketRef.current) { console.log("[Barber] Cleaning up WebSocket connection."); socketRef.current.disconnect(); socketRef.current = null; } };
     }, [session]); 
 
+    const synchronizeBadge = useCallback(() => {
+        // The unread message count is maintained in local state/memory (unreadMessages)
+        // Check if there's *any* customer ID flagged as having an unread message.
+        const totalUnread = Object.keys(unreadMessages).length;
+        
+        // This is where you would normally update a global store or dedicated state.
+        // For this local component, the badge is tied to the presence of unread keys.
+        
+        console.log(`[Badge Sync] Total unread conversations: ${totalUnread}`);
+        // No code change needed here, but this function centralizes the logic.
+    }, [unreadMessages]); // Dependency on the map of unread messages
+
+    // Add synchronizeBadge to run after fetching details
+    useEffect(() => {
+        // This hook runs whenever the component updates (e.g., after fetching queue or messages)
+        synchronizeBadge();
+    }, [unreadMessages, synchronizeBadge]);
+
     // UseEffect for initial load and realtime subscription
     useEffect(() => {
         if (!barberId || !supabase?.channel) return;
@@ -843,15 +861,23 @@ function CustomerView({ session }) {
 
                 // The message listener must append the new message to the existing history state
                 const messageListener = (incomingMessage) => {
-                    if (incomingMessage.senderId === currentChatTargetBarberUserId) {
-                        // Append the new message to the existing history state
-                        setChatMessagesFromBarber(prev => [...prev, incomingMessage]); 
-                        setIsChatOpen(currentIsOpen => {
-                            if (!currentIsOpen) { setHasUnreadFromBarber(true); } 
-                            return currentIsOpen;
-                        });
-                    }
-                };
+                const customerId = incomingMessage.senderId;
+                
+                // 1. ALWAYS append the message to the state object for persistence
+                setChatMessages(prev => { 
+                    const msgs = prev[customerId] || []; 
+                    return { ...prev, [customerId]: [...msgs, incomingMessage] }; 
+                });
+
+                // 2. Handle unread status (Only if the chat is NOT open)
+                setOpenChatCustomerId(currentOpenChatId => {
+                     if (customerId !== currentOpenChatId) {
+                         // Message came from a different customer, or chat is closed.
+                         setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true })); // <<< THIS SETS THE BADGE
+                     }
+                     return currentOpenChatId;
+                });
+            };
                     socket.on('chat message', messageListener);
                     socket.on('connect_error', (err) => { console.error("[Customer] WebSocket Connection Error:", err); });
                     socket.on('disconnect', (reason) => { console.log("[Customer] WebSocket disconnected:", reason); socketRef.current = null; });
@@ -1049,7 +1075,7 @@ function CustomerView({ session }) {
                         className="chat-toggle-button"
                     >
                         Chat with Barber
-                        {hasUnreadFromBarber && (<span className="notification-badge">1</span>)}
+                        💬{queueDetails.upNext.profiles?.id && unreadMessages[queueDetails.upNext.profiles.id] && (<span className="notification-badge">1</span>)}
                     </button>
                 )}
                 {isChatOpen && (<button onClick={() => setIsChatOpen(false)} className="chat-toggle-button close">Close Chat</button>)}
