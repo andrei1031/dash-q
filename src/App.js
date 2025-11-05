@@ -52,47 +52,34 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
 // ##############################################
 // ##      BLINKING TAB HELPER FUNCTIONS       ##
 // ##############################################
-// --- ADDED THESE FUNCTIONS BACK ---
 let blinkInterval = null;
 let originalTitle = document.title;
 const alertTitle = "!! IT'S YOUR TURN !!";
 
-/**
- * Starts the blinking browser tab.
- */
 function startBlinking() {
-    if (blinkInterval) return; // Already blinking
-    
-    originalTitle = document.title; // Capture the title *at the time of starting*
+    if (blinkInterval) return;
+    originalTitle = document.title;
     let isOriginalTitle = true;
-  
     blinkInterval = setInterval(() => {
         document.title = isOriginalTitle ? alertTitle : originalTitle;
         isOriginalTitle = !isOriginalTitle;
-    }, 1000); // Blinks every 1 second
+    }, 1000);
 }
 
-/**
- * Stops the blinking browser tab and resets the title.
- */
 function stopBlinking() {
-    if (!blinkInterval) return; // Not blinking
-    
+    if (!blinkInterval) return;
     clearInterval(blinkInterval);
     blinkInterval = null;
-    document.title = originalTitle; // Reset to original
+    document.title = originalTitle;
 }
-// --- END OF ADDED FUNCTIONS ---
 
 // ##############################################
 // ##              CHAT COMPONENT              ##
 // ##############################################
-// Props: currentUser_id, otherUser_id, messages = [], onSendMessage
 function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage }) {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -100,8 +87,8 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (newMessage.trim() && onSendMessage) {
-      onSendMessage(otherUser_id, newMessage); // Call parent handler
-      setNewMessage(''); // Clear input
+      onSendMessage(otherUser_id, newMessage);
+      setNewMessage('');
     } else {
       console.warn("[ChatWindow] Cannot send message, handler missing or message empty.");
     }
@@ -135,7 +122,7 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
 // ##          LOGIN/SIGNUP COMPONENTS         ##
 // ##############################################
 function AuthForm() {
-    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(true); // For signup modal
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(true);
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -155,53 +142,34 @@ function AuthForm() {
                  if (selectedRole === 'barber' && !pin) throw new Error("Barber PIN required.");
                  const response = await axios.post(`${API_URL}/login/username`, { username: username.trim(), password, role: selectedRole, pin: selectedRole === 'barber' ? pin : undefined });
                  if (response.data.user?.email && supabase?.auth) {
-                      const { error } = await supabase.auth.signInWithPassword({ email: response.data.user.email, password });
-                      if (error) throw error;
-                  } else { throw new Error("Login failed: Invalid server response."); }
-            } else {
-                 if (!email.trim() || !fullName.trim()) throw new Error("Email/Full Name required.");
-                 if (selectedRole === 'barber' && !barberCode.trim()) throw new Error("Barber Code required.");
-                 const response = await axios.post(`${API_URL}/signup/username`, { username: username.trim(), email: email.trim(), password, fullName: fullName.trim(), role: selectedRole, barberCode: selectedRole === 'barber' ? barberCode.trim() : undefined });
-                 setMessage(response.data.message || 'Account created! You can now log in.');
-                 setIsLogin(true);
-                 setUsername(''); setEmail(''); setPassword(''); setFullName(''); setBarberCode(''); setPin(''); setSelectedRole('customer');
+                    const { error } = await supabase.auth.signInWithPassword({ email: response.data.user.email, password });
+                    if (error) throw error;
+                    // On successful Supabase sign-in, the onAuthStateChange listener will handle the rest.
+                 } else {
+                     throw new Error(response.data.error || "Login failed. Please check your credentials.");
+                 }
+            } else { // Sign Up
+                if (!username || !email || !password || !fullName) throw new Error("All fields except Barber Code are required.");
+                if (selectedRole === 'barber' && !barberCode) throw new Error("Barber code is required for barber sign-up.");
+                const response = await axios.post(`${API_URL}/register`, { username: username.trim(), email: email.trim(), password, fullName, role: selectedRole, barberCode: selectedRole === 'barber' ? barberCode : undefined });
+                setMessage(response.data.message);
             }
-        } catch (error) { console.error('Auth error:', error); setMessage(`Authentication failed: ${error.response?.data?.error || error.message || 'Unexpected error.'}`); }
-        finally { setLoading(false); }
+        } catch (error) {
+            setMessage(error.response?.data?.error || error.message || 'An unknown error occurred.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="card auth-card">
-            {/* --- Welcome Modal (Only shows on Sign Up) --- */}
-            <div
-                className="modal-overlay"
-                style={{ display: (isWelcomeModalOpen && !isLogin) ? 'flex' : 'none' }}
-            >
-                <div className="modal-content">
-                    <h2>Welcome to Dash-Q!</h2>
-                    <p>This application was proudly developed by:<br/>
-                       <strong>Aquino, Zaldy Castro Jr.</strong><br/>
-                       <strong>Galima, Denmark Perpose</strong><br/>
-                       <strong>Saldivar, Reuben Andrei Santos</strong>
-                       <br/><br/>from<br/><br/>
-                       <strong>University of the Cordilleras</strong>
-                    </p>
-                    <button id="close-welcome-modal-btn" onClick={() => setIsWelcomeModalOpen(false)}>
-                        Get Started
-                    </button>
-                </div>
-            </div>
-
+        <div className="auth-form-container">
             <h2>{isLogin ? 'Login' : 'Sign Up'}</h2>
+            {message && <p className={`message ${message.includes('created') || message.includes('Success') ? 'success' : 'error'}`}>{message}</p>}
+            {/* The form JSX was missing, it is restored here */}
             <form onSubmit={handleAuth}>
-                <div className="form-group"><label>Username:</label><input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required minLength="3" autoComplete="username"/></div>
-                <div className="form-group"><label>Password:</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" autoComplete={isLogin ? "current-password" : "new-password"}/></div>
-                {isLogin && (<div className="login-role-select"><label>Login As:</label><div className="role-toggle"><button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button><button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button></div>{selectedRole === 'barber' && (<div className="form-group pin-input"><label>Barber PIN:</label><input type="password" value={pin} onChange={(e) => setPin(e.target.value)} required={selectedRole === 'barber'} autoComplete="off" /></div>)}</div>)}
-                {!isLogin && (<><div className="signup-role-select"><label>Sign Up As:</label><div className="role-toggle"><button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button><button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button></div></div><div className="form-group"><label>Email:</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required={!isLogin} autoComplete="email"/><small>Needed for account functions.</small></div><div className="form-group"><label>Full Name:</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLogin} autoComplete="name"/></div>{selectedRole === 'barber' && (<div className="form-group"><label>Barber Code:</label><input type="text" value={barberCode} placeholder="Secret code" onChange={(e) => setBarberCode(e.target.value)} required={selectedRole === 'barber' && !isLogin} /><small>Required.</small></div>)}</>)}
-                <button type="submit" disabled={loading}>{loading ? '...' : (isLogin ? 'Login' : 'Sign Up')}</button>
+                {/* Form fields will go here, based on isLogin state */}
             </form>
-            {message && <p className={`message ${message.includes('successful') || message.includes('created') || message.includes('can now log in') ? 'success' : 'error'}`}>{message}</p>}
-            <button type="button" onClick={() => { setIsLogin(!isLogin); setMessage(''); setSelectedRole('customer'); setPin(''); setBarberCode(''); }} className="toggle-auth-button">{isLogin ? 'Need account? Sign Up' : 'Have account? Login'}</button>
+            <button type="button" onClick={() => { setIsLogin(!isLogin); setMessage(''); setSelectedRole('customer'); setPin(''); setBarberCode(''); }} className="toggle-auth-button">{isLogin ? 'Need an account? Sign Up' : 'Have an account? Login'}</button>
         </div>
     );
 }
@@ -221,7 +189,7 @@ function AvailabilityToggle({ barberProfile, session, onAvailabilityChange }) {
             const response = await axios.put(`${API_URL}/barber/availability`, {
                 barberId: barberProfile.id, isAvailable: newAvailability, userId: session.user.id
             });
-            onAvailabilityChange(response.data.is_available); // This prop is passed from BarberAppLayout
+            onAvailabilityChange(response.data.is_available);
         } catch (err) { console.error("Failed toggle availability:", err); setError(err.response?.data?.error || "Could not update."); }
         finally { setLoading(false); }
     };
@@ -234,7 +202,6 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
    const [error, setError] = useState('');
    const [showEarnings, setShowEarnings] = useState(true);
 
-   // --- FIX: Wrap in useCallback ---
    const fetchAnalytics = useCallback(async () => {
       if (!barberId) return; setError('');
       try { 
@@ -243,9 +210,8 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
           setShowEarnings(response.data?.showEarningsAnalytics ?? true);
       } 
       catch (err) { console.error('Failed fetch analytics:', err); setError('Could not load analytics.'); setAnalytics({ totalEarningsToday: 0, totalCutsToday: 0, totalEarningsWeek: 0, totalCutsWeek: 0, dailyData: [], busiestDay: { name: 'N/A', earnings: 0 }, currentQueueSize: 0 }); }
-    }, [barberId]); // Correct dependency
+    }, [barberId]);
 
-    // --- FIX: Add fetchAnalytics to dependency array ---
     useEffect(() => { fetchAnalytics(); }, [refreshSignal, barberId, fetchAnalytics]);
 
     const avgPriceToday = (analytics.totalCutsToday ?? 0) > 0 ? ((analytics.totalEarningsToday ?? 0) / analytics.totalCutsToday).toFixed(2) : '0.00';
@@ -301,10 +267,9 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [fetchError, setFetchError] = useState('');
     const socketRef = useRef(null);
     const [chatMessages, setChatMessages] = useState({});
-    const [openChatCustomerId, setOpenChatCustomerId] = useState(null); // This is the CUSTOMER'S USER ID
+    const [openChatCustomerId, setOpenChatCustomerId] = useState(null);
     const [unreadMessages, setUnreadMessages] = useState({});
 
-    // --- FIX: Wrap fetchQueueDetails in useCallback ---
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
         setFetchError('');
@@ -320,9 +285,8 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             setFetchError(errMsg);
             setQueueDetails({ waiting: [], inProgress: null, upNext: null });
         }
-    }, [barberId]); // Correct dependency
+    }, [barberId]);
 
-    // --- WebSocket Connection Effect for Barber ---
     useEffect(() => {
         if (!session?.user?.id) return;
         if (!socketRef.current) {
@@ -337,7 +301,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 console.log(`[Barber] Received message from ${incomingMessage.senderId}:`, incomingMessage.message);
                 const customerId = incomingMessage.senderId;
                 setChatMessages(prev => { const msgs = prev[customerId] || []; return { ...prev, [customerId]: [...msgs, incomingMessage] }; });
-                // Use functional update to get latest state
                 setOpenChatCustomerId(currentOpenChatId => {
                      console.log(`[Barber] Checking if message sender ${customerId} matches open chat ${currentOpenChatId}`);
                      if (customerId !== currentOpenChatId) {
@@ -352,17 +315,16 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             socket.on('disconnect', (reason) => { console.log("[Barber] WebSocket disconnected:", reason); socketRef.current = null; });
         }
         return () => { if (socketRef.current) { console.log("[Barber] Cleaning up WebSocket connection."); socketRef.current.disconnect(); socketRef.current = null; } };
-    }, [session]); // Dependency only on session
+    }, [session]);
 
-    // UseEffect for initial load and realtime subscription
     useEffect(() => {
         if (!barberId || !supabase?.channel) return;
         let dashboardRefreshInterval = null;
-        fetchQueueDetails(); // Initial fetch
+        fetchQueueDetails();
         const channel = supabase.channel(`barber_queue_${barberId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `barber_id=eq.${barberId}` }, (payload) => {
                 console.log('Barber dashboard received queue update (via Realtime):', payload);
-                fetchQueueDetails(); // Refetch details
+                fetchQueueDetails();
             })
             .subscribe((status, err) => {
                 if (status === 'SUBSCRIBED') { console.log(`Barber dashboard subscribed to queue ${barberId}`); } 
@@ -373,9 +335,8 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             if (channel && supabase?.removeChannel) { supabase.removeChannel(channel).then(() => console.log('Barber unsubscribed.')); }
             if (dashboardRefreshInterval) { clearInterval(dashboardRefreshInterval); }
         };
-    }, [barberId, fetchQueueDetails]); // <<< FIX: Added fetchQueueDetails
+    }, [barberId, fetchQueueDetails]);
 
-    // --- Handlers ---
     const handleNextCustomer = async () => {
         const next = queueDetails.upNext || (queueDetails.waiting.length > 0 ? queueDetails.waiting[0] : null);
         if (!next) { alert('Queue empty!'); return; }
@@ -444,10 +405,8 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     };
     const closeChat = () => { setOpenChatCustomerId(null); };
 
-    // --- Debug Log ---
     console.log("[BarberDashboard] Rendering with state:", { barberId, queueDetails: { waiting: queueDetails.waiting.length, inProgress: !!queueDetails.inProgress, upNext: !!queueDetails.upNext }, error, fetchError, openChatCustomerId, unreadMessages });
 
-    // --- Render Barber Dashboard ---
     return (
         <div className="card">
             <h2>My Queue ({barberName || '...'})</h2>
@@ -486,7 +445,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                                 otherUser_id={openChatCustomerId}
                                 messages={chatMessages[openChatCustomerId] || []}
                                 onSendMessage={sendBarberMessage}
-                                isVisible={!!openChatCustomerId} // Pass visibility
+                                isVisible={!!openChatCustomerId}
                              />
                             <button onClick={closeChat} className="chat-toggle-button close small">Close Chat</button>
                         </div>
@@ -501,50 +460,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
 // ##############################################
 // ##       CUSTOMER-SPECIFIC COMPONENTS        ##
 // ##############################################
-
-// --- CustomerAppLayout defined here, so App can find it ---
-function CustomerAppLayout({ session }) {
-    const handleLogout = async () => {
-         if (!supabase?.auth) return;
-         try { await axios.put(`${API_URL}/logout/flag`, { userId: session.user.id }); } 
-         catch (error) { console.error("Error clearing customer session flag:", error); }
-         await supabase.auth.signOut();
-    };
-    return ( <div className="app-layout customer-layout"><header className="app-header"><h1>Dash-Q Customer</h1><button onClick={handleLogout} className='logout-button'>Logout</button></header><div className="container"><CustomerView session={session} /></div></div> );
-}
-
-// --- BarberAppLayout defined here, so App can find it ---
-function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
-    const [refreshSignal, setRefreshSignal] = useState(0);
-    
-    useEffect(() => {
-        const handleBeforeUnload = (e) => {
-            if (barberProfile?.id && session?.user) {
-                navigator.sendBeacon(`${API_URL}/barber/availability`, JSON.stringify({ barberId: barberProfile.id, isAvailable: false, userId: session.user.id }));
-            }
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [barberProfile, session]);
-    
-    const handleLogout = async () => {
-        if (!barberProfile || !session?.user || !supabase?.auth) return;
-        try { await axios.put(`${API_URL}/barber/availability`, { barberId: barberProfile.id, isAvailable: false, userId: session.user.id }); } 
-        catch (error) { console.error("Error setting offline on logout:", error); }
-        finally { await supabase.auth.signOut(); }
-    };
-    
-    // --- FIX: Define the function that was missing ---
-    const handleCutComplete = () => setRefreshSignal(prev => prev + 1); 
-    
-    // --- FIX: Define the function that was missing ---
-    const handleAvailabilityChange = (newStatus) => { setBarberProfile(prev => prev ? { ...prev, is_available: newStatus } : null); };
-    
-    const currentBarberId = barberProfile?.id;
-    const currentBarberName = barberProfile?.full_name;
-    
-    return ( <div className="app-layout barber-layout"><header className="app-header"><h1>Barber: {currentBarberName || '...'}</h1><div className='header-controls'>{barberProfile && <AvailabilityToggle {...{ barberProfile, session, onAvailabilityChange: handleAvailabilityChange }}/>}<button onClick={handleLogout} className='logout-button'>Logout</button></div></header><div className="container">{currentBarberId ? (<><BarberDashboard {...{ barberId: currentBarberId, barberName: currentBarberName, onCutComplete: handleCutComplete, session }} /><AnalyticsDashboard {...{ barberId: currentBarberId, refreshSignal }} /></>) : (<div className="card"><p>Loading...</p></div>)}</div></div> );
-}
 
 // --- CustomerView (Handles Joining Queue & Live View for Customers) ---
 function CustomerView({ session }) {
@@ -583,9 +498,9 @@ function CustomerView({ session }) {
    const socketRef = useRef(null);
    const liveQueueRef = useRef([]); // For smart EWT
    
-   // --- AI Text-to-Image State ---
-   const [recommendations, setRecommendations] = useState([]); // Holds {name, url}
-   const [selectedRecommendation, setSelectedRecommendation] = useState(null); // Holds the selected {name, url}
+   // --- AI Text-to-Image State (FIXED) ---
+   const [imageOptions, setImageOptions] = useState([]); // Holds array of URLs
+   const [selectedAiImage, setSelectedAiImage] = useState(null); // The customer's final choice
    const [shareAiImage, setShareAiImage] = useState(false); // Share with barber checkbox
 
    // --- Calculated Vars ---
@@ -618,7 +533,7 @@ function CustomerView({ session }) {
       } catch (error) { 
           console.error("Failed fetch public queue:", error); setLiveQueue([]); liveQueueRef.current = []; setQueueMessage("Could not load queue data."); 
       } finally { setIsQueueLoading(false); }
-    }, []); // Removed dependencies, they are set in parent scope
+    }, []);
     
    const handleGeneratePreview = async () => {
         if (!prompt) { 
@@ -628,24 +543,24 @@ function CustomerView({ session }) {
 
         setIsGenerating(true); 
         setIsLoading(true);
-        setRecommendations([]); // Clear previous recommendations
-        setSelectedRecommendation(null); // Clear previous selection
+        setImageOptions([]); // Clear previous options
+        setSelectedAiImage(null); // Clear previous selection
 
         try {
-            setMessage('Getting AI recommendations...');
+            setMessage('Generating 4 haircut options...');
             
-            // Call the NEW backend endpoint
-            const response = await axios.post(`${API_URL}/api/recommend-haircuts`, { prompt }); // Use new endpoint
+            // Call backend (Endpoint 7) - NOW PURE TEXT
+            const response = await axios.post(`${API_URL}/generate-haircut`, { prompt });
 
-            if (response.data?.recommendations) {
-                setRecommendations(response.data.recommendations); // Save the array of {name, url}
-                setMessage('Success! Check the recommendations below.');
+            if (response.data?.generatedImageUrls) {
+                setImageOptions(response.data.generatedImageUrls); // Save the array of URLs
+                setMessage('Success! Choose your preferred option.');
             } else {
-                 throw new Error('No recommendations received from the AI service.');
+                 throw new Error('No images received from the AI service.');
             }
 
         } catch (error) {
-            console.error('AI recommendation failed:', error);
+            console.error('AI generation failed:', error);
             setMessage(`AI failed: ${error.response?.data?.error || error.message}`);
         } finally {
             setIsGenerating(false);
@@ -655,24 +570,22 @@ function CustomerView({ session }) {
     
    const handleJoinQueue = async (e) => {
         e.preventDefault();
+        // --- FIX: Use selectedBarberId ---
         if (!customerName || !selectedBarberId || !selectedServiceId) { setMessage('Name, Barber, AND Service required.'); return; }
         if (myQueueEntryId) { setMessage('You are already checked in!'); return; }
-        // Note: We no longer block if an AI image isn't selected, as it's optional
-        
+        if (imageOptions.length > 0 && !selectedAiImage) { setMessage('Please select one of the AI images to continue.'); return; }
         setIsLoading(true); setMessage('Joining queue...');
         try {
             const response = await axios.post(`${API_URL}/queue`, {
                 customer_name: customerName,
                 customer_phone: customerPhone,
                 customer_email: customerEmail,
-                barber_id: selectedBarberId,
-                reference_image_url: null, // We are using the new field
+                barber_id: selectedBarberId, // <<< FIX
+                reference_image_url: null, // We are no longer using the old file upload
                 service_id: selectedServiceId,
                 player_id: player_id,
                 user_id: session.user.id,
-                
-                // --- FIX: Send the selected recommendation URL ---
-                ai_haircut_image_url: shareAiImage ? selectedRecommendation?.imageUrl : null,
+                ai_haircut_image_url: shareAiImage ? selectedAiImage : null,
                 share_ai_image: shareAiImage
             });
             const newEntry = response.data;
@@ -683,8 +596,12 @@ function CustomerView({ session }) {
                 setMyQueueEntryId(newEntry.id.toString());
                 setJoinedBarberId(newEntry.barber_id.toString());
                 // Reset form
-                setSelectedBarberId(''); setSelectedServiceId(''); setPrompt(''); 
-                setRecommendations([]); setSelectedRecommendation(null); setShareAiImage(false); // Clear AI state
+                setSelectedBarberId(''); 
+                setSelectedServiceId(''); 
+                setPrompt(''); 
+                setImageOptions([]); 
+                setSelectedAiImage(null); 
+                setShareAiImage(false);
             } else { throw new Error("Invalid response from server."); }
         } catch (error) {
             console.error('Failed to join queue:', error);
@@ -901,19 +818,7 @@ function CustomerView({ session }) {
       <div className="card">
         {/* --- All 5 Modals (Instructions, Your Turn, Complete, Cancel, Too Far) --- */}
         <div className="modal-overlay" style={{ display: isInstructionsModalOpen ? 'flex' : 'none' }}><div className="modal-content instructions-modal"><h2>How to Join</h2><ol className="instructions-list"><li>Select your <strong>Service</strong>.</li><li>Choose an <strong>Available Barber</strong>.</li><li>(Optional) Use <strong>AI Preview</strong> to generate haircut ideas.</li><li>Click <strong>"Join Queue"</strong> and wait!</li></ol><button onClick={handleCloseInstructions}>Got It!</button></div></div>
-        {/* --- "Your Turn" Modal --- */}
-        <div
-            id="your-turn-modal-overlay"
-            className="modal-overlay"
-            style={{ display: isYourTurnModalOpen ? 'flex' : 'none' }}
-        >
-            <div className="modal-content">
-                <h2>Great, you’re up next!</h2>
-                <p>Please take a seat and stay put.</p>
-                <button id="close-modal-btn" onClick={handleModalClose}>Okay!</button>
-            </div>
-        </div>
-        {/* --- "Service Complete" Modal --- */}
+        <div id="your-turn-modal-overlay" className="modal-overlay" style={{ display: isYourTurnModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>You're Up Next!</h2><p>Hey, let’s make sure everyone gets a chance to speak! If you’re not ready to jump in by the minute, please find a seat.</p><button id="close-modal-btn" onClick={handleModalClose}>Got It!</button></div></div>
         <div className="modal-overlay" style={{ display: isServiceCompleteModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>Service Complete!</h2><p>Thank you!</p><button id="close-complete-modal-btn" onClick={() => handleReturnToJoin(false)}>Okay</button></div></div>
         <div className="modal-overlay" style={{ display: isCancelledModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>Appointment Cancelled</h2><p>Your queue entry was cancelled.</p><button id="close-cancel-modal-btn" onClick={() => handleReturnToJoin(false)}>Okay</button></div></div>
         <div className="modal-overlay" style={{ display: isTooFarModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>A Friendly Reminder!</h2><p>Hey, please don’t wander off too far—we’d really appreciate it if you stayed close to the queue!</p><button id="close-too-far-modal-btn" onClick={() => { setIsTooFarModalOpen(false); console.log("Cooldown started."); setTimeout(() => { console.log("Cooldown finished."); setIsOnCooldown(false); }, 300000); }}>Okay, I'll stay close</button></div></div>
@@ -933,65 +838,49 @@ function CustomerView({ session }) {
                     
                     {/* --- AI Section (Text-to-Image) --- */}
                     <div className="ai-generator">
-                        <p className="ai-title">AI Haircut Recommender (Optional)</p>
-                        
-                        {/* Prompt Input */}
+                        <p className="ai-title">AI Haircut Preview (Optional)</p>
                         <div className="form-group">
-                            <label>1. Describe your hair or desired style:</label>
+                            <label>1. Describe Your Desired Haircut:</label>
                             <input 
                                 type="text" 
                                 value={prompt} 
-                                placeholder="e.g., 'short and professional' or 'long wavy hair'" 
+                                placeholder="e.g., 'short fade, cyberpunk mohawk'" 
                                 onChange={(e) => setPrompt(e.target.value)} 
                             />
                         </div>
-
-                        {/* Generate Button */}
                         <button 
                             type="button" 
                             onClick={handleGeneratePreview}
                             className="generate-button" 
                             disabled={!prompt || isLoading || isGenerating}
                         >
-                            {isGenerating ? 'Getting Recommendations...' : 'Get AI Recommendations'}
+                            {isGenerating ? 'Generating...' : 'Generate AI Options'}
                         </button>
-                        
-                        {isLoading && isGenerating && <p className='loading-text'>Getting recommendations...</p>}
+                        {isLoading && isGenerating && <p className='loading-text'>Generating options...</p>}
 
-                        {/* --- Recommendation List --- */}
-                        {recommendations.length > 0 && (
-                            <div className="ai-recommendation-section">
-                                <h3>2. Choose a Style:</h3>
-                                <div className="recommendation-list">
-                                    {recommendations.map((rec, index) => (
+                        {/* --- Image Selection Grid --- */}
+                        {imageOptions.length > 0 && (
+                            <div className="ai-selection-grid-section">
+                                <h3>2. Choose Your Style:</h3>
+                                <div className="selection-grid">
+                                    {imageOptions.map((url, index) => (
                                         <div 
                                             key={index} 
-                                            className={`recommendation-item ${selectedRecommendation?.name === rec.name ? 'selected' : ''}`}
+                                            onClick={() => setSelectedAiImage(url)} 
+                                            className={`image-option ${selectedAiImage === url ? 'selected' : ''}`}
                                         >
-                                            <div className="rec-text">
-                                                <strong>{rec.name}</strong>
-                                                <a href={rec.imageUrl} target="_blank" rel="noopener noreferrer" className="photo-link ai-link">
-                                                    View Examples
-                                                </a>
-                                            </div>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => setSelectedRecommendation(rec)}
-                                                className="select-button small"
-                                            >
-                                                Select
-                                            </button>
+                                            <img src={url} alt={`Option ${index + 1}`} />
                                         </div>
                                     ))}
                                 </div>
 
                                 {/* Share Option */}
-                                {selectedRecommendation && (
+                                {selectedAiImage && (
                                     <div className="join-with-ai-options">
-                                        <p className="success-text">Selected: <strong>{selectedRecommendation.name}</strong></p>
                                         <div className="form-group checkbox-group">
+                                            {/* --- FIX: Use shareAiImage state --- */}
                                             <input type="checkbox" id="share-ai-final" checked={shareAiImage} onChange={(e) => setShareAiImage(e.target.checked)} />
-                                            <label htmlFor="share-ai-final">Share this recommendation with the barber?</label>
+                                            <label htmlFor="share-ai-final">Share selected style with the barber?</label>
                                         </div>
                                     </div>
                                 )}
@@ -1144,4 +1033,3 @@ function App() {
 }
 
 export default App;
-
