@@ -315,16 +315,17 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
 }
 
 // --- BarberDashboard (Handles Barber's Queue Management) ---
+// --- BarberDashboard (Handles Barber's Queue Management) ---
+// --- BarberDashboard (Handles Barber's Queue Management) ---
 function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
-    // --- State Definitions ---
     const [queueDetails, setQueueDetails] = useState({ waiting: [], inProgress: null, upNext: null });
     const [error, setError] = useState('');
     const [fetchError, setFetchError] = useState('');
     const socketRef = useRef(null);
     const [chatMessages, setChatMessages] = useState({});
-    const [openChatCustomerId, setOpenChatCustomerId] = useState(null); 
-    const [openChatQueueId, setOpenChatQueueId] = useState(null); 
-    const [unreadMessages, setUnreadMessages] = useState({}); // This holds the badge state
+    const [openChatCustomerId, setOpenChatCustomerId] = useState(null); // This is the CUSTOMER'S USER ID
+    const [openChatQueueId, setOpenChatQueueId] = useState(null); // The Queue ID of the current open chat
+    const [unreadMessages, setUnreadMessages] = useState({});
 
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
@@ -358,16 +359,16 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 const customerId = incomingMessage.senderId;
                 
                 // 1. ALWAYS append the message to the state object for persistence
-                setChatMessages(prev => { 
+                setChatMessages(prev => { // <<< FIX: setChatMessages IS NOW DEFINED
                     const msgs = prev[customerId] || []; 
                     return { ...prev, [customerId]: [...msgs, incomingMessage] }; 
                 });
 
-                // 2. Handle unread status (This is the badge logic)
-                setOpenChatCustomerId(currentOpenChatId => { 
+                // 2. Handle unread status (Only if the chat is NOT open)
+                setOpenChatCustomerId(currentOpenChatId => { // <<< FIX: setOpenChatCustomerId IS NOW DEFINED
                      if (customerId !== currentOpenChatId) {
                          // Message came from a different customer, or chat is closed.
-                         setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true }));
+                         setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true })); // <<< FIX: setUnreadMessages IS NOW DEFINED
                      }
                      return currentOpenChatId;
                 });
@@ -379,7 +380,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         return () => { if (socketRef.current) { console.log("[Barber] Cleaning up WebSocket connection."); socketRef.current.disconnect(); socketRef.current = null; } };
     }, [session]); 
 
-    // --- UseEffect for initial load and realtime subscription ---
+    // UseEffect for initial load and realtime subscription
     useEffect(() => {
         if (!barberId || !supabase?.channel) return;
         let dashboardRefreshInterval = null;
@@ -445,6 +446,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         }
     };
 
+    // --- FIX: Message Sender (Sends queueId for persistence) ---
     const sendBarberMessage = (recipientId, messageText) => {
         const queueId = openChatQueueId; // Use the stored queue ID
         if (messageText.trim() && socketRef.current?.connected && session?.user?.id && queueId) {
@@ -458,6 +460,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         } else { console.warn("Cannot send barber msg, socket disconnected or queueId missing."); }
     };
     
+    // --- FIX: Chat Opener (Fetches history and sets queueId) ---
     const openChat = (customer) => {
         const customerUserId = customer?.profiles?.id;
         const queueId = customer?.id; // The queue entry ID is the 'id' field
@@ -478,7 +481,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 try {
                     const { data } = await supabase.from('chat_messages').select('sender_id, message').eq('queue_entry_id', queueId).order('created_at', { ascending: true });
                     const formattedHistory = data.map(msg => ({ senderId: msg.sender_id, message: msg.message }));
-                    setChatMessages(prev => ({ ...prev, [customerUserId]: formattedHistory })); // CORRECTLY UPDATES STATE
+                    setChatMessages(prev => ({ ...prev, [customerUserId]: formattedHistory })); // <<< CORRECTLY UPDATES STATE
                 } catch(err) { console.error("Barber failed to fetch history:", err); }
             };
             fetchHistory();
@@ -840,23 +843,15 @@ function CustomerView({ session }) {
 
                 // The message listener must append the new message to the existing history state
                 const messageListener = (incomingMessage) => {
-                const customerId = incomingMessage.senderId;
-                
-                // 1. ALWAYS append the message to the state object for persistence
-                setChatMessages(prev => { 
-                    const msgs = prev[customerId] || []; 
-                    return { ...prev, [customerId]: [...msgs, incomingMessage] }; 
-                });
-
-                // 2. Handle unread status (Only if the chat is NOT open)
-                setOpenChatCustomerId(currentOpenChatId => {
-                     if (customerId !== currentOpenChatId) {
-                         // Message came from a different customer, or chat is closed.
-                         setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true })); // <<< THIS SETS THE BADGE
-                     }
-                     return currentOpenChatId;
-                });
-            };
+                    if (incomingMessage.senderId === currentChatTargetBarberUserId) {
+                        // Append the new message to the existing history state
+                        setChatMessagesFromBarber(prev => [...prev, incomingMessage]); 
+                        setIsChatOpen(currentIsOpen => {
+                            if (!currentIsOpen) { setHasUnreadFromBarber(true); } 
+                            return currentIsOpen;
+                        });
+                    }
+                };
                     socket.on('chat message', messageListener);
                     socket.on('connect_error', (err) => { console.error("[Customer] WebSocket Connection Error:", err); });
                     socket.on('disconnect', (reason) => { console.log("[Customer] WebSocket disconnected:", reason); socketRef.current = null; });
@@ -1054,7 +1049,7 @@ function CustomerView({ session }) {
                         className="chat-toggle-button"
                     >
                         Chat with Barber
-                        💬{queueDetails.upNext.profiles?.id && unreadMessages[queueDetails.upNext.profiles.id] && (<span className="notification-badge">1</span>)}
+                        {hasUnreadFromBarber && (<span className="notification-badge">1</span>)}
                     </button>
                 )}
                 {isChatOpen && (<button onClick={() => setIsChatOpen(false)} className="chat-toggle-button close">Close Chat</button>)}
