@@ -529,7 +529,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                     
                     {openChatCustomerId && (
                         <div className="barber-chat-container">
-                            <h4>Chat with Customer</h4>
+                            <h4>Chat with Customer(Hey, just a friendly reminder to always keep the chat open when your phone’s screen is off!)</h4>
                              <ChatWindow
                                 currentUser_id={session.user.id}
                                 otherUser_id={openChatCustomerId}
