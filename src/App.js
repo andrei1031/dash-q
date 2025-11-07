@@ -752,16 +752,14 @@ function CustomerView({ session }) {
    const fetchPublicQueue = useCallback(async (barberId) => {
        if (!barberId) { setLiveQueue([]); liveQueueRef.current = []; setIsQueueLoading(false); return; }
        setIsQueueLoading(true);
-       let queueData = [];
        try {
          const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
-         queueData = response.data || [];
+         const queueData = response.data || [];
          setLiveQueue(queueData);
          liveQueueRef.current = queueData; // Update ref
        } catch (error) { 
            console.error("Failed fetch public queue:", error); setLiveQueue([]); liveQueueRef.current = []; setQueueMessage("Could not load queue data."); 
        } finally { setIsQueueLoading(false); }
-       return queueData; // Return the data for chaining
    }, [setIsQueueLoading, setLiveQueue, setQueueMessage]); // Include all setters in dependencies
    
    const handleJoinQueue = async (e) => {
@@ -863,26 +861,14 @@ function CustomerView({ session }) {
    useEffect(() => {
        // If the page becomes visible AND we are in a queue
        if (isPageVisible && myQueueEntryId) {
-            console.log("[Customer] Page is visible. Re-checking status and chat history.");
-
-            // Re-fetch the entire public queue to check for status changes (like 'Done')
-            if (joinedBarberId) {
-                fetchPublicQueue(joinedBarberId).then(queueData => {
-                    // After fetching, check if our status is 'Done'
-                    const myEntry = queueData?.find(e => e.id.toString() === myQueueEntryId);
-                    if (myEntry?.status === 'Done') {
-                        console.log("[Customer] Status is 'Done' on page visibility. Opening feedback modal.");
-                        setIsServiceCompleteModalOpen(true);
-                    }
-                });
-            }
-
-            // Also re-fetch chat history to ensure unread messages are accounted for
-            fetchChatHistory(myQueueEntryId).then(() => {
-                if (!isChatOpen) setHasUnreadFromBarber(true);
-            });
+           console.log("[Customer] Page is visible. Re-fetching chat history to check for unread messages.");
+           fetchChatHistory(myQueueEntryId).then(() => {
+               // After fetching, if the chat window is closed, we should assume there might be unread messages.
+               // The logic inside the message listener is the primary defense, but this is a good fallback.
+               if (!isChatOpen) setHasUnreadFromBarber(true);
+           });
        }
-   }, [isPageVisible, myQueueEntryId, joinedBarberId, fetchPublicQueue, fetchChatHistory, isChatOpen]);
+   }, [isPageVisible, myQueueEntryId, fetchChatHistory, isChatOpen]);
 
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
