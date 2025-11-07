@@ -696,6 +696,9 @@ function CustomerView({ session }) {
    const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
    const [isOnCooldown, setIsOnCooldown] = useState(false);
    const locationWatchId = useRef(null);
+   // --- NEW: Pre-join EWT State ---
+   const [preJoinEstimatedWait, setPreJoinEstimatedWait] = useState(0);
+   const [preJoinPeopleWaiting, setPreJoinPeopleWaiting] = useState(0);
    const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const socketRef = useRef(null);
    const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
@@ -755,17 +758,26 @@ function CustomerView({ session }) {
         } else { console.warn("[Customer] Cannot send message (socket disconnected or missing IDs)."); setMessage("Chat disconnected."); }
    };
    const fetchPublicQueue = useCallback(async (barberId) => {
-       if (!barberId) { setLiveQueue([]); liveQueueRef.current = []; setIsQueueLoading(false); return; }
-       setIsQueueLoading(true);
+       if (!barberId) {
+           // Only clear live queue state if it's the actual joined barber's queue
+           if (barberId === joinedBarberId) { setLiveQueue([]); liveQueueRef.current = []; setIsQueueLoading(false); }
+           return []; // Return empty array if no barberId
+       }
+       // Only set loading for the actual queue the customer is in
+       if (barberId === joinedBarberId) { setIsQueueLoading(true); }
        try {
          const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
          const queueData = response.data || [];
-         setLiveQueue(queueData);
-         liveQueueRef.current = queueData; // Update ref
+         if (barberId === joinedBarberId) { // Only update live queue state if it's the actual joined barber's queue
+             setLiveQueue(queueData);
+             liveQueueRef.current = queueData; // Update ref
+         }
+         return queueData; // Return the fetched data
        } catch (error) { 
            console.error("Failed fetch public queue:", error); setLiveQueue([]); liveQueueRef.current = []; setQueueMessage("Could not load queue data."); 
+           return []; // Return empty array on error
        } finally { setIsQueueLoading(false); }
-   }, [setIsQueueLoading, setLiveQueue, setQueueMessage]); // Include all setters in dependencies
+   }, [setIsQueueLoading, setLiveQueue, setQueueMessage, joinedBarberId]); // Include joinedBarberId in dependencies
    
    const handleJoinQueue = async (e) => {
         e.preventDefault();
@@ -862,6 +874,39 @@ function CustomerView({ session }) {
         if (!hasSeen) { setIsInstructionsModalOpen(true); }
    }, []);
    
+   // --- NEW EFFECT: Calculate pre-join EWT when barber or service changes ---
+   useEffect(() => {
+       const calculatePreJoinEWT = async () => {
+           if (!selectedBarberId || !selectedServiceId) {
+               setPreJoinEstimatedWait(0);
+               setPreJoinPeopleWaiting(0);
+               return;
+           }
+
+           // Temporarily set loading state for this calculation
+           // (We don't want to use setIsQueueLoading as that's for the *actual* queue)
+           // For simplicity, we'll just show "Calculating..." in the UI
+
+           try {
+               const queueData = await fetchPublicQueue(selectedBarberId); // Fetch queue for the selected barber
+               const selectedService = services.find(s => s.id.toString() === selectedServiceId);
+
+               if (!selectedService) { // Should not happen if selectedServiceId is valid
+                   setPreJoinEstimatedWait(0);
+                   setPreJoinPeopleWaiting(0);
+                   return;
+               }
+
+               const peopleAhead = queueData.filter(entry => entry.status === 'Waiting' || entry.status === 'Up Next' || entry.status === 'In Progress');
+               const totalWaitMinutes = peopleAhead.reduce((sum, entry) => sum + (entry.services?.duration_minutes || 30), 0);
+
+               setPreJoinPeopleWaiting(peopleAhead.length);
+               setPreJoinEstimatedWait(totalWaitMinutes);
+           } catch (error) { console.error("Error calculating pre-join EWT:", error); setPreJoinEstimatedWait(0); setPreJoinPeopleWaiting(0); }
+       };
+       calculatePreJoinEWT();
+   }, [selectedBarberId, selectedServiceId, services, fetchPublicQueue]);
+
    // --- EFFECT: Re-fetch history when page becomes visible ---
    useEffect(() => {
        // If the page becomes visible AND we are in a queue
@@ -1218,7 +1263,17 @@ function CustomerView({ session }) {
                     
                     <div className="form-group"><label>Select Available Barber:</label><select value={selectedBarberId} onChange={(e) => setSelectedBarberId(e.target.value)} required><option value="">-- Choose --</option>{barbers.map((b) => (<option key={b.id} value={b.id}>{b.full_name}</option>))}</select></div>
 
-                    {/* =============== THIS IS THE NEW FEEDBACK SECTION (Customer View) =============== */}
+                    {/* --- NEW: Pre-join Estimated Wait Time Display --- */}
+                    {selectedBarberId && selectedServiceId && (
+                        <div className="ewt-container">
+                            <div className="ewt-item"><span>People ahead</span><strong>{preJoinPeopleWaiting} {preJoinPeopleWaiting === 1 ? 'person' : 'people'}</strong></div>
+                            <div className="ewt-item"><span>Estimated wait</span><strong>~ {preJoinEstimatedWait} min</strong></div>
+                        </div>
+                    )}
+                    {/* --- END NEW EWT DISPLAY --- */}
+
+
+                    {/* --- Feedback Section (Customer View) --- */}
                     {selectedBarberId && (
                         <div className="feedback-list-container customer-feedback">
                             <h3 className="feedback-subtitle">Recent Feedback</h3>
@@ -1243,9 +1298,6 @@ function CustomerView({ session }) {
                             </ul>
                         </div>
                     )}
-                    {/* =============== END OF NEW SECTION =============== */}
-                    
-                    {selectedBarberId && (<div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {Math.ceil(displayWait / 60)} min</strong></div></div>)}
                     
                     <button type="submit" disabled={isLoading || !selectedBarberId || barbers.length === 0} className="join-queue-button">{isLoading ? 'Joining...' : 'Join Queue'}</button>
                 </form>
