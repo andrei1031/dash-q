@@ -389,7 +389,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             socket.on('connect', () => { console.log(`[Barber] WebSocket connected.`); });
 
             const messageListener = (incomingMessage) => {
-                const senderId = incomingMessage.senderId;
+                const senderId = String(incomingMessage.senderId);
 
                 // 1. Append the message to the correct chat history
                 setChatMessages(prev => {
@@ -435,19 +435,35 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
 
     // --- EFFECT: Check for unread messages when page becomes visible ---
     useEffect(() => {
-        if (isPageVisible) {
+        if (isPageVisible && barberId && session?.user?.id) {
             console.log("[Barber] Page is visible. Re-checking queue and unread messages.");
-            // Re-fetch the queue to get the absolute latest state
-            fetchQueueDetails().then(() => {
-                // After fetching, we need to re-evaluate unread messages based on the new queueDetails state.
-                // This is tricky because state updates are async. A simple approach is to check history on open.
-                // The most important part is that fetchQueueDetails() gets the latest list,
-                // so when a chat is opened via openChat(), it will have the correct data to fetch history.
-                // We can also proactively check for new messages here if we had a 'last_read' timestamp.
-                // For now, fetching the queue is the most critical step to ensure UI is up-to-date.
-            });
+            const checkMissedMessages = async () => {
+                try {
+                    // First, get the latest queue to know which customers are relevant
+                    await fetchQueueDetails();
+
+                    // Then, check for any unread messages from customers in that queue
+                    // This assumes your `chat_messages` table has a `read_by_barber` boolean column
+                    const { data: unread, error } = await supabase
+                        .from('chat_messages')
+                        .select('sender_id')
+                        .eq('recipient_id', session.user.id)
+                        .is('read_by_barber', false);
+
+                    if (error) throw error;
+
+                    const newUnreadState = {};
+                    for (const msg of unread) {
+                        newUnreadState[String(msg.sender_id)] = true;
+                    }
+                    setUnreadMessages(newUnreadState);
+                } catch (err) {
+                    console.error("[Barber] Error checking for missed messages:", err);
+                }
+            };
+            checkMissedMessages();
         }
-    }, [isPageVisible, fetchQueueDetails]);
+    }, [isPageVisible, fetchQueueDetails, barberId, session?.user?.id]);
 
     // This effect ensures that when queueDetails changes, we can update unread status
     useEffect(() => {
@@ -825,13 +841,10 @@ function CustomerView({ session }) {
        // If the page becomes visible AND we are in a queue
        if (isPageVisible && myQueueEntryId) {
            console.log("[Customer] Page is visible. Re-fetching chat history to check for unread messages.");
-           fetchChatHistory(myQueueEntryId).then(() => {
-               // After fetching, if the chat window is closed, we should assume there might be unread messages.
-               // The logic inside the message listener is the primary defense, but this is a good fallback.
-               if (!isChatOpen) setHasUnreadFromBarber(true);
-           });
+           // This call will now also update hasUnreadFromBarber based on the actual unread status from the DB
+           fetchChatHistory(myQueueEntryId);
        }
-   }, [isPageVisible, myQueueEntryId, fetchChatHistory, isChatOpen]);
+   }, [isPageVisible, myQueueEntryId, fetchChatHistory]);
 
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
