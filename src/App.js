@@ -508,16 +508,17 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         const customerUserId = customer?.profiles?.id;
         const queueId = customer?.id; // The queue entry ID is the 'id' field
         
+        // --- FIX: Clear unread status immediately on open ---
+        setUnreadMessages(prev => {
+            const updated = { ...prev };
+            if (customerUserId) delete updated[customerUserId]; // Mark as read
+            return updated;
+        });
+
         if (customerUserId && queueId) {
             console.log(`[openChat] Opening chat for ${customerUserId} on queue ${queueId}`);
             setOpenChatCustomerId(customerUserId);
             setOpenChatQueueId(queueId);
-            
-            setUnreadMessages(prev => {
-                const updated = { ...prev };
-                delete updated[customerUserId]; // Mark as read
-                return updated;
-            });
 
             // Fetch history when chat opens
             const fetchHistory = async () => {
@@ -1133,7 +1134,7 @@ function CustomerView({ session }) {
                 {!isChatOpen && myQueueEntryId && (
                     <button onClick={() => {
                             if (currentChatTargetBarberUserId) {
-                                setIsChatOpen(true);
+                                setIsChatOpen(true); // Open the chat window
                                 setHasUnreadFromBarber(false); // Mark as read
                             } else { console.error("Barber user ID missing. Please refresh the page."); setMessage("Cannot initiate chat: Barber details not loaded."); }
                         }}
