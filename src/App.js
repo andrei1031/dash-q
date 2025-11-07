@@ -822,21 +822,15 @@ function CustomerView({ session }) {
    useEffect(() => {
     // If the page becomes visible AND we are in a queue
     if (isPageVisible && myQueueEntryId) {
-        console.log("[Customer] Page is visible. Re-fetching chat history and clearing badge if chat is open.");
+        console.log("[Customer] Page is visible. Re-fetching chat history to check for new messages.");
         
         // 1. Re-fetch history to load any messages that arrived while frozen
-        fetchChatHistory(myQueueEntryId).then(() => {
-            // 2. If the chat is currently OPEN, or was just OPENED and closed
-            // We assume the user saw the message and we explicitly clear the badge.
-            // This is the CRUCIAL STEP to clear stale state from deep sleep/freeze.
-            if (isChatOpen || hasUnreadFromBarber) { 
-                setHasUnreadFromBarber(false); 
-                // Since the user is active, let's mark the messages read on the backend too (no harm in running it again).
-                markMessagesAsRead(myQueueEntryId, session.user.id);
-            }
-        });
+        // The WebSocket listener is responsible for setting the unread badge.
+        // This fetch ensures we have the latest data, but we will NOT clear the badge here.
+        // The badge is only cleared when the user explicitly opens the chat.
+        fetchChatHistory(myQueueEntryId);
     }
-}, [isPageVisible, myQueueEntryId, fetchChatHistory, isChatOpen, hasUnreadFromBarber, session]); // <-- Added hasUnreadFromBarber and session to dependencies
+}, [isPageVisible, myQueueEntryId, fetchChatHistory]);
 
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
