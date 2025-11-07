@@ -367,18 +367,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         try {
             const response = await axios.get(`${API_URL}/queue/details/${barberId}`);
             console.log('[BarberDashboard] Successfully fetched queue details:', response.data);
-            const details = response.data;
-            setQueueDetails(details);
-
-            // --- FIX: Sync unread state from server ---
-            const newUnreadState = {};
-            const allEntries = [...(details.waiting || []), details.inProgress, details.upNext].filter(Boolean);
-            allEntries.forEach(entry => {
-                if (entry.unread_count > 0 && entry.profiles?.id) {
-                    newUnreadState[entry.profiles.id] = true;
-                }
-            });
-            setUnreadMessages(prev => ({ ...prev, ...newUnreadState }));
+            setQueueDetails(response.data);
        } catch (err) {
             console.error('[BarberDashboard] Failed fetch queue details:', err);
             const errMsg = err.response?.data?.error || err.message || 'Could not load queue details.';
@@ -448,7 +437,15 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     useEffect(() => {
         if (isPageVisible) {
             console.log("[Barber] Page is visible. Re-checking queue and unread messages.");
-            fetchQueueDetails();
+            // Re-fetch the queue to get the absolute latest state
+            fetchQueueDetails().then(() => {
+                // After fetching, we need to re-evaluate unread messages based on the new queueDetails state.
+                // This is tricky because state updates are async. A simple approach is to check history on open.
+                // The most important part is that fetchQueueDetails() gets the latest list,
+                // so when a chat is opened via openChat(), it will have the correct data to fetch history.
+                // We can also proactively check for new messages here if we had a 'last_read' timestamp.
+                // For now, fetching the queue is the most critical step to ensure UI is up-to-date.
+            });
         }
     }, [isPageVisible, fetchQueueDetails]);
 
@@ -774,8 +771,7 @@ function CustomerView({ session }) {
         setMyQueueEntryId(null); setJoinedBarberId(null);
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
-        setIsChatOpen(false); /* setChatTargetBarberUserId(null); <-- REMOVE if it's still here */ 
-        setHasUnreadFromBarber(false);
+        setIsChatOpen(false); /* setChatTargetBarberUserId(null); <-- REMOVE if it's still here */ setHasUnreadFromBarber(false);
         setChatMessagesFromBarber([]); setDisplayWait(0); setEstimatedWait(0);
         
         // --- Feedback state resets ---
@@ -823,17 +819,16 @@ function CustomerView({ session }) {
    
    // --- EFFECT: Re-fetch history when page becomes visible ---
    useEffect(() => {
-    // If the page becomes visible AND we are in a queue
-    if (isPageVisible && myQueueEntryId) {
-        console.log("[Customer] Page is visible. Re-fetching chat history to check for new messages.");
-        
-        // 1. Re-fetch history to load any messages that arrived while frozen
-        // The WebSocket listener is responsible for setting the unread badge.
-        // This fetch ensures we have the latest data, but we will NOT clear the badge here.
-        // The badge is only cleared when the user explicitly opens the chat.
-        fetchChatHistory(myQueueEntryId);
-    }
-}, [isPageVisible, myQueueEntryId, fetchChatHistory]);
+       // If the page becomes visible AND we are in a queue
+       if (isPageVisible && myQueueEntryId) {
+           console.log("[Customer] Page is visible. Re-fetching chat history to check for unread messages.");
+           fetchChatHistory(myQueueEntryId).then(() => {
+               // After fetching, if the chat window is closed, we should assume there might be unread messages.
+               // The logic inside the message listener is the primary defense, but this is a good fallback.
+               if (!isChatOpen) setHasUnreadFromBarber(true);
+           });
+       }
+   }, [isPageVisible, myQueueEntryId, fetchChatHistory, isChatOpen]);
 
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
@@ -1351,3 +1346,4 @@ function App() {
 }
 
 export default App;
+App.js
