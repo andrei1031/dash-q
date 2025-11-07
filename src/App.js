@@ -594,7 +594,6 @@ function CustomerView({ session }) {
    const [services, setServices] = useState([]);
    const [selectedServiceId, setSelectedServiceId] = useState('');
    const [isChatOpen, setIsChatOpen] = useState(false);
-   const [setChatTargetBarberUserId] = useState(null);
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
    const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
@@ -1074,10 +1073,9 @@ function CustomerView({ session }) {
                 {!isChatOpen && myQueueEntryId && (
                     <button onClick={() => {
                             if (currentChatTargetBarberUserId) {
-                                setChatTargetBarberUserId(currentChatTargetBarberUserId);
                                 setIsChatOpen(true);
                                 setHasUnreadFromBarber(false); // Mark as read
-                            } else { console.error("Barber user ID missing."); setMessage("Cannot initiate chat."); }
+                            } else { console.error("Barber user ID missing. Please refresh the page."); setMessage("Cannot initiate chat: Barber details not loaded."); }
                         }}
                         className="chat-toggle-button"
                     >
@@ -1091,10 +1089,10 @@ function CustomerView({ session }) {
                 {isChatOpen && currentChatTargetBarberUserId && (
                     <ChatWindow
                         currentUser_id={session.user.id}
-                        otherUser_id={currentChatTargetBarberUserId}
-                        messages={chatMessagesFromBarber} // Pass message state
-                        onSendMessage={sendCustomerMessage} // Pass send handler
-                        isVisible={isChatOpen} // Pass visibility
+                        otherUser_id={currentChatTargetBarberUserId} // <--- This will now reliably have a value
+                        messages={chatMessagesFromBarber} 
+                        onSendMessage={sendCustomerMessage}
+                        isVisible={isChatOpen} 
                     />
                 )}
                 <button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='leave-queue-button'>{isLoading ? 'Leaving...' : 'Leave Queue / Join Another'}</button>
