@@ -404,6 +404,11 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                      }
                      return currentOpenChatId;
                 });
+
+                // Vibrate on new message
+                if (navigator.vibrate) {
+                    navigator.vibrate(200); // Vibrate for 200ms
+                }
             };
             socket.on('chat message', messageListener);
             socket.on('connect_error', (err) => { console.error("[Barber] WebSocket Connection Error:", err); });
@@ -955,6 +960,11 @@ function CustomerView({ session }) {
                             if (!currentIsOpen) { setHasUnreadFromBarber(true); }
                             return currentIsOpen;
                         });
+
+                        // Vibrate on new message
+                        if (navigator.vibrate) {
+                            navigator.vibrate(200); // Vibrate for 200ms
+                        }
                     }
                 };
                     socket.on('chat message', messageListener);
