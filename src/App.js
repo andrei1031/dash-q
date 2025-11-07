@@ -406,8 +406,13 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                 });
 
                 // Vibrate on new message
-                if (navigator.vibrate) {
-                    navigator.vibrate(200); // Vibrate for 200ms
+                if ('vibrate' in navigator) {
+                    console.log("[Vibration] Attempting to vibrate for barber.");
+                    try {
+                        navigator.vibrate(200); // Vibrate for 200ms
+                    } catch (e) {
+                        console.warn("[Vibration] Could not vibrate:", e);
+                    }
                 }
             };
             socket.on('chat message', messageListener);
@@ -536,6 +541,14 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             setOpenChatCustomerId(customerUserId);
             setOpenChatQueueId(queueId);
             markMessagesAsRead(queueId, session.user.id); // Mark messages as read on the backend
+
+            // --- VIBRATION UNLOCK ---
+            // A silent vibration on user interaction helps ensure subsequent vibrations work.
+            if ('vibrate' in navigator) {
+                console.log("[Vibration] Unlocking vibration with a user gesture.");
+                navigator.vibrate(1); // A tiny, silent vibration
+            }
+
 
             // Fetch history when chat opens
             const fetchHistory = async () => {
@@ -962,8 +975,13 @@ function CustomerView({ session }) {
                         });
 
                         // Vibrate on new message
-                        if (navigator.vibrate) {
-                            navigator.vibrate(200); // Vibrate for 200ms
+                        if ('vibrate' in navigator) {
+                            console.log("[Vibration] Attempting to vibrate for customer.");
+                            try {
+                                navigator.vibrate(200); // Vibrate for 200ms
+                            } catch (e) {
+                                console.warn("[Vibration] Could not vibrate:", e);
+                            }
                         }
                     }
                 };
@@ -1158,6 +1176,14 @@ function CustomerView({ session }) {
                             if (currentChatTargetBarberUserId) {
                                 setIsChatOpen(true); // Open the chat window
                                 setHasUnreadFromBarber(false); // Mark as read
+
+                                // --- VIBRATION UNLOCK ---
+                                // A silent vibration on user interaction helps ensure subsequent vibrations work.
+                                if ('vibrate' in navigator) {
+                                    console.log("[Vibration] Unlocking vibration with a user gesture.");
+                                    navigator.vibrate(1); // A tiny, silent vibration
+                                }
+
                                 markMessagesAsRead(myQueueEntryId, session.user.id); // Mark messages as read on the backend
                             } else { console.error("Barber user ID missing. Please refresh the page."); setMessage("Cannot initiate chat: Barber details not loaded."); }
                         }}
