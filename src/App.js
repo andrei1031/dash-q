@@ -126,7 +126,7 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
     <div className="chat-window">
       <div className="message-list">
         {messages.map((msg, index) => (
-          <div key={index} className={msg.senderId === currentUser_id ? 'my-message' : 'other-message'}>
+          <div key={`${index}-${msg.message.slice(0, 10)}`} className={msg.senderId === currentUser_id ? 'my-message' : 'other-message'}>
             {msg.message}
           </div>
         ))}
@@ -926,11 +926,10 @@ function CustomerView({ session }) {
                                     tag: 'dash-q-turn'    // Prevents multiple similar notifications
                                 });
                             }
-                            
+
                             // 2. Haptic Feedback (Existing code)
-                            if (navigator.vibrate) navigator.vibrate([500,200,500]); 
+                            if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
                         }
-                        } 
                         else if (newStatus === 'Done') { 
                             setIsServiceCompleteModalOpen(true); 
                             stopBlinking(); 
@@ -1317,7 +1316,7 @@ function CustomerAppLayout({ session }) {
     <div className="customer-app-layout">
       <header className="App-header">
         <h1>Welcome, {session.user?.user_metadata?.full_name || 'Customer'}!</h1>
-        <button onClick={() => supabase.auth.signOut()} className="logout-button">Logout</button>
+        <button onClick={() => handleLogout(session.user.id)} className="logout-button">Logout</button>
       </header>
       <div className="container">
         <CustomerView session={session} />
