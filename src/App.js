@@ -347,8 +347,6 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
 }
 
 // --- BarberDashboard (Handles Barber's Queue Management) ---
-// --- BarberDashboard (Handles Barber's Queue Management) ---
-// --- BarberDashboard (Handles Barber's Queue Management) ---
 function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [queueDetails, setQueueDetails] = useState({ waiting: [], inProgress: null, upNext: null });
     const [error, setError] = useState('');
@@ -710,6 +708,13 @@ function CustomerView({ session }) {
    const [barberFeedback, setBarberFeedback] = useState([]); 
 
    // --- Calculated Vars ---
+   const formatTime = (totalSeconds) => {
+        if (totalSeconds < 0) totalSeconds = 0;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+   };
+
    const nowServing = liveQueue.find(entry => entry.status === 'In Progress');
    const upNext = liveQueue.find(entry => entry.status === 'Up Next');
    const targetBarber = barbers.find(b => b.id === parseInt(joinedBarberId));
@@ -1070,10 +1075,62 @@ function CustomerView({ session }) {
        };
        calculateWaitTime();
    }, [liveQueue, myQueueEntryId, estimatedWait]); // Added estimatedWait
+    }, [session, joinedBarberId, myQueueEntryId, currentChatTargetBarberUserId, fetchChatHistory]); // Dependencies are correct
+
+   // --- Smart EWT Calculation and Countdown ---
+   useEffect(() => {
+    const calculateWaitTime = () => {
+        const oldQueue = liveQueueRef.current || [];
+        const newQueue = liveQueue;
+ 
+        // Calculate total wait time in minutes based on people ahead
+        const myIndexNew = newQueue.findIndex(e => e.id.toString() === myQueueEntryId);
+        const peopleAheadNew = myIndexNew !== -1 ? newQueue.slice(0, myIndexNew) : [];
+        const newTotalWaitInMinutes = peopleAheadNew.reduce((sum, entry) => {
+            if (['Waiting', 'Up Next', 'In Progress'].includes(entry.status)) {
+                return sum + (entry.services?.duration_minutes || 30);
+            }
+            return sum;
+        }, 0);
+ 
+        setEstimatedWait(newTotalWaitInMinutes);
+ 
+        // Smartly update the display wait time
+        setDisplayWait(currentDisplayWaitInSeconds => {
+            const leaver = oldQueue.find(oldEntry => !newQueue.some(newEntry => newEntry.id === oldEntry.id));
+            const myIndexOld = oldQueue.findIndex(e => e.id.toString() === myQueueEntryId);
+            const leaverIndexOld = leaver ? oldQueue.findIndex(e => e.id === leaver.id) : -1;
+ 
+            // If someone in front left, subtract their time
+            if (leaver && myIndexOld !== -1 && leaverIndexOld !== -1 && leaverIndexOld < myIndexOld) {
+                const leaverDurationInSeconds = (leaver.services?.duration_minutes || 30) * 60;
+                console.log(`Leaver detected in front: ${leaver.id}, duration: ${leaverDurationInSeconds / 60} mins`);
+                const newCountdownInSeconds = currentDisplayWaitInSeconds - leaverDurationInSeconds;
+                return newCountdownInSeconds > 0 ? newCountdownInSeconds : 0;
+            }
+ 
+            const newTotalWaitInSeconds = newTotalWaitInMinutes * 60;
+ 
+            // If the calculated wait is shorter or it's the first calculation, set it
+            if (currentDisplayWaitInSeconds === 0 || newTotalWaitInSeconds < currentDisplayWaitInSeconds) {
+                return newTotalWaitInSeconds;
+            }
+ 
+            // Otherwise, let the 1-minute interval handle the countdown
+            return currentDisplayWaitInSeconds;
+        });
+ 
+        // Update the number of people waiting
+        const relevantEntries = newQueue.filter(e => e.status === 'Waiting' || e.status === 'Up Next');
+        setPeopleWaiting(relevantEntries.length);
+    };
+ 
+    calculateWaitTime();
+}, [liveQueue, myQueueEntryId]);
    
-   useEffect(() => { // 1-Minute Countdown Timer
+   useEffect(() => { // 1-Second Countdown Timer
        if (!myQueueEntryId) return; 
-       const timerId = setInterval(() => { setDisplayWait(prevTime => (prevTime > 0 ? prevTime - 1 : 0)); }, 60000);
+       const timerId = setInterval(() => { setDisplayWait(prevTime => (prevTime > 0 ? prevTime - 1 : 0)); }, 1000); // Tick every second
        return () => clearInterval(timerId);
    }, [myQueueEntryId]);
    
@@ -1189,7 +1246,7 @@ function CustomerView({ session }) {
                     )}
                     {/* =============== END OF NEW SECTION =============== */}
                     
-                    {selectedBarberId && (<div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>)}
+                    {selectedBarberId && (<div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {Math.ceil(displayWait / 60)} min</strong></div></div>)}
                     
                     <button type="submit" disabled={isLoading || !selectedBarberId || barbers.length === 0} className="join-queue-button">{isLoading ? 'Joining...' : 'Join Queue'}</button>
                 </form>
@@ -1201,8 +1258,8 @@ function CustomerView({ session }) {
                 <div className="queue-number-display">Your Queue Number is: <strong>#{myQueueEntryId}</strong></div>
                 <div className="current-serving-display"><div className="serving-item now-serving"><span>Now Serving</span><strong>{nowServing ? `Customer #${nowServing.id}` : '---'}</strong></div><div className="serving-item up-next"><span>Up Next</span><strong>{upNext ? `Customer #${upNext.id}` : '---'}</strong></div></div>
                 {queueMessage && <p className="message error">{queueMessage}</p>}
-                {isQueueLoading && !queueMessage && <p className="loading-text">Loading queue...</p>}
-                <div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>
+                {isQueueLoading && !queueMessage && <p className="loading-text">Loading queue...</p>} 
+                <div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>{formatTime(displayWait)}</strong></div></div>
                 <ul className="queue-list live">{!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => (<li key={entry.id} className={`${entry.id.toString() === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''}`}><span>{index + 1}. {entry.id.toString() === myQueueEntryId ? `You (${entry.customer_name})` : `Customer #${entry.id}`}</span><span className="queue-status">{entry.status}</span></li>)))}</ul>
                 
                 {/* --- Chat Button (with Badge) --- */}
