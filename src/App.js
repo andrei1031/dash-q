@@ -91,6 +91,17 @@ function usePageVisibility() {
 }
 
 // ##############################################
+// ##         CHAT HELPER FUNCTIONS            ##
+// ##############################################
+const markMessagesAsRead = async (queueEntryId, userId) => {
+    try {
+        await axios.post(`${API_URL}/chat/mark-read`, { queueEntryId, userId });
+        console.log(`[markMessagesAsRead] Messages in queue ${queueEntryId} marked as read by user ${userId}`);
+    } catch (error) {
+        console.error("[markMessagesAsRead] Failed to mark messages as read:", error);
+    }
+};
+// ##############################################
 // ##           CHAT COMPONENT               ##
 // ##############################################
 function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage }) {
@@ -519,6 +530,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             console.log(`[openChat] Opening chat for ${customerUserId} on queue ${queueId}`);
             setOpenChatCustomerId(customerUserId);
             setOpenChatQueueId(queueId);
+            markMessagesAsRead(queueId, session.user.id); // Mark messages as read on the backend
 
             // Fetch history when chat opens
             const fetchHistory = async () => {
@@ -1136,6 +1148,7 @@ function CustomerView({ session }) {
                             if (currentChatTargetBarberUserId) {
                                 setIsChatOpen(true); // Open the chat window
                                 setHasUnreadFromBarber(false); // Mark as read
+                                markMessagesAsRead(myQueueEntryId, session.user.id); // Mark messages as read on the backend
                             } else { console.error("Barber user ID missing. Please refresh the page."); setMessage("Cannot initiate chat: Barber details not loaded."); }
                         }}
                         className="chat-toggle-button"
