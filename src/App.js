@@ -901,11 +901,12 @@ function CustomerView({ session }) {
                }
 
                const peopleAhead = queueData.filter(entry => entry.status === 'Waiting' || entry.status === 'Up Next' || entry.status === 'In Progress');
-               const totalWaitMinutes = peopleAhead.reduce((sum, entry) => sum + (entry.services?.duration_minutes || 30), 0);
+               const totalWaitInMinutes = peopleAhead.reduce((sum, entry) => sum + (entry.services?.duration_minutes || 30), 0);
 
                setPreJoinPeopleWaiting(peopleAhead.length);
-               setPreJoinEstimatedWait(totalWaitMinutes);
-           } catch (error) { console.error("Error calculating pre-join EWT:", error); setPreJoinEstimatedWait(0); setPreJoinPeopleWaiting(0); }
+               setPreJoinEstimatedWait(totalWaitInMinutes);
+               setPreJoinDisplayWait(totalWaitInMinutes * 60); // Set countdown in seconds
+           } catch (error) { console.error("Error calculating pre-join EWT:", error); setPreJoinEstimatedWait(0); setPreJoinPeopleWaiting(0); setPreJoinDisplayWait(0); }
        };
        calculatePreJoinEWT();
    }, [selectedBarberId, selectedServiceId, services, fetchPublicQueue]);
@@ -922,6 +923,15 @@ function CustomerView({ session }) {
            });
        }
    }, [isPageVisible, myQueueEntryId, fetchChatHistory, isChatOpen]);
+
+   // --- NEW EFFECT: Countdown for Pre-join EWT ---
+   useEffect(() => {
+       if (!selectedBarberId || !selectedServiceId || preJoinDisplayWait <= 0) {
+           return; // Stop if no selection or time is up
+       }
+       const timerId = setInterval(() => { setPreJoinDisplayWait(prevTime => (prevTime > 0 ? prevTime - 1 : 0)); }, 1000);
+       return () => clearInterval(timerId);
+   }, [selectedBarberId, selectedServiceId, preJoinDisplayWait]);
 
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
