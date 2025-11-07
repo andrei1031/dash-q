@@ -692,13 +692,11 @@ function CustomerView({ session }) {
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
    const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(false);
    const [chatMessagesFromBarber, setChatMessagesFromBarber] = useState([]); // This is the persistent chat history
-   const [displayWait, setDisplayWait] = useState(0);
    const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
    const [isOnCooldown, setIsOnCooldown] = useState(false);
    const locationWatchId = useRef(null);
    // --- NEW: Pre-join EWT State ---
    const [preJoinEstimatedWait, setPreJoinEstimatedWait] = useState(0);
-   const [preJoinDisplayWait, setPreJoinDisplayWait] = useState(0); // For countdown
    const [preJoinPeopleWaiting, setPreJoinPeopleWaiting] = useState(0);
    const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const socketRef = useRef(null);
@@ -712,13 +710,6 @@ function CustomerView({ session }) {
    const [barberFeedback, setBarberFeedback] = useState([]); 
 
    // --- Calculated Vars ---
-   const formatTime = (totalSeconds) => {
-        if (totalSeconds < 0) totalSeconds = 0;
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-   };
-
    const nowServing = liveQueue.find(entry => entry.status === 'In Progress');
    const upNext = liveQueue.find(entry => entry.status === 'Up Next');
    const targetBarber = barbers.find(b => b.id === parseInt(joinedBarberId));
@@ -832,7 +823,7 @@ function CustomerView({ session }) {
         setIsChatOpen(false); /* setChatTargetBarberUserId(null); <-- REMOVE if it's still here */ setHasUnreadFromBarber(false);
         setChatMessagesFromBarber([]); setDisplayWait(0); setEstimatedWait(0);
         
-        // --- Feedback state resets ---
+        // --- Feedback state resets --- //
         setFeedbackText('');
         setFeedbackSubmitted(false);
         setBarberFeedback([]);
@@ -1044,130 +1035,43 @@ function CustomerView({ session }) {
             } 
         };
     }, [session, joinedBarberId, myQueueEntryId, currentChatTargetBarberUserId, fetchChatHistory]);
-   useEffect(() => { // Smart EWT Calculation
-       const EWT_IN_PROGRESS_KEY = 'inProgressEwt';
+   useEffect(() => { // OLD EWT Calculation (Pre-Join)
         const managePreJoinEWT = async () => {
             if (!selectedBarberId) {
                 setPreJoinEstimatedWait(0);
                 setPreJoinPeopleWaiting(0);
-                localStorage.removeItem(EWT_IN_PROGRESS_KEY);
                 return;
             }
             try {
                 const queueData = await fetchPublicQueue(selectedBarberId);
-                const inProgressCustomer = queueData.find(e => e.status === 'In Progress');
-                const waitingCustomers = queueData.filter(e => ['Waiting', 'Up Next'].includes(e.status));
-
-                const waitingDuration = waitingCustomers.reduce((sum, entry) => sum + (entry.services?.duration_minutes || 30), 0);
-
-                let inProgressRemaining = 0;
-                if (inProgressCustomer) {
-                    const startTime = new Date(inProgressCustomer.start_time).getTime();
-                    const durationMillis = (inProgressCustomer.services?.duration_minutes || 30) * 60 * 1000;
-                    const endTime = startTime + durationMillis;
-                    inProgressRemaining = Math.max(0, Math.ceil((endTime - Date.now()) / (60 * 1000)));
-                }
-
-                const totalWaitInMinutes = inProgressRemaining + waitingDuration;
-                setPreJoinPeopleWaiting(queueData.filter(e => ['Waiting', 'Up Next', 'In Progress'].includes(e.status)).length);
+                const peopleInQueue = queueData.filter(entry => ['Waiting', 'Up Next', 'In Progress'].includes(entry.status));
+                const totalWaitInMinutes = peopleInQueue.reduce((sum, entry) => sum + (entry.services?.duration_minutes || 30), 0);
+                setPreJoinPeopleWaiting(peopleInQueue.length);
                 setPreJoinEstimatedWait(totalWaitInMinutes);
-                console.log(`[Pre-Join EWT] Calculated totalWaitInMinutes: ${totalWaitInMinutes}`);
             } catch (error) {
                 console.error("Error managing pre-join EWT:", error);
             }
         };
-
         managePreJoinEWT();
-
-        // Add a periodic refresh for the pre-join EWT
-        const preJoinRefreshInterval = setInterval(managePreJoinEWT, 10000); // Refresh every 10 seconds
-
-        return () => clearInterval(preJoinRefreshInterval); // Cleanup on component unmount or when dependencies change
-
    }, [selectedBarberId, fetchPublicQueue]);
 
-   useEffect(() => {
-       if (isPageVisible && myQueueEntryId) {
-           console.log("[Customer] Page is visible. Re-fetching chat history.");
-           fetchChatHistory(myQueueEntryId);
-       }
-   }, [isPageVisible, myQueueEntryId, fetchChatHistory]);
-
-   // --- NEW EFFECT: Countdown for Pre-join EWT ---
-   useEffect(() => {
-       let timerId;
-       if (preJoinEstimatedWait > 0) {
-           setPreJoinDisplayWait(preJoinEstimatedWait * 60);
-           timerId = setInterval(() => {
-               setPreJoinDisplayWait(prev => (prev > 0 ? prev - 1 : 0));
-           }, 1000);
-       } else {
-           setPreJoinDisplayWait(0);
-       }
-       return () => clearInterval(timerId);
-   }, [preJoinEstimatedWait]);
-
-   // --- Smart EWT Calculation and Countdown (POST-JOIN) ---
-   useEffect(() => {
-       const EWT_STORAGE_KEY = 'myEwtCountdown';
-
+   // OLD EWT Calculation (Post-Join)
+   useEffect(() => { 
        const calculateWaitTime = () => {
-           if (!myQueueEntryId) {
-               localStorage.removeItem(EWT_STORAGE_KEY);
-               return;
-           }
-
-           const oldQueue = liveQueueRef.current || [];
-           const newQueue = liveQueue;
-
-           const myIndexNew = newQueue.findIndex(e => e.id.toString() === myQueueEntryId);
-           if (myIndexNew === -1) return; // Not in queue anymore
-
-           const peopleAheadNew = newQueue.slice(0, myIndexNew);
-           const newTotalWaitInMinutes = peopleAheadNew.reduce((sum, entry) => {
+           const myIndex = liveQueue.findIndex(e => e.id.toString() === myQueueEntryId);
+           if (myIndex === -1) { setEstimatedWait(0); setPeopleWaiting(0); return; }
+           const peopleAhead = liveQueue.slice(0, myIndex);
+           const totalWait = peopleAhead.reduce((sum, entry) => {
                if (['Waiting', 'Up Next', 'In Progress'].includes(entry.status)) {
                    return sum + (entry.services?.duration_minutes || 30);
                }
                return sum;
            }, 0);
-
-           setEstimatedWait(newTotalWaitInMinutes);
-           setPeopleWaiting(peopleAheadNew.filter(e => ['Waiting', 'Up Next'].includes(e.status)).length);
-
-           let storedData;
-           try { storedData = JSON.parse(localStorage.getItem(EWT_STORAGE_KEY)); } catch (e) { storedData = null; }
-
-           const leaver = oldQueue.find(oldEntry => !newQueue.some(newEntry => newEntry.id === oldEntry.id));
-           const myIndexOld = oldQueue.findIndex(e => e.id.toString() === myQueueEntryId);
-           const leaverIndexOld = leaver ? oldQueue.findIndex(e => e.id === leaver.id) : -1;
-
-           let newTargetEndTime;
-
-           if (leaver && myIndexOld !== -1 && leaverIndexOld !== -1 && leaverIndexOld < myIndexOld) {
-               const leaverDurationInSeconds = (leaver.services?.duration_minutes || 30) * 60;
-               console.log(`Leaver detected in front: ${leaver.id}, duration: ${leaverDurationInSeconds / 60} mins`);
-               newTargetEndTime = (storedData?.targetEndTime || Date.now()) - (leaverDurationInSeconds * 1000);
-           } else {
-               const currentRemainingSeconds = storedData?.targetEndTime ? Math.round((storedData.targetEndTime - Date.now()) / 1000) : 0;
-               const newTotalWaitInSeconds = newTotalWaitInMinutes * 60;
-               if (!storedData || newTotalWaitInSeconds < currentRemainingSeconds) {
-                   newTargetEndTime = Date.now() + newTotalWaitInSeconds * 1000;
-               } else {
-                   newTargetEndTime = storedData.targetEndTime;
-               }
-           }
-
-           localStorage.setItem(EWT_STORAGE_KEY, JSON.stringify({ targetEndTime: newTargetEndTime }));
+           setEstimatedWait(totalWait);
+           setPeopleWaiting(peopleAhead.filter(e => ['Waiting', 'Up Next'].includes(e.status)).length);
        };
-
        calculateWaitTime();
    }, [liveQueue, myQueueEntryId]);
-   
-   useEffect(() => { // 1-Second Countdown Timer
-       if (!myQueueEntryId) return; 
-       const timerId = setInterval(() => { setDisplayWait(prevTime => (prevTime > 0 ? prevTime - 1 : 0)); }, 1000); // Tick every second
-       return () => clearInterval(timerId);
-   }, [myQueueEntryId]);
    
    
    // --- Debug Log ---
@@ -1258,7 +1162,7 @@ function CustomerView({ session }) {
                     {selectedBarberId && selectedServiceId && (
                         <div className="ewt-container">
                             <div className="ewt-item"><span>People ahead</span><strong>{preJoinPeopleWaiting} {preJoinPeopleWaiting === 1 ? 'person' : 'people'}</strong></div>
-                            <div className="ewt-item"><span>Estimated wait</span><strong>~ {formatTime(preJoinDisplayWait)}</strong></div>
+                            <div className="ewt-item"><span>Estimated wait</span><strong>~ {preJoinEstimatedWait} min</strong></div>
                         </div>
                     )}
                     {/* --- END NEW EWT DISPLAY --- */}
@@ -1301,7 +1205,7 @@ function CustomerView({ session }) {
                 <div className="current-serving-display"><div className="serving-item now-serving"><span>Now Serving</span><strong>{nowServing ? `Customer #${nowServing.id}` : '---'}</strong></div><div className="serving-item up-next"><span>Up Next</span><strong>{upNext ? `Customer #${upNext.id}` : '---'}</strong></div></div>
                 {queueMessage && <p className="message error">{queueMessage}</p>}
                 {isQueueLoading && !queueMessage && <p className="loading-text">Loading queue...</p>} 
-                <div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>{formatTime(displayWait)}</strong></div></div>
+                <div className="ewt-container"><div className="ewt-item"><span>People ahead</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {estimatedWait} min</strong></div></div>
                 <ul className="queue-list live">{!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => (<li key={entry.id} className={`${entry.id.toString() === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''}`}><span>{index + 1}. {entry.id.toString() === myQueueEntryId ? `You (${entry.customer_name})` : `Customer #${entry.id}`}</span><span className="queue-status">{entry.status}</span></li>)))}</ul>
                 
                 {/* --- Chat Button (with Badge) --- */}
