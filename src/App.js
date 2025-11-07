@@ -469,7 +469,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             console.log(`[openChat] Opening chat for ${customerUserId} on queue ${queueId}`);
             setOpenChatCustomerId(customerUserId);
             setOpenChatQueueId(queueId);
-            const queueId = customer?.id;
             
             setUnreadMessages(prev => {
                 const updated = { ...prev };
