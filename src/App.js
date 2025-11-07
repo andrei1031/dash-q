@@ -698,6 +698,7 @@ function CustomerView({ session }) {
    const locationWatchId = useRef(null);
    // --- NEW: Pre-join EWT State ---
    const [preJoinEstimatedWait, setPreJoinEstimatedWait] = useState(0);
+   const [preJoinDisplayWait, setPreJoinDisplayWait] = useState(0); // For countdown
    const [preJoinPeopleWaiting, setPreJoinPeopleWaiting] = useState(0);
    const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const socketRef = useRef(null);
@@ -880,12 +881,14 @@ function CustomerView({ session }) {
            if (!selectedBarberId || !selectedServiceId) {
                setPreJoinEstimatedWait(0);
                setPreJoinPeopleWaiting(0);
+               setPreJoinDisplayWait(0);
                return;
            }
 
            // Temporarily set loading state for this calculation
            // (We don't want to use setIsQueueLoading as that's for the *actual* queue)
            // For simplicity, we'll just show "Calculating..." in the UI
+           // No explicit loading state for this, as it's quick.
 
            try {
                const queueData = await fetchPublicQueue(selectedBarberId); // Fetch queue for the selected barber
@@ -1267,7 +1270,7 @@ function CustomerView({ session }) {
                     {selectedBarberId && selectedServiceId && (
                         <div className="ewt-container">
                             <div className="ewt-item"><span>People ahead</span><strong>{preJoinPeopleWaiting} {preJoinPeopleWaiting === 1 ? 'person' : 'people'}</strong></div>
-                            <div className="ewt-item"><span>Estimated wait</span><strong>~ {preJoinEstimatedWait} min</strong></div>
+                            <div className="ewt-item"><span>Estimated wait</span><strong>~ {formatTime(preJoinDisplayWait)}</strong></div>
                         </div>
                     )}
                     {/* --- END NEW EWT DISPLAY --- */}
