@@ -356,19 +356,18 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             socket.on('connect', () => { console.log(`[Barber] WebSocket connected.`); });
 
             const messageListener = (incomingMessage) => {
-                const customerId = incomingMessage.senderId;
-                
-                // 1. ALWAYS append the message to the state object for persistence
-                setChatMessages(prev => { // <<< FIX: setChatMessages IS NOW DEFINED
-                    const msgs = prev[customerId] || []; 
-                    return { ...prev, [customerId]: [...msgs, incomingMessage] }; 
+                const senderId = incomingMessage.senderId;
+
+                // 1. Append the message to the correct chat history
+                setChatMessages(prev => {
+                    const msgs = prev[senderId] || [];
+                    return { ...prev, [senderId]: [...msgs, incomingMessage] };
                 });
 
-                // 2. Handle unread status (Only if the chat is NOT open)
-                setOpenChatCustomerId(currentOpenChatId => { // <<< FIX: setOpenChatCustomerId IS NOW DEFINED
-                     if (customerId !== currentOpenChatId) {
-                         // Message came from a different customer, or chat is closed.
-                         setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true })); // <<< FIX: setUnreadMessages IS NOW DEFINED
+                // 2. Set unread status if the chat is not currently open for that sender
+                setOpenChatCustomerId(currentOpenChatId => {
+                     if (senderId !== currentOpenChatId) {
+                         setUnreadMessages(prevUnread => ({ ...prevUnread, [senderId]: true }));
                      }
                      return currentOpenChatId;
                 });
@@ -876,10 +875,13 @@ function CustomerView({ session }) {
                 // The message listener must append the new message to the existing history state
                 const messageListener = (incomingMessage) => {
                     if (incomingMessage.senderId === currentChatTargetBarberUserId) {
-                        // Append the new message to the existing history state
-                        setChatMessagesFromBarber(prev => [...prev, incomingMessage]); 
+                        // 1. Append the new message to the chat history
+                        setChatMessagesFromBarber(prev => [...prev, incomingMessage]);
+
+                        // 2. Check if the chat window is currently closed to set the unread badge.
+                        // This prevents a race condition where the badge might not appear if the user closes the chat quickly.
                         setIsChatOpen(currentIsOpen => {
-                            if (!currentIsOpen) { setHasUnreadFromBarber(true); } 
+                            if (!currentIsOpen) { setHasUnreadFromBarber(true); }
                             return currentIsOpen;
                         });
                     }
