@@ -670,6 +670,9 @@ function CustomerView({ session }) {
    const locationWatchId = useRef(null);
    const [referenceImageFile, setReferenceImageFile] = useState(null); // For new uploads
    const [isUploading, setIsUploading] = useState(false); // For image upload loading state
+   
+   const notificationSoundRef = useRef(new Audio('/notification.mp3')); // Assumes notification.mp3 is in your /public folder
+
    const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const socketRef = useRef(null);
    const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
@@ -935,7 +938,7 @@ function CustomerView({ session }) {
                         if (newStatus === 'Up Next') { 
                             startBlinking(); 
                             setIsYourTurnModalOpen(true); 
-                            notificationSoundRef.current.play().catch(e => console.warn("Audio play failed:", e));
+                            notificationSoundRef.current.play().catch(e => console.warn("Audio play failed"));
                             if (navigator.vibrate) navigator.vibrate([500,200,500]); 
                         } 
                         else if (newStatus === 'Done') { 
@@ -1202,13 +1205,11 @@ function CustomerView({ session }) {
                 {/* --- NEW: Test Notification Sound Button --- */}
                 <button
                     onClick={() => {
-                        notificationSoundRef.current.play().catch(e => {
-                            console.warn("Test audio play failed:", e);
-                            setMessage("Could not play test sound. Check browser autoplay settings or device volume.");
-                        });
+                        notificationSoundRef.current.play().catch(e => { console.warn("Test audio play failed"); setMessage("Could not play test sound. Check browser autoplay settings or device volume."); });
                     }}
                     className="test-sound-button"
                 >
+
                     Test Notification Sound
                 </button>
                 {/* --- NEW: Change Reference Image Section --- */}
@@ -1226,6 +1227,11 @@ function CustomerView({ session }) {
                         />
                     </div>
                 )}
+
+
+
+
+
 
                 <ul className="queue-list live">{!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => (<li key={entry.id} className={`${entry.id.toString() === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''}`}><span>{index + 1}. {entry.id.toString() === myQueueEntryId ? `You (${entry.customer_name})` : `Customer #${entry.id}`}</span><span className="queue-status">{entry.status}</span></li>)))}</ul>
                 
