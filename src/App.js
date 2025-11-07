@@ -1071,14 +1071,21 @@ function CustomerView({ session }) {
                 const totalWaitInMinutes = inProgressRemaining + waitingDuration;
                 setPreJoinPeopleWaiting(queueData.filter(e => ['Waiting', 'Up Next', 'In Progress'].includes(e.status)).length);
                 setPreJoinEstimatedWait(totalWaitInMinutes);
+                console.log(`[Pre-Join EWT] Calculated totalWaitInMinutes: ${totalWaitInMinutes}`);
             } catch (error) {
                 console.error("Error managing pre-join EWT:", error);
             }
         };
+
         managePreJoinEWT();
+
+        // Add a periodic refresh for the pre-join EWT
+        const preJoinRefreshInterval = setInterval(managePreJoinEWT, 10000); // Refresh every 10 seconds
+
+        return () => clearInterval(preJoinRefreshInterval); // Cleanup on component unmount or when dependencies change
+
    }, [selectedBarberId, fetchPublicQueue]);
 
-   // --- EFFECT: Re-fetch history when page becomes visible ---
    useEffect(() => {
        if (isPageVisible && myQueueEntryId) {
            console.log("[Customer] Page is visible. Re-fetching chat history.");
