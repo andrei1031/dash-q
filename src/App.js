@@ -572,7 +572,16 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                         ) : ( <button className="next-button disabled" disabled>Queue Empty</button> )}
                     </div>
                     <h3 className="queue-subtitle">In Chair</h3>
-                    {queueDetails.inProgress ? (<ul className="queue-list"><li className="in-progress"><div><strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong></div><button onClick={() => openChat(queueDetails.inProgress)} className="chat-icon-button" title={queueDetails.inProgress.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.inProgress.profiles?.id}>💬{queueDetails.inProgress.profiles?.id && unreadMessages[queueDetails.inProgress.profiles.id] && (<span className="notification-badge">1</span>)}</button></li></ul>) : (<p className="empty-text">Chair empty</p>)}
+                    {queueDetails.inProgress ? (
+                        <ul className="queue-list">
+                            <li className="in-progress">
+                                <div>
+                                    <strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
+                                    {queueDetails.inProgress.reference_image_url && <a href={queueDetails.inProgress.reference_image_url} target="_blank" rel="noopener noreferrer" className="reference-link">View Photo</a>}
+                                </div>
+                                <button onClick={() => openChat(queueDetails.inProgress)} className="chat-icon-button" title={queueDetails.inProgress.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.inProgress.profiles?.id}>💬{queueDetails.inProgress.profiles?.id && unreadMessages[queueDetails.inProgress.profiles.id] && (<span className="notification-badge">1</span>)}</button>
+                            </li>
+                        </ul>) : (<p className="empty-text">Chair empty</p>)}
                     <h3 className="queue-subtitle">Up Next</h3>
                     {queueDetails.upNext ? (<ul className="queue-list"><li className="up-next"><div><strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong></div><button onClick={() => openChat(queueDetails.upNext)} className="chat-icon-button" title={queueDetails.upNext.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.upNext.profiles?.id}>💬{queueDetails.upNext.profiles?.id && unreadMessages[queueDetails.upNext.profiles.id] && (<span className="notification-badge">1</span>)}</button></li></ul>) : (<p className="empty-text">Nobody Up Next</p>)}
                     <h3 className="queue-subtitle">Waiting</h3>
@@ -659,6 +668,8 @@ function CustomerView({ session }) {
    const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
    const [isOnCooldown, setIsOnCooldown] = useState(false);
    const locationWatchId = useRef(null);
+   const [referenceImageFile, setReferenceImageFile] = useState(null); // For new uploads
+   const [isUploading, setIsUploading] = useState(false); // For image upload loading state
    const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const socketRef = useRef(null);
    const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
@@ -729,12 +740,27 @@ function CustomerView({ session }) {
 
         setIsLoading(true); setMessage('Joining queue...');
         try {
+            let imageUrl = null;
+            if (referenceImageFile) {
+                setMessage('Uploading reference photo...');
+                setIsUploading(true);
+                const fileExt = referenceImageFile.name.split('.').pop();
+                const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage.from('haircut_references').upload(fileName, referenceImageFile);
+                if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
+                const { data: urlData } = supabase.storage.from('haircut_references').getPublicUrl(fileName);
+                imageUrl = urlData.publicUrl;
+                setIsUploading(false);
+                setMessage('Photo uploaded! Joining queue...');
+            }
+
             const response = await axios.post(`${API_URL}/queue`, {
                 customer_name: customerName,
                 customer_phone: customerPhone,
                 customer_email: customerEmail,
                 barber_id: selectedBarberId, 
-                reference_image_url: null,
+                // --- THIS IS THE KEY CHANGE ---
+                reference_image_url: imageUrl,
                 service_id: selectedServiceId,
                 player_id: player_id,
                 user_id: session.user.id,
@@ -746,7 +772,7 @@ function CustomerView({ session }) {
                 localStorage.setItem('joinedBarberId', newEntry.barber_id.toString());
                 setMyQueueEntryId(newEntry.id.toString());
                 setJoinedBarberId(newEntry.barber_id.toString());
-                setSelectedBarberId(''); setSelectedServiceId(''); 
+                setSelectedBarberId(''); setSelectedServiceId(''); setReferenceImageFile(null);
             } else { throw new Error("Invalid response from server."); }
         } catch (error) {
             console.error('Failed to join queue:', error);
@@ -754,6 +780,7 @@ function CustomerView({ session }) {
             setMessage(errorMessage.includes('unavailable') ? errorMessage : 'Failed to join. Try again.');
         } finally { setIsLoading(false); }
    };
+   
    
    <button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='leave-queue-button'>{isLoading ? 'Leaving...' : 'Leave Queue / Join Another'}</button>
    
@@ -772,6 +799,7 @@ function CustomerView({ session }) {
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
         setIsChatOpen(false); /* setChatTargetBarberUserId(null); <-- REMOVE if it's still here */ setHasUnreadFromBarber(false);
+       setReferenceImageFile(null); // Clear file input
         setChatMessagesFromBarber([]); setDisplayWait(0); setEstimatedWait(0);
         
         // --- Feedback state resets ---
@@ -781,6 +809,33 @@ function CustomerView({ session }) {
 
         console.log("[handleReturnToJoin] State reset complete.");
     }, [myQueueEntryId, setIsLoading, axios, setMyQueueEntryId, setJoinedBarberId, setLiveQueue, setQueueMessage, setSelectedBarberId, setSelectedServiceId, setMessage, setIsChatOpen, setHasUnreadFromBarber, setChatMessagesFromBarber, setDisplayWait, setEstimatedWait, setIsServiceCompleteModalOpen, setIsCancelledModalOpen, setIsYourTurnModalOpen, setFeedbackText, setFeedbackSubmitted, setBarberFeedback]);
+
+   const handleChangeReferenceImage = async (file) => {
+       if (!file || !myQueueEntryId) return;
+       setIsUploading(true);
+       setMessage("Uploading new reference photo...");
+       try {
+           const fileExt = file.name.split('.').pop();
+           const fileName = `${session.user.id}-${myQueueEntryId}-${Date.now()}.${fileExt}`;
+           const { error: uploadError } = await supabase.storage.from('haircut_references').upload(fileName, file);
+           if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
+
+           const { data: urlData } = supabase.storage.from('haircut_references').getPublicUrl(fileName);
+           const newImageUrl = urlData.publicUrl;
+
+           // Now, update the queue entry with the new URL
+           await axios.put(`${API_URL}/queue/reference-image`, {
+               queueId: myQueueEntryId,
+               imageUrl: newImageUrl
+           });
+
+           setMessage("Reference photo updated successfully!");
+           // The realtime subscription will automatically update the UI with the new image.
+       } catch (error) {
+           console.error("Failed to change reference image:", error);
+           setMessage(error.response?.data?.error || "Could not update photo.");
+       } finally { setIsUploading(false); }
+   };
    
    const handleModalClose = () => { setIsYourTurnModalOpen(false); stopBlinking(); };
 
@@ -1096,6 +1151,7 @@ function CustomerView({ session }) {
                     <div className="form-group"><label>Your Phone (Optional):</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="e.g., 09171234567" /></div>
                     <div className="form-group"><label>Your Email:</label><input type="email" value={customerEmail} readOnly className="prefilled-input" /></div>
                     <div className="form-group"><label>Select Service:</label><select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required><option value="">-- Choose service --</option>{services.map((service) => (<option key={service.id} value={service.id}>{service.name} ({service.duration_minutes} min / ₱{service.price_php})</option>))}</select></div>
+                    <div className="form-group"><label>Reference Photo (Optional):</label><input type="file" accept="image/*" onChange={(e) => setReferenceImageFile(e.target.files[0])} /></div>
                     
                     <div className="form-group"><label>Select Available Barber:</label><select value={selectedBarberId} onChange={(e) => setSelectedBarberId(e.target.value)} required><option value="">-- Choose --</option>{barbers.map((b) => (<option key={b.id} value={b.id}>{b.full_name}</option>))}</select></div>
 
@@ -1128,7 +1184,7 @@ function CustomerView({ session }) {
                     
                     {selectedBarberId && (<div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>)}
                     
-                    <button type="submit" disabled={isLoading || !selectedBarberId || barbers.length === 0} className="join-queue-button">{isLoading ? 'Joining...' : 'Join Queue'}</button>
+                    <button type="submit" disabled={isLoading || isUploading || !selectedBarberId || barbers.length === 0} className="join-queue-button">{isLoading ? (isUploading ? 'Uploading...' : 'Joining...') : 'Join Queue'}</button>
                 </form>
                 {message && <p className={`message ${message.toLowerCase().includes('failed') || message.toLowerCase().includes('error') ? 'error' : ''}`}>{message}</p>}
            </>
@@ -1140,6 +1196,21 @@ function CustomerView({ session }) {
                 {queueMessage && <p className="message error">{queueMessage}</p>}
                 {isQueueLoading && !queueMessage && <p className="loading-text">Loading queue...</p>}
                 <div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>
+                
+                {/* --- NEW: Change Reference Image Section --- */}
+                <div className="change-reference-section">
+                    <label htmlFor="change-ref-input">
+                        {isUploading ? 'Uploading...' : 'Change Reference Photo'}
+                    </label>
+                    <input
+                        id="change-ref-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleChangeReferenceImage(e.target.files[0])}
+                        disabled={isUploading}
+                    />
+                </div>
+
                 <ul className="queue-list live">{!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => (<li key={entry.id} className={`${entry.id.toString() === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''}`}><span>{index + 1}. {entry.id.toString() === myQueueEntryId ? `You (${entry.customer_name})` : `Customer #${entry.id}`}</span><span className="queue-status">{entry.status}</span></li>)))}</ul>
                 
                 {/* --- Chat Button (with Badge) --- */}
