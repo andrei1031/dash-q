@@ -875,101 +875,6 @@ function CustomerView({ session }) {
         if (!hasSeen) { setIsInstructionsModalOpen(true); }
    }, []);
    
-   // --- REFACTORED EFFECT: Calculate and manage pre-join EWT ---
-   useEffect(() => {
-        const PREJOIN_STORAGE_KEY = 'preJoinCountdown';
-
-        const managePreJoinEWT = async () => {
-            if (!selectedBarberId || !selectedServiceId) {
-                setPreJoinEstimatedWait(0);
-                setPreJoinPeopleWaiting(0);
-                setPreJoinDisplayWait(0);
-                localStorage.removeItem(PREJOIN_STORAGE_KEY);
-                return;
-            }
-
-            try {
-                const queueData = await fetchPublicQueue(selectedBarberId);
-                const peopleAhead = queueData.filter(entry => ['Waiting', 'Up Next', 'In Progress'].includes(entry.status));
-                const totalWaitInMinutes = peopleAhead.reduce((sum, entry) => sum + (entry.services?.duration_minutes || 30), 0);
-
-                setPreJoinPeopleWaiting(peopleAhead.length);
-                setPreJoinEstimatedWait(totalWaitInMinutes);
-
-                let storedData;
-                try {
-                    storedData = JSON.parse(localStorage.getItem(PREJOIN_STORAGE_KEY));
-                } catch (e) {
-                    storedData = null;
-                }
-
-                const selectionHasChanged = !storedData || storedData.barberId !== selectedBarberId || storedData.serviceId !== selectedServiceId;
-
-                if (selectionHasChanged) {
-                    // New selection, so we calculate a fresh target time
-                    const targetEndTime = Date.now() + totalWaitInMinutes * 60 * 1000;
-                    localStorage.setItem(PREJOIN_STORAGE_KEY, JSON.stringify({ barberId: selectedBarberId, serviceId: selectedServiceId, targetEndTime }));
-                    setPreJoinDisplayWait(totalWaitInMinutes * 60);
-                } else {
-                    // Same selection, check for changes in the queue length to adjust time
-                    const oldPeopleCount = storedData.peopleCount || 0;
-                    if (peopleAhead.length > oldPeopleCount) {
-                        const newPeople = peopleAhead.slice(oldPeopleCount);
-                        const addedTimeInSeconds = newPeople.reduce((sum, p) => sum + (p.services?.duration_minutes || 30) * 60, 0);
-                        const newTargetEndTime = (storedData.targetEndTime || Date.now()) + (addedTimeInSeconds * 1000);
-                        
-                        storedData.targetEndTime = newTargetEndTime;
-                        localStorage.setItem(PREJOIN_STORAGE_KEY, JSON.stringify(storedData));
-                    }
-                }
-                // Store current people count for next comparison
-                const currentStoredData = JSON.parse(localStorage.getItem(PREJOIN_STORAGE_KEY)) || {};
-                currentStoredData.peopleCount = peopleAhead.length;
-                localStorage.setItem(PREJOIN_STORAGE_KEY, JSON.stringify(currentStoredData));
-
-            } catch (error) { console.error("Error managing pre-join EWT:", error); }
-       };
-
-        managePreJoinEWT();
-   }, [selectedBarberId, selectedServiceId, services, fetchPublicQueue]);
-
-   // --- EFFECT: Re-fetch history when page becomes visible ---
-   useEffect(() => {
-       // If the page becomes visible AND we are in a queue
-       if (isPageVisible && myQueueEntryId) {
-           console.log("[Customer] Page is visible. Re-fetching chat history to check for unread messages.");
-           fetchChatHistory(myQueueEntryId).then(() => {
-               // After fetching, if the chat window is closed, we should assume there might be unread messages.
-               // The logic inside the message listener is the primary defense, but this is a good fallback.
-               if (!isChatOpen) setHasUnreadFromBarber(true);
-           });
-       }
-   }, [isPageVisible, myQueueEntryId, fetchChatHistory, isChatOpen]);
-
-   // --- NEW EFFECT: Countdown for Pre-join EWT ---
-   useEffect(() => {
-       const PREJOIN_STORAGE_KEY = 'preJoinCountdown';
-       let timerId;
-
-       if (selectedBarberId && selectedServiceId) {
-           timerId = setInterval(() => {
-               try {
-                   const storedData = JSON.parse(localStorage.getItem(PREJOIN_STORAGE_KEY));
-                   if (storedData && storedData.targetEndTime) {
-                       const remainingSeconds = Math.round((storedData.targetEndTime - Date.now()) / 1000);
-                       setPreJoinDisplayWait(remainingSeconds > 0 ? remainingSeconds : 0);
-                   } else {
-                       setPreJoinDisplayWait(0);
-                   }
-               } catch (e) {
-                   setPreJoinDisplayWait(0);
-               }
-           }, 1000);
-       }
-
-       return () => clearInterval(timerId);
-   }, [selectedBarberId, selectedServiceId]);
-
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
             try { const response = await axios.get(`${API_URL}/services`); setServices(response.data || []); } 
@@ -1140,87 +1045,102 @@ function CustomerView({ session }) {
         };
     }, [session, joinedBarberId, myQueueEntryId, currentChatTargetBarberUserId, fetchChatHistory]);
    useEffect(() => { // Smart EWT Calculation
+        const managePreJoinEWT = async () => {
+            if (!selectedBarberId) {
+                setPreJoinEstimatedWait(0);
+                setPreJoinPeopleWaiting(0);
+                return;
+            }
+            try {
+                const queueData = await fetchPublicQueue(selectedBarberId);
+                const peopleInQueue = queueData.filter(entry => ['Waiting', 'Up Next', 'In Progress'].includes(entry.status));
+                const totalWaitInMinutes = peopleInQueue.reduce((sum, entry) => sum + (entry.services?.duration_minutes || 30), 0);
+                setPreJoinPeopleWaiting(peopleInQueue.length);
+                setPreJoinEstimatedWait(totalWaitInMinutes);
+            } catch (error) {
+                console.error("Error managing pre-join EWT:", error);
+            }
+        };
+        managePreJoinEWT();
+   }, [selectedBarberId, fetchPublicQueue]);
+
+   // --- EFFECT: Re-fetch history when page becomes visible ---
+   useEffect(() => {
+       if (isPageVisible && myQueueEntryId) {
+           console.log("[Customer] Page is visible. Re-fetching chat history.");
+           fetchChatHistory(myQueueEntryId);
+       }
+   }, [isPageVisible, myQueueEntryId, fetchChatHistory]);
+
+   // --- NEW EFFECT: Countdown for Pre-join EWT ---
+   useEffect(() => {
+       let timerId;
+       if (preJoinEstimatedWait > 0) {
+           setPreJoinDisplayWait(preJoinEstimatedWait * 60);
+           timerId = setInterval(() => {
+               setPreJoinDisplayWait(prev => (prev > 0 ? prev - 1 : 0));
+           }, 1000);
+       } else {
+           setPreJoinDisplayWait(0);
+       }
+       return () => clearInterval(timerId);
+   }, [preJoinEstimatedWait]);
+
+   // --- Smart EWT Calculation and Countdown (POST-JOIN) ---
+   useEffect(() => {
+       const EWT_STORAGE_KEY = 'myEwtCountdown';
+
        const calculateWaitTime = () => {
+           if (!myQueueEntryId) {
+               localStorage.removeItem(EWT_STORAGE_KEY);
+               return;
+           }
+
            const oldQueue = liveQueueRef.current || [];
            const newQueue = liveQueue;
-           const relevantEntries = newQueue.filter(e => e.status === 'Waiting' || e.status === 'Up Next');
-           setPeopleWaiting(relevantEntries.length);
+
            const myIndexNew = newQueue.findIndex(e => e.id.toString() === myQueueEntryId);
-           const peopleAheadNew = myIndexNew !== -1 ? newQueue.slice(0, myIndexNew) : newQueue; 
-           const newTotalWait = peopleAheadNew.reduce((sum, entry) => {
-               if (['Waiting', 'Up Next', 'In Progress'].includes(entry.status)) { return sum + (entry.services?.duration_minutes || 30); }
+           if (myIndexNew === -1) return; // Not in queue anymore
+
+           const peopleAheadNew = newQueue.slice(0, myIndexNew);
+           const newTotalWaitInMinutes = peopleAheadNew.reduce((sum, entry) => {
+               if (['Waiting', 'Up Next', 'In Progress'].includes(entry.status)) {
+                   return sum + (entry.services?.duration_minutes || 30);
+               }
                return sum;
            }, 0);
-           setEstimatedWait(newTotalWait);
-           setDisplayWait(currentDisplayWait => {
-               const leaver = oldQueue.find(oldEntry => !newQueue.some(newEntry => newEntry.id === oldEntry.id));
-               const myIndexOld = oldQueue.findIndex(e => e.id.toString() === myQueueEntryId);
-               const leaverIndexOld = leaver ? oldQueue.findIndex(e => e.id === leaver.id) : -1;
-               if (leaver && myIndexOld !== -1 && leaverIndexOld !== -1 && leaverIndexOld < myIndexOld) {
-                   const leaverDuration = leaver.services?.duration_minutes || 30;
-                   console.log(`Leaver detected in front: ${leaver.id}, duration: ${leaverDuration}`);
-                   const newCountdown = currentDisplayWait - leaverDuration;
-                   return newCountdown > 0 ? newCountdown : 0;
-               }
-               if (currentDisplayWait === 0 || newTotalWait < currentDisplayWait) {
-                    return newTotalWait;
-               }
-               return currentDisplayWait; 
-           });
-       };
-       calculateWaitTime();
-    }, [session, joinedBarberId, myQueueEntryId, currentChatTargetBarberUserId, fetchChatHistory]); // Dependencies are correct
 
-   // --- Smart EWT Calculation and Countdown ---
-   useEffect(() => {
-    const calculateWaitTime = () => {
-        const oldQueue = liveQueueRef.current || [];
-        const newQueue = liveQueue;
- 
-        // Calculate total wait time in minutes based on people ahead
-        const myIndexNew = newQueue.findIndex(e => e.id.toString() === myQueueEntryId);
-        const peopleAheadNew = myIndexNew !== -1 ? newQueue.slice(0, myIndexNew) : [];
-        const newTotalWaitInMinutes = peopleAheadNew.reduce((sum, entry) => {
-            if (['Waiting', 'Up Next', 'In Progress'].includes(entry.status)) {
-                return sum + (entry.services?.duration_minutes || 30);
-            }
-            return sum;
-        }, 0);
- 
-        setEstimatedWait(newTotalWaitInMinutes);
- 
-        // Smartly update the display wait time
-        setDisplayWait(currentDisplayWaitInSeconds => {
-            const leaver = oldQueue.find(oldEntry => !newQueue.some(newEntry => newEntry.id === oldEntry.id));
-            const myIndexOld = oldQueue.findIndex(e => e.id.toString() === myQueueEntryId);
-            const leaverIndexOld = leaver ? oldQueue.findIndex(e => e.id === leaver.id) : -1;
- 
-            // If someone in front left, subtract their time
-            if (leaver && myIndexOld !== -1 && leaverIndexOld !== -1 && leaverIndexOld < myIndexOld) {
-                const leaverDurationInSeconds = (leaver.services?.duration_minutes || 30) * 60;
-                console.log(`Leaver detected in front: ${leaver.id}, duration: ${leaverDurationInSeconds / 60} mins`);
-                const newCountdownInSeconds = currentDisplayWaitInSeconds - leaverDurationInSeconds;
-                return newCountdownInSeconds > 0 ? newCountdownInSeconds : 0;
-            }
- 
-            const newTotalWaitInSeconds = newTotalWaitInMinutes * 60;
- 
-            // If the calculated wait is shorter or it's the first calculation, set it
-            if (currentDisplayWaitInSeconds === 0 || newTotalWaitInSeconds < currentDisplayWaitInSeconds) {
-                return newTotalWaitInSeconds;
-            }
- 
-            // Otherwise, let the 1-minute interval handle the countdown
-            return currentDisplayWaitInSeconds;
-        });
- 
-        // Update the number of people waiting
-        const relevantEntries = newQueue.filter(e => e.status === 'Waiting' || e.status === 'Up Next');
-        setPeopleWaiting(relevantEntries.length);
-    };
- 
-    calculateWaitTime();
-}, [liveQueue, myQueueEntryId]);
+           setEstimatedWait(newTotalWaitInMinutes);
+           setPeopleWaiting(peopleAheadNew.filter(e => ['Waiting', 'Up Next'].includes(e.status)).length);
+
+           let storedData;
+           try { storedData = JSON.parse(localStorage.getItem(EWT_STORAGE_KEY)); } catch (e) { storedData = null; }
+
+           const leaver = oldQueue.find(oldEntry => !newQueue.some(newEntry => newEntry.id === oldEntry.id));
+           const myIndexOld = oldQueue.findIndex(e => e.id.toString() === myQueueEntryId);
+           const leaverIndexOld = leaver ? oldQueue.findIndex(e => e.id === leaver.id) : -1;
+
+           let newTargetEndTime;
+
+           if (leaver && myIndexOld !== -1 && leaverIndexOld !== -1 && leaverIndexOld < myIndexOld) {
+               const leaverDurationInSeconds = (leaver.services?.duration_minutes || 30) * 60;
+               console.log(`Leaver detected in front: ${leaver.id}, duration: ${leaverDurationInSeconds / 60} mins`);
+               newTargetEndTime = (storedData?.targetEndTime || Date.now()) - (leaverDurationInSeconds * 1000);
+           } else {
+               const currentRemainingSeconds = storedData?.targetEndTime ? Math.round((storedData.targetEndTime - Date.now()) / 1000) : 0;
+               const newTotalWaitInSeconds = newTotalWaitInMinutes * 60;
+               if (!storedData || newTotalWaitInSeconds < currentRemainingSeconds) {
+                   newTargetEndTime = Date.now() + newTotalWaitInSeconds * 1000;
+               } else {
+                   newTargetEndTime = storedData.targetEndTime;
+               }
+           }
+
+           localStorage.setItem(EWT_STORAGE_KEY, JSON.stringify({ targetEndTime: newTargetEndTime }));
+       };
+
+       calculateWaitTime();
+   }, [liveQueue, myQueueEntryId]);
    
    useEffect(() => { // 1-Second Countdown Timer
        if (!myQueueEntryId) return; 
