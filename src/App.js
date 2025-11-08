@@ -70,38 +70,6 @@ function stopBlinking() {
 }
 
 // ##############################################
-// ##         PAGE VISIBILITY HOOK             ##
-// ##############################################
-function usePageVisibility() {
-    const [isVisible, setIsVisible] = useState(!document.hidden);
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            // We only care when the page becomes visible
-            if (!document.hidden) {
-                setIsVisible(true);
-            } else {
-                setIsVisible(false);
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        // Return a cleanup function to remove the event listener
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, []);
-    return isVisible;
-}
-
-// ##############################################
-// ##         CHAT HELPER FUNCTIONS            ##
-// ##############################################
-const markMessagesAsRead = async (queueEntryId, userId) => {
-    try {
-        await axios.post(`${API_URL}/chat/mark-read`, { queueEntryId, userId });
-        console.log(`[markMessagesAsRead] Messages in queue ${queueEntryId} marked as read by user ${userId}`);
-    } catch (error) {
-        console.error("[markMessagesAsRead] Failed to mark messages as read:", error);
-    }
-};
-// ##############################################
 // ##           CHAT COMPONENT               ##
 // ##############################################
 function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage }) {
@@ -358,7 +326,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null); // This is the CUSTOMER'S USER ID
     const [openChatQueueId, setOpenChatQueueId] = useState(null); // The Queue ID of the current open chat
     const [unreadMessages, setUnreadMessages] = useState({});
-    const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
 
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
@@ -389,18 +356,19 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             socket.on('connect', () => { console.log(`[Barber] WebSocket connected.`); });
 
             const messageListener = (incomingMessage) => {
-                const senderId = incomingMessage.senderId;
-
-                // 1. Append the message to the correct chat history
-                setChatMessages(prev => {
-                    const msgs = prev[senderId] || [];
-                    return { ...prev, [senderId]: [...msgs, incomingMessage] };
+                const customerId = incomingMessage.senderId;
+                
+                // 1. ALWAYS append the message to the state object for persistence
+                setChatMessages(prev => { // <<< FIX: setChatMessages IS NOW DEFINED
+                    const msgs = prev[customerId] || []; 
+                    return { ...prev, [customerId]: [...msgs, incomingMessage] }; 
                 });
 
-                // 2. Set unread status if the chat is not currently open for that sender
-                setOpenChatCustomerId(currentOpenChatId => {
-                     if (senderId !== currentOpenChatId) {
-                         setUnreadMessages(prevUnread => ({ ...prevUnread, [senderId]: true }));
+                // 2. Handle unread status (Only if the chat is NOT open)
+                setOpenChatCustomerId(currentOpenChatId => { // <<< FIX: setOpenChatCustomerId IS NOW DEFINED
+                     if (customerId !== currentOpenChatId) {
+                         // Message came from a different customer, or chat is closed.
+                         setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true })); // <<< FIX: setUnreadMessages IS NOW DEFINED
                      }
                      return currentOpenChatId;
                 });
@@ -432,28 +400,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             if (dashboardRefreshInterval) { clearInterval(dashboardRefreshInterval); }
         };
     }, [barberId, fetchQueueDetails]); 
-
-    // --- EFFECT: Check for unread messages when page becomes visible ---
-    useEffect(() => {
-        if (isPageVisible) {
-            console.log("[Barber] Page is visible. Re-checking queue and unread messages.");
-            // Re-fetch the queue to get the absolute latest state
-            fetchQueueDetails().then(() => {
-                // After fetching, we need to re-evaluate unread messages based on the new queueDetails state.
-                // This is tricky because state updates are async. A simple approach is to check history on open.
-                // The most important part is that fetchQueueDetails() gets the latest list,
-                // so when a chat is opened via openChat(), it will have the correct data to fetch history.
-                // We can also proactively check for new messages here if we had a 'last_read' timestamp.
-                // For now, fetching the queue is the most critical step to ensure UI is up-to-date.
-            });
-        }
-    }, [isPageVisible, fetchQueueDetails]);
-
-    // This effect ensures that when queueDetails changes, we can update unread status
-    useEffect(() => {
-        // This is a good place to cross-reference with a list of messages
-        // to see if any new ones have arrived for chats that are not open.
-    }, [queueDetails]);
 
     // --- Handlers ---
     const handleNextCustomer = async () => {
@@ -519,18 +465,16 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         const customerUserId = customer?.profiles?.id;
         const queueId = customer?.id; // The queue entry ID is the 'id' field
         
-        // --- FIX: Clear unread status immediately on open ---
-        setUnreadMessages(prev => {
-            const updated = { ...prev };
-            if (customerUserId) delete updated[customerUserId]; // Mark as read
-            return updated;
-        });
-
         if (customerUserId && queueId) {
             console.log(`[openChat] Opening chat for ${customerUserId} on queue ${queueId}`);
             setOpenChatCustomerId(customerUserId);
-            setOpenChatQueueId(queueId);
-            markMessagesAsRead(queueId, session.user.id); // Mark messages as read on the backend
+            setOpenChatQueueId(queueId); // SET THE QUEUE ID
+            
+            setUnreadMessages(prev => {
+                const updated = { ...prev };
+                delete updated[customerUserId]; // Mark as read
+                return updated;
+            });
 
             // Fetch history when chat opens
             const fetchHistory = async () => {
@@ -602,6 +546,29 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         </div>
     );
 }
+const handleLogout = async (userId) => {
+    // 1. Send API call to mark UNAVAILABLE and clear session flag on the server (The necessary update)
+    try {
+        // This is the custom endpoint that fixes the 'is_available' status
+        await axios.put(`${API_URL}/logout/flag`, { userId }); 
+        console.log("Server status updated successfully.");
+    } catch (error) {
+        console.error("Warning: Failed to clear barber availability status on server.", error.message);
+    }
+    
+    // 2. Local Logout (Guaranteed Reset)
+    // The 403 error means standard signOut() is rejected. We force a local session clear.
+    
+    // First, try the standard method (best practice)
+    const { error: signOutError } = await supabase.auth.signOut();
+
+    if (signOutError) {
+        console.warn("Standard Supabase signout failed (403 Forbidden). Forcing local session clear.");
+        // If standard signout fails, clear the local token manually.
+        // This forces the user to the AuthForm when the app next loads.
+        await supabase.auth.setSession({ access_token: 'expired', refresh_token: 'expired' });
+    }
+};
 // ##############################################
 // ##    CUSTOMER-SPECIFIC COMPONENTS        ##
 // ##############################################
@@ -627,6 +594,7 @@ function CustomerView({ session }) {
    const [services, setServices] = useState([]);
    const [selectedServiceId, setSelectedServiceId] = useState('');
    const [isChatOpen, setIsChatOpen] = useState(false);
+   const [setChatTargetBarberUserId] = useState(null);
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
    const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
@@ -638,7 +606,6 @@ function CustomerView({ session }) {
    const locationWatchId = useRef(null);
    const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
    const socketRef = useRef(null);
-   const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
    const liveQueueRef = useRef([]); 
    
    // --- AI Feedback & UI State ---
@@ -697,7 +664,7 @@ function CustomerView({ session }) {
        } catch (error) { 
            console.error("Failed fetch public queue:", error); setLiveQueue([]); liveQueueRef.current = []; setQueueMessage("Could not load queue data."); 
        } finally { setIsQueueLoading(false); }
-   }, [setIsQueueLoading, setLiveQueue, setQueueMessage]); // Include all setters in dependencies
+   }, []);
    
    const handleJoinQueue = async (e) => {
         e.preventDefault();
@@ -734,21 +701,21 @@ function CustomerView({ session }) {
    
    <button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='leave-queue-button'>{isLoading ? 'Leaving...' : 'Leave Queue / Join Another'}</button>
    
-   const handleReturnToJoin = useCallback(async (userInitiated = false) => {
-    console.log("[handleReturnToJoin] Function called.");
-    if (userInitiated && myQueueEntryId) {
-        setIsLoading(true);
-        try { await axios.delete(`${API_URL}/queue/${myQueueEntryId}`); setMessage("You left the queue."); } 
-        catch (error) { console.error("Failed to leave queue:", error); setMessage("Error leaving queue."); }
-        finally { setIsLoading(false); }
-    }
+   const handleReturnToJoin = async (userInitiated = false) => {
+        console.log("[handleReturnToJoin] Function called.");
+        if (userInitiated && myQueueEntryId) {
+            setIsLoading(true);
+            try { await axios.delete(`${API_URL}/queue/${myQueueEntryId}`); setMessage("You left the queue."); } 
+            catch (error) { console.error("Failed to leave queue:", error); setMessage("Error leaving queue."); }
+            finally { setIsLoading(false); }
+        }
         setIsServiceCompleteModalOpen(false); setIsCancelledModalOpen(false); setIsYourTurnModalOpen(false);
         stopBlinking();
         localStorage.removeItem('myQueueEntryId'); localStorage.removeItem('joinedBarberId');
         setMyQueueEntryId(null); setJoinedBarberId(null);
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
-        setIsChatOpen(false); /* setChatTargetBarberUserId(null); <-- REMOVE if it's still here */ setHasUnreadFromBarber(false);
+        setIsChatOpen(false); setChatTargetBarberUserId(null); setHasUnreadFromBarber(false);
         setChatMessagesFromBarber([]); setDisplayWait(0); setEstimatedWait(0);
         
         // --- Feedback state resets ---
@@ -757,7 +724,7 @@ function CustomerView({ session }) {
         setBarberFeedback([]);
 
         console.log("[handleReturnToJoin] State reset complete.");
-    }, [myQueueEntryId]);
+   };
    
    const handleModalClose = () => { setIsYourTurnModalOpen(false); stopBlinking(); };
 
@@ -794,19 +761,6 @@ function CustomerView({ session }) {
         if (!hasSeen) { setIsInstructionsModalOpen(true); }
    }, []);
    
-   // --- EFFECT: Re-fetch history when page becomes visible ---
-   useEffect(() => {
-       // If the page becomes visible AND we are in a queue
-       if (isPageVisible && myQueueEntryId) {
-           console.log("[Customer] Page is visible. Re-fetching chat history to check for unread messages.");
-           fetchChatHistory(myQueueEntryId).then(() => {
-               // After fetching, if the chat window is closed, we should assume there might be unread messages.
-               // The logic inside the message listener is the primary defense, but this is a good fallback.
-               if (!isChatOpen) setHasUnreadFromBarber(true);
-           });
-       }
-   }, [isPageVisible, myQueueEntryId, fetchChatHistory, isChatOpen]);
-
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
             try { const response = await axios.get(`${API_URL}/services`); setServices(response.data || []); } 
@@ -923,13 +877,10 @@ function CustomerView({ session }) {
                 // The message listener must append the new message to the existing history state
                 const messageListener = (incomingMessage) => {
                     if (incomingMessage.senderId === currentChatTargetBarberUserId) {
-                        // 1. Append the new message to the chat history
-                        setChatMessagesFromBarber(prev => [...prev, incomingMessage]);
-
-                        // 2. Check if the chat window is currently closed to set the unread badge.
-                        // This prevents a race condition where the badge might not appear if the user closes the chat quickly.
+                        // Append the new message to the existing history state
+                        setChatMessagesFromBarber(prev => [...prev, incomingMessage]); 
                         setIsChatOpen(currentIsOpen => {
-                            if (!currentIsOpen) { setHasUnreadFromBarber(true); }
+                            if (!currentIsOpen) { setHasUnreadFromBarber(true); } 
                             return currentIsOpen;
                         });
                     }
@@ -1123,10 +1074,10 @@ function CustomerView({ session }) {
                 {!isChatOpen && myQueueEntryId && (
                     <button onClick={() => {
                             if (currentChatTargetBarberUserId) {
-                                setIsChatOpen(true); // Open the chat window
+                                setChatTargetBarberUserId(currentChatTargetBarberUserId);
+                                setIsChatOpen(true);
                                 setHasUnreadFromBarber(false); // Mark as read
-                                markMessagesAsRead(myQueueEntryId, session.user.id); // Mark messages as read on the backend
-                            } else { console.error("Barber user ID missing. Please refresh the page."); setMessage("Cannot initiate chat: Barber details not loaded."); }
+                            } else { console.error("Barber user ID missing."); setMessage("Cannot initiate chat."); }
                         }}
                         className="chat-toggle-button"
                     >
@@ -1140,10 +1091,10 @@ function CustomerView({ session }) {
                 {isChatOpen && currentChatTargetBarberUserId && (
                     <ChatWindow
                         currentUser_id={session.user.id}
-                        otherUser_id={currentChatTargetBarberUserId} // <--- This will now reliably have a value
-                        messages={chatMessagesFromBarber} 
-                        onSendMessage={sendCustomerMessage}
-                        isVisible={isChatOpen} 
+                        otherUser_id={currentChatTargetBarberUserId}
+                        messages={chatMessagesFromBarber} // Pass message state
+                        onSendMessage={sendCustomerMessage} // Pass send handler
+                        isVisible={isChatOpen} // Pass visibility
                     />
                 )}
                 <button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='leave-queue-button'>{isLoading ? 'Leaving...' : 'Leave Queue / Join Another'}</button>
@@ -1188,7 +1139,7 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
           barberName={barberProfile.full_name}
           onCutComplete={handleCutComplete}
           session={session}
-        /> 
+        />
         <AnalyticsDashboard
           barberId={barberProfile.id}
           refreshSignal={refreshAnalyticsSignal}
@@ -1224,28 +1175,6 @@ function App() {
   const [barberProfile, setBarberProfile] = useState(null);
   const [loadingRole, setLoadingRole] = useState(true);
 
-  // --- Logout Handler (uses updateAvailability) ---
-  const handleLogout = async (userId, barberId) => {
-      // 1. Mark barber as unavailable if they are a barber
-      if (barberId) {
-          await updateAvailability(barberId, userId, false);
-      }
-  
-      // 2. Local Logout (Guaranteed Reset)
-      const { error: signOutError } = await supabase.auth.signOut();
-  
-      if (signOutError) {
-          console.warn("Standard Supabase signout failed. Forcing local session clear.", signOutError);
-          // If standard signout fails, clear the local token manually.
-          // This forces the user to the AuthForm when the app next loads.
-          try {
-              await supabase.auth.setSession({ access_token: 'expired', refresh_token: 'expired' });
-          } catch (e) {
-              console.error("Failed to force local session clear.", e);
-          }
-      }
-  };
-
   // --- OneSignal Setup ---
   useEffect(() => {
     if (!window.OneSignal) {
@@ -1263,7 +1192,7 @@ function App() {
   }, []);
 
   // --- Helper to Update Availability (wrapped in useCallback) ---
-   const updateAvailability = useCallback(async (barberId, userId, isAvailable) => {
+  const updateAvailability = useCallback(async (barberId, userId, isAvailable) => {
        if (!barberId || !userId) return;
        try {
            const response = await axios.put(`${API_URL}/barber/availability`, { barberId, userId, isAvailable });
@@ -1290,14 +1219,12 @@ function App() {
         // If this succeeds, they are a barber
         console.log("Role check successful: This is a BARBER.");
         setUserRole('barber');
-        const profileData = response.data;
-        setBarberProfile(profileData);
-        await updateAvailability(profileData.id, user.id, true); // Set available on login
+        setBarberProfile(response.data);
     } catch(error) {
         if (error.response && error.response.status === 404) {
           // 404 is a clean "Not Found," meaning they are a customer
           console.log("Role check: Not a barber (404), setting role to CUSTOMER.");
-          setUserRole('customer'); 
+          setUserRole('customer');
         } else {
           // Any other error (500, etc.)
           console.error("Error checking/fetching barber profile:", error);
@@ -1342,9 +1269,8 @@ function App() {
   if (loadingRole) { return <div className="loading-fullscreen">Loading Application...</div>; }
   if (!session) { return <AuthForm />; }
   else if (userRole === null) { return <div className="loading-fullscreen">Verifying User Role...</div>; }
-  else if (userRole === 'barber' && barberProfile) { return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} handleLogout={() => handleLogout(session.user.id, barberProfile.id)} />; }
+  else if (userRole === 'barber' && barberProfile) { return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} />; }
   else { return <CustomerAppLayout session={session} />; }
 }
-
 
 export default App;
