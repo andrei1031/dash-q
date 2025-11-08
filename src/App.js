@@ -126,7 +126,7 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
     <div className="chat-window">
       <div className="message-list">
         {messages.map((msg, index) => (
-          <div key={`${index}-${msg.message.slice(0, 10)}`} className={msg.senderId === currentUser_id ? 'my-message' : 'other-message'}>
+          <div key={index} className={msg.senderId === currentUser_id ? 'my-message' : 'other-message'}>
             {msg.message}
           </div>
         ))}
@@ -360,7 +360,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [unreadMessages, setUnreadMessages] = useState({});
     const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
 
-    const notificationSoundRef = useRef(null); // For sound notifications
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
         setFetchError('');
@@ -379,12 +378,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     }, [barberId]); 
 
     // --- WebSocket Connection Effect for Barber (FIXED) ---
-    useEffect(() => {
-        if (!notificationSoundRef.current) {
-            notificationSoundRef.current = new Audio('/sounds/notification.mp3'); // Path to your notification sound
-            notificationSoundRef.current.volume = 0.7; // Adjust volume as needed
-        }
-    }, []);
     useEffect(() => {
         if (!session?.user?.id) return;
         if (!socketRef.current) {
@@ -411,23 +404,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                      }
                      return currentOpenChatId;
                 });
-
-                // Vibrate on new message
-                if ('vibrate' in navigator) {
-                    console.log("[Vibration] Attempting to vibrate for barber.");
-                    try {
-                        navigator.vibrate(200); // Vibrate for 200ms
-                    } catch (e) {
-                        console.warn("[Vibration] Could not vibrate:", e);
-                    }
-                }
-                // Play sound on new message (for iOS and general audio notification)
-                if (notificationSoundRef.current) {
-                    console.log("[Audio] Attempting to play notification sound for barber.");
-                    notificationSoundRef.current.play().catch(e => {
-                        console.warn("[Audio] Could not play sound (user gesture required or blocked):", e);
-                    });
-                }
             };
             socket.on('chat message', messageListener);
             socket.on('connect_error', (err) => { console.error("[Barber] WebSocket Connection Error:", err); });
@@ -555,21 +531,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
             setOpenChatCustomerId(customerUserId);
             setOpenChatQueueId(queueId);
             markMessagesAsRead(queueId, session.user.id); // Mark messages as read on the backend
-
-            // --- VIBRATION UNLOCK ---
-            // A silent vibration on user interaction helps ensure subsequent vibrations work.
-            if ('vibrate' in navigator) {
-                console.log("[Vibration] Unlocking vibration with a user gesture.");
-                navigator.vibrate(1); // A tiny, silent vibration
-            }
-            // Audio unlock for iOS and other browsers
-            if (notificationSoundRef.current) {
-                console.log("[Audio] Unlocking audio with a user gesture.");
-                notificationSoundRef.current.play().then(() => {
-                    notificationSoundRef.current.pause(); notificationSoundRef.current.currentTime = 0;
-                }).catch(e => console.warn("[Audio] Could not unlock audio:", e));
-            }
-
 
             // Fetch history when chat opens
             const fetchHistory = async () => {
@@ -703,7 +664,6 @@ function CustomerView({ session }) {
    const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
    const liveQueueRef = useRef([]); 
    
-   const notificationSoundRef = useRef(null); // For sound notifications
    // --- AI Feedback & UI State ---
    const [feedbackText, setFeedbackText] = useState('');
    const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
@@ -820,7 +780,7 @@ function CustomerView({ session }) {
         setBarberFeedback([]);
 
         console.log("[handleReturnToJoin] State reset complete.");
-    }, [myQueueEntryId, setIsLoading, setMyQueueEntryId, setJoinedBarberId, setLiveQueue, setQueueMessage, setSelectedBarberId, setSelectedServiceId, setMessage, setIsChatOpen, setHasUnreadFromBarber, setChatMessagesFromBarber, setDisplayWait, setEstimatedWait, setIsServiceCompleteModalOpen, setIsCancelledModalOpen, setIsYourTurnModalOpen, setFeedbackText, setFeedbackSubmitted, setBarberFeedback]);
+    }, [myQueueEntryId, setIsLoading, axios, setMyQueueEntryId, setJoinedBarberId, setLiveQueue, setQueueMessage, setSelectedBarberId, setSelectedServiceId, setMessage, setIsChatOpen, setHasUnreadFromBarber, setChatMessagesFromBarber, setDisplayWait, setEstimatedWait, setIsServiceCompleteModalOpen, setIsCancelledModalOpen, setIsYourTurnModalOpen, setFeedbackText, setFeedbackSubmitted, setBarberFeedback]);
    
    const handleModalClose = () => { setIsYourTurnModalOpen(false); stopBlinking(); };
 
@@ -919,17 +879,8 @@ function CustomerView({ session }) {
                         if (newStatus === 'Up Next') { 
                             startBlinking(); 
                             setIsYourTurnModalOpen(true); 
-                            if ("Notification" in window && Notification.permission === "granted") {
-                                new Notification("You're Up Next!", {
-                                    body: `Hi ${customerName}, it's your turn for your haircut with ${currentBarberName}. Please head over!`,
-                                    icon: '/logo192.png', // Add a small icon file to your public folder
-                                    tag: 'dash-q-turn'    // Prevents multiple similar notifications
-                                });
-                            }
-
-                            // 2. Haptic Feedback (Existing code)
-                            if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
-                        }
+                            if (navigator.vibrate) navigator.vibrate([500,200,500]); 
+                        } 
                         else if (newStatus === 'Done') { 
                             setIsServiceCompleteModalOpen(true); 
                             stopBlinking(); 
@@ -952,7 +903,7 @@ function CustomerView({ session }) {
             if (queueChannel && supabase?.removeChannel) { supabase.removeChannel(queueChannel).catch(err => console.error("Error removing channel:", err)); }
             if (refreshInterval) { clearInterval(refreshInterval); }
         };
-    }, [joinedBarberId, myQueueEntryId, fetchPublicQueue, customerName, currentBarberName]);
+    }, [joinedBarberId, myQueueEntryId, fetchPublicQueue]);
    
     // --- NEW useEffect: Fetch feedback when barber is selected ---
     useEffect(() => {
@@ -973,12 +924,6 @@ function CustomerView({ session }) {
         }
     }, [selectedBarberId]); 
    
-   useEffect(() => {
-        if (!notificationSoundRef.current) {
-            notificationSoundRef.current = new Audio('/sounds/notification.mp3'); // Path to your notification sound
-            notificationSoundRef.current.volume = 0.7; // Adjust volume as needed
-        }
-    }, []);
    // --- UseEffect for WebSocket Connection and History Fetch (FIXED) ---
     useEffect(() => { 
     if (session?.user?.id && joinedBarberId && currentChatTargetBarberUserId && myQueueEntryId) {
@@ -1010,23 +955,6 @@ function CustomerView({ session }) {
                             if (!currentIsOpen) { setHasUnreadFromBarber(true); }
                             return currentIsOpen;
                         });
-
-                        // Vibrate on new message
-                        if ('vibrate' in navigator) {
-                            console.log("[Vibration] Attempting to vibrate for customer.");
-                            try {
-                                navigator.vibrate(200); // Vibrate for 200ms
-                            } catch (e) {
-                                console.warn("[Vibration] Could not vibrate:", e);
-                            }
-                        }
-                        // Play sound on new message (for iOS and general audio notification)
-                        if (notificationSoundRef.current) {
-                            console.log("[Audio] Attempting to play notification sound for customer.");
-                            notificationSoundRef.current.play().catch(e => {
-                                console.warn("[Audio] Could not play sound (user gesture required or blocked):", e);
-                            });
-                        }
                     }
                 };
                     socket.on('chat message', messageListener);
@@ -1099,10 +1027,7 @@ function CustomerView({ session }) {
          <div id="your-turn-modal-overlay" className="modal-overlay" style={{ display: isYourTurnModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>Great, you’re up next!</h2><p>Please take a seat and stay put.</p><button id="close-modal-btn" onClick={handleModalClose}>Okay!</button></div></div>
          
          {/* --- Service Complete Modal (with NEW AI Feedback Form) --- */}
-          <div 
-             className="modal-overlay" 
-             style={{ display: isServiceCompleteModalOpen ? 'flex' : 'none', pointerEvents: isServiceCompleteModalOpen ? 'auto' : 'none' }}
-          >
+          <div className="modal-overlay" style={{ display: isServiceCompleteModalOpen ? 'flex' : 'none' }}>
               <div className="modal-content">
                   
                   {!feedbackSubmitted ? (
@@ -1223,21 +1148,6 @@ function CustomerView({ session }) {
                             if (currentChatTargetBarberUserId) {
                                 setIsChatOpen(true); // Open the chat window
                                 setHasUnreadFromBarber(false); // Mark as read
-
-                                // --- VIBRATION UNLOCK ---
-                                // A silent vibration on user interaction helps ensure subsequent vibrations work.
-                                if ('vibrate' in navigator) {
-                                    console.log("[Vibration] Unlocking vibration with a user gesture.");
-                                    navigator.vibrate(1); // A tiny, silent vibration
-                                }
-                                // Audio unlock for iOS and other browsers
-                                if (notificationSoundRef.current) {
-                                    console.log("[Audio] Unlocking audio with a user gesture.");
-                                    notificationSoundRef.current.play().then(() => {
-                                        notificationSoundRef.current.pause(); notificationSoundRef.current.currentTime = 0;
-                                    }).catch(e => console.warn("[Audio] Could not unlock audio:", e));
-                                }
-
                                 markMessagesAsRead(myQueueEntryId, session.user.id); // Mark messages as read on the backend
                             } else { console.error("Barber user ID missing. Please refresh the page."); setMessage("Cannot initiate chat: Barber details not loaded."); }
                         }}
@@ -1319,7 +1229,7 @@ function CustomerAppLayout({ session }) {
     <div className="customer-app-layout">
       <header className="App-header">
         <h1>Welcome, {session.user?.user_metadata?.full_name || 'Customer'}!</h1>
-        <button onClick={() => handleLogout(session.user.id)} className="logout-button">Logout</button>
+        <button onClick={() => supabase.auth.signOut()} className="logout-button">Logout</button>
       </header>
       <div className="container">
         <CustomerView session={session} />
@@ -1337,17 +1247,6 @@ function App() {
   const [barberProfile, setBarberProfile] = useState(null);
   const [loadingRole, setLoadingRole] = useState(true);
 
-  // --- Helper to Update Availability (wrapped in useCallback) ---
-  const updateAvailability = useCallback(async (barberId, userId, isAvailable) => {
-       if (!barberId || !userId) return;
-       try {
-           const response = await axios.put(`${API_URL}/barber/availability`, { barberId, userId, isAvailable });
-            setBarberProfile(prev => prev ? { ...prev, is_available: response.data.is_available } : null);
-       } catch (error) {
-            console.error("Failed to update availability on logout/login:", error);
-       }
-   }, []); // Empty dependency array, it doesn't depend on props/state
-
   // --- OneSignal Setup ---
   useEffect(() => {
     if (!window.OneSignal) {
@@ -1362,7 +1261,18 @@ function App() {
       });
     }
     return () => { /* Cleanup if needed */ };
-  }, [updateAvailability]);
+  }, []);
+
+  // --- Helper to Update Availability (wrapped in useCallback) ---
+  const updateAvailability = useCallback(async (barberId, userId, isAvailable) => {
+       if (!barberId || !userId) return;
+       try {
+           const response = await axios.put(`${API_URL}/barber/availability`, { barberId, userId, isAvailable });
+            setBarberProfile(prev => prev ? { ...prev, is_available: response.data.is_available } : null);
+       } catch (error) {
+            console.error("Failed to update availability on logout/login:", error);
+       }
+   }, []); // Empty dependency array, it doesn't depend on props/state
 
   // --- Helper to Check Role (FIXED TO PREVENT RACE CONDITION) ---
   const checkUserRole = useCallback(async (user) => {
@@ -1396,7 +1306,7 @@ function App() {
     } finally {
         setLoadingRole(false);
     }
-  }, []); // This dependency is correct
+  }, [updateAvailability]); // This dependency is correct
 
   // --- Auth State Change Listener (FIXED TO PREVENT RACE CONDITION) ---
   useEffect(() => {
