@@ -359,9 +359,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [openChatQueueId, setOpenChatQueueId] = useState(null); // The Queue ID of the current open chat
     const [unreadMessages, setUnreadMessages] = useState({});
     const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
-    const [referenceImageFile, setReferenceImageFile] = useState(null);
-    const [referenceImageUrl, setReferenceImageUrl] = useState(''); // Saved URL after upload
-    const [currentQueueEntryDetails, setCurrentQueueEntryDetails] = useState(null); // Full details for image replacement logic
     const notificationSoundRef = useRef(null); // For sound notifications
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
@@ -654,8 +651,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                         <li key={c.id}>
                             {renderQueueItemContent(c)}
                         </li>
-                    )))}</ul>
-                    
+                    )))}</ul>                    
                     {openChatCustomerId && (
                         <div className="barber-chat-container">
                             <h4>Chat with Customer(Hey there! Just a friendly nudge to keep the chat open even when your phone’s screen is off. It seems like the notification badge isn’t working when that happens!)</h4>
@@ -1054,7 +1050,7 @@ const handleReplaceImage = async (e) => {
                         }
                     }
                     fetchPublicQueue(joinedBarberId);
-                })
+                }, [customerName, currentBarberName]) // eslint-disable-line react-hooks/exhaustive-deps
                 .subscribe((status, err) => {
                      if (status === 'SUBSCRIBED') { console.log('Subscribed to Realtime queue!'); setQueueMessage(''); fetchPublicQueue(joinedBarberId); } 
                      else { console.error('Supabase Realtime error:', status, err); setQueueMessage('Live updates unavailable.'); }
