@@ -621,7 +621,6 @@ function CustomerView({ session }) {
    const [services, setServices] = useState([]);
    const [selectedServiceId, setSelectedServiceId] = useState('');
    const [isChatOpen, setIsChatOpen] = useState(false);
-   const [_chatTargetBarberUserId, setChatTargetBarberUserId] = useState(null);
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
    const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
@@ -675,6 +674,7 @@ function CustomerView({ session }) {
             
             // 1. Send live message to server (server logs and pushes notification)
             socketRef.current.emit('chat message', messageData);
+            
             
             // 2. Immediately update local state to show message
             setChatMessagesFromBarber(prev => [...prev, { senderId: session.user.id, message: messageText }]);
@@ -742,7 +742,7 @@ function CustomerView({ session }) {
         setMyQueueEntryId(null); setJoinedBarberId(null);
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
-        setIsChatOpen(false); setChatTargetBarberUserId(null);
+        setIsChatOpen(false);
         // setHasUnreadFromBarge(false);
         setChatMessagesFromBarber([]); setDisplayWait(0); setEstimatedWait(0);
         
