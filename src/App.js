@@ -743,6 +743,10 @@ function CustomerView({ session }) {
    const liveQueueRef = useRef([]); 
    
    const notificationSoundRef = useRef(null); // For sound notifications
+   const [referenceImageFile, setReferenceImageFile] = useState(null);
+   const [referenceImageUrl, setReferenceImageUrl] = useState(''); // Saved URL after upload
+   const [currentQueueEntryDetails, setCurrentQueueEntryDetails] = useState(null); // Full details for image replacement logic
+
    // --- AI Feedback & UI State ---
    const [feedbackText, setFeedbackText] = useState('');
    const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
@@ -848,7 +852,10 @@ const handleReplaceImage = async (e) => {
          const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
          const queueData = response.data || [];
          setLiveQueue(queueData);
-         liveQueueRef.current = queueData; // Update ref
+         liveQueueRef.current = queueData;
+         const newEntry = queueData.find(e => e.id.toString() === myQueueEntryId);
+         setCurrentQueueEntryDetails(newEntry || null);
+         if (newEntry) {
          setReferenceImageUrl(newEntry.reference_image_url || ''); // Save the URL
          setReferenceImageFile(null); // Clear the file input
        } catch (error) { 
@@ -856,7 +863,7 @@ const handleReplaceImage = async (e) => {
        } finally { setIsQueueLoading(false); }
    }, [setIsQueueLoading, setLiveQueue, setQueueMessage]); // Include all setters in dependencies
    
-   const handleJoinQueue = async (e) => {
+   const handleJoinQueue = async (e) => { // eslint-disable-line no-unused-vars
         e.preventDefault();
         if (!customerName || !selectedBarberId || !selectedServiceId) { setMessage('Name, Barber, AND Service required.'); return; }
         if (myQueueEntryId) { setMessage('You are already checked in!'); return; }
