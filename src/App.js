@@ -952,7 +952,7 @@ function CustomerView({ session }) {
             if (queueChannel && supabase?.removeChannel) { supabase.removeChannel(queueChannel).catch(err => console.error("Error removing channel:", err)); }
             if (refreshInterval) { clearInterval(refreshInterval); }
         };
-    }, [joinedBarberId, myQueueEntryId, fetchPublicQueue]);
+    }, [joinedBarberId, myQueueEntryId, fetchPublicQueue, customerName, currentBarberName]);
    
     // --- NEW useEffect: Fetch feedback when barber is selected ---
     useEffect(() => {
@@ -1351,7 +1351,7 @@ function App() {
       });
     }
     return () => { /* Cleanup if needed */ };
-  }, []);
+  }, [updateAvailability]);
 
   // --- Helper to Update Availability (wrapped in useCallback) ---
   const updateAvailability = useCallback(async (barberId, userId, isAvailable) => {
