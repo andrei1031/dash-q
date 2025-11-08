@@ -1185,7 +1185,7 @@ function CustomerAppLayout({ session }) {
     <div className="customer-app-layout">
       <header className="App-header">
         <h1>Welcome, {session.user?.user_metadata?.full_name || 'Customer'}!</h1>
-        <button onClick={() => supabase.auth.signOut()} className="logout-button">Logout</button>
+        <button onClick={() => handleLogout(session.user.id)} className="logout-button">Logout</button>
       </header>
       <div className="container">
         <CustomerView session={session} />
