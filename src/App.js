@@ -1175,6 +1175,28 @@ function App() {
   const [barberProfile, setBarberProfile] = useState(null);
   const [loadingRole, setLoadingRole] = useState(true);
 
+  // --- Logout Handler (uses updateAvailability) ---
+  const handleLogout = async (userId, barberId) => {
+      // 1. Mark barber as unavailable if they are a barber
+      if (barberId) {
+          await updateAvailability(barberId, userId, false);
+      }
+  
+      // 2. Local Logout (Guaranteed Reset)
+      const { error: signOutError } = await supabase.auth.signOut();
+  
+      if (signOutError) {
+          console.warn("Standard Supabase signout failed. Forcing local session clear.", signOutError);
+          // If standard signout fails, clear the local token manually.
+          // This forces the user to the AuthForm when the app next loads.
+          try {
+              await supabase.auth.setSession({ access_token: 'expired', refresh_token: 'expired' });
+          } catch (e) {
+              console.error("Failed to force local session clear.", e);
+          }
+      }
+  };
+
   // --- OneSignal Setup ---
   useEffect(() => {
     if (!window.OneSignal) {
@@ -1219,7 +1241,9 @@ function App() {
         // If this succeeds, they are a barber
         console.log("Role check successful: This is a BARBER.");
         setUserRole('barber');
-        setBarberProfile(response.data);
+        const profileData = response.data;
+        setBarberProfile(profileData);
+        await updateAvailability(profileData.id, user.id, true); // Set available on login
     } catch(error) {
         if (error.response && error.response.status === 404) {
           // 404 is a clean "Not Found," meaning they are a customer
@@ -1234,7 +1258,7 @@ function App() {
     } finally {
         setLoadingRole(false);
     }
-  }, []); // This dependency is correct
+  }, [updateAvailability]); // This dependency is correct
 
   // --- Auth State Change Listener (FIXED TO PREVENT RACE CONDITION) ---
   useEffect(() => {
@@ -1269,7 +1293,7 @@ function App() {
   if (loadingRole) { return <div className="loading-fullscreen">Loading Application...</div>; }
   if (!session) { return <AuthForm />; }
   else if (userRole === null) { return <div className="loading-fullscreen">Verifying User Role...</div>; }
-  else if (userRole === 'barber' && barberProfile) { return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} />; }
+  else if (userRole === 'barber' && barberProfile) { return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} handleLogout={() => handleLogout(session.user.id, barberProfile.id)} />; }
   else { return <CustomerAppLayout session={session} />; }
 }
 
