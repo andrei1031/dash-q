@@ -655,10 +655,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
                             {renderQueueItemContent(c)}
                         </li>
                     )))}</ul>
-                        <li key={c.id}>
-                            <div>#{c.id} - {c.customer_name}</div>
-                            <button onClick={() => openChat(c)} className="chat-icon-button" title={c.profiles?.id ? "Chat" : "Guest"} disabled={!c.profiles?.id}>💬{c.profiles?.id && unreadMessages[c.profiles.id] && (<span className="notification-badge">1</span>)}</button>
-                        </li>
                     
                     {openChatCustomerId && (
                         <div className="barber-chat-container">
