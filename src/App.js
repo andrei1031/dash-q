@@ -731,59 +731,7 @@ function CustomerView({ session }) {
           setChatMessagesFromBarber(formattedHistory);
       } catch(err) { console.error("Error fetching customer chat history:", err); }
   }, []);
-
-  const uploadImage = async (file) => {
-    if (!file) return null;
-    setIsLoading(true);
-    setMessage('Uploading image...');
-    const filePath = `${session.user.id}/${Date.now()}_${file.name}`;
-    try {
-        const { error: uploadError } = await supabase.storage.from('haircut-images').upload(filePath, file);
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage.from('haircut-images').getPublicUrl(filePath);
-        setMessage('Image uploaded successfully.');
-        return publicUrl;
-    } catch (error) {
-        console.error('Image upload failed:', error);
-        setMessage(`Image upload failed: ${error.message}`);
-        return null;
-    } finally {
-        setIsLoading(false);
-    }
-};
-
-// --- Image Replacement Endpoint (NEW) ---
-const handleReplaceImage = async (e) => {
-    e.preventDefault();
-    if (!referenceImageFile || !myQueueEntryId) return;
-    if (currentQueueEntryDetails?.status === 'In Progress') {
-         setMessage('Cannot change image while In Progress!');
-         return;
-    }
-
-    const newUrl = await uploadImage(referenceImageFile);
-    if (!newUrl) return;
-
-    setIsLoading(true); setMessage('Updating image in queue...');
-    try {
-        // New dedicated endpoint in server.js would be better, but for now, we update directly
-        const { error: updateError } = await supabase.from('queue_entries')
-            .update({ reference_image_url: newUrl })
-            .eq('id', myQueueEntryId);
-
-        if (updateError) throw updateError;
-
-        setReferenceImageUrl(newUrl);
-        setReferenceImageFile(null);
-        setMessage('Image replaced successfully!');
-    } catch (error) {
-        console.error('Failed to replace image:', error);
-        setMessage(`Failed to replace image: ${error.message}`);
-    } finally {
-        setIsLoading(false);
-    }
-};
+  
 
    // --- Handlers ---
    const handleCloseInstructions = () => {
@@ -812,8 +760,6 @@ const handleReplaceImage = async (e) => {
          const queueData = response.data || [];
          setLiveQueue(queueData);
          liveQueueRef.current = queueData; // Update ref
-         setReferenceImageUrl(newEntry.reference_image_url || ''); // Save the URL
-         setReferenceImageFile(null); // Clear the file input
        } catch (error) { 
            console.error("Failed fetch public queue:", error); setLiveQueue([]); liveQueueRef.current = []; setQueueMessage("Could not load queue data."); 
        } finally { setIsQueueLoading(false); }
@@ -825,15 +771,6 @@ const handleReplaceImage = async (e) => {
         if (myQueueEntryId) { setMessage('You are already checked in!'); return; }
 
         setIsLoading(true); setMessage('Joining queue...');
-        let imageUrl = null;
-        if (referenceImageFile) {
-            imageUrl = await uploadImage(referenceImageFile);
-            if (!imageUrl) { // Stop if upload failed
-                setIsLoading(false); 
-                setMessage('Image upload failed. Please try again.');
-                return; 
-            }
-        }
         try {
             const response = await axios.post(`${API_URL}/queue`, {
                 customer_name: customerName,
@@ -853,8 +790,6 @@ const handleReplaceImage = async (e) => {
                 setMyQueueEntryId(newEntry.id.toString());
                 setJoinedBarberId(newEntry.barber_id.toString());
                 setSelectedBarberId(''); setSelectedServiceId(''); 
-                setReferenceImageUrl(newEntry.reference_image_url || ''); // Save the URL
-                setReferenceImageFile(null); // Clear the file input
             } else { throw new Error("Invalid response from server."); }
         } catch (error) {
             console.error('Failed to join queue:', error);
@@ -886,7 +821,6 @@ const handleReplaceImage = async (e) => {
         setFeedbackText('');
         setFeedbackSubmitted(false);
         setBarberFeedback([]);
-        
 
         console.log("[handleReturnToJoin] State reset complete.");
     }, [myQueueEntryId, setIsLoading, setMyQueueEntryId, setJoinedBarberId, setLiveQueue, setQueueMessage, setSelectedBarberId, setSelectedServiceId, setMessage, setIsChatOpen, setHasUnreadFromBarber, setChatMessagesFromBarber, setDisplayWait, setEstimatedWait, setIsServiceCompleteModalOpen, setIsCancelledModalOpen, setIsYourTurnModalOpen, setFeedbackText, setFeedbackSubmitted, setBarberFeedback]);
