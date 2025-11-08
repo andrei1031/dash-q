@@ -1211,6 +1211,7 @@ function App() {
       setLoadingRole(false);
       return;
     }
+    
 
     console.log(`Checking role for user: ${user.id}`);
     setLoadingRole(true);
