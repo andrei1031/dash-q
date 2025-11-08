@@ -602,29 +602,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         </div>
     );
 }
-const handleLogout = async (userId) => {
-    // 1. Send API call to mark UNAVAILABLE and clear session flag on the server (The necessary update)
-    try {
-        // This is the custom endpoint that fixes the 'is_available' status
-        await axios.put(`${API_URL}/logout/flag`, { userId }); 
-        console.log("Server status updated successfully.");
-    } catch (error) {
-        console.error("Warning: Failed to clear barber availability status on server.", error.message);
-    }
-    
-    // 2. Local Logout (Guaranteed Reset)
-    // The 403 error means standard signOut() is rejected. We force a local session clear.
-    
-    // First, try the standard method (best practice)
-    const { error: signOutError } = await supabase.auth.signOut();
-
-    if (signOutError) {
-        console.warn("Standard Supabase signout failed (403 Forbidden). Forcing local session clear.");
-        // If standard signout fails, clear the local token manually.
-        // This forces the user to the AuthForm when the app next loads.
-        await supabase.auth.setSession({ access_token: 'expired', refresh_token: 'expired' });
-    }
-};
 // ##############################################
 // ##    CUSTOMER-SPECIFIC COMPONENTS        ##
 // ##############################################
@@ -1211,7 +1188,7 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
           barberName={barberProfile.full_name}
           onCutComplete={handleCutComplete}
           session={session}
-        />
+        /> 
         <AnalyticsDashboard
           barberId={barberProfile.id}
           refreshSignal={refreshAnalyticsSignal}
@@ -1247,6 +1224,28 @@ function App() {
   const [barberProfile, setBarberProfile] = useState(null);
   const [loadingRole, setLoadingRole] = useState(true);
 
+  // --- Logout Handler (uses updateAvailability) ---
+  const handleLogout = async (userId, barberId) => {
+      // 1. Mark barber as unavailable if they are a barber
+      if (barberId) {
+          await updateAvailability(barberId, userId, false);
+      }
+  
+      // 2. Local Logout (Guaranteed Reset)
+      const { error: signOutError } = await supabase.auth.signOut();
+  
+      if (signOutError) {
+          console.warn("Standard Supabase signout failed. Forcing local session clear.", signOutError);
+          // If standard signout fails, clear the local token manually.
+          // This forces the user to the AuthForm when the app next loads.
+          try {
+              await supabase.auth.setSession({ access_token: 'expired', refresh_token: 'expired' });
+          } catch (e) {
+              console.error("Failed to force local session clear.", e);
+          }
+      }
+  };
+
   // --- OneSignal Setup ---
   useEffect(() => {
     if (!window.OneSignal) {
@@ -1264,7 +1263,7 @@ function App() {
   }, []);
 
   // --- Helper to Update Availability (wrapped in useCallback) ---
-  const updateAvailability = useCallback(async (barberId, userId, isAvailable) => {
+   const updateAvailability = useCallback(async (barberId, userId, isAvailable) => {
        if (!barberId || !userId) return;
        try {
            const response = await axios.put(`${API_URL}/barber/availability`, { barberId, userId, isAvailable });
@@ -1291,12 +1290,14 @@ function App() {
         // If this succeeds, they are a barber
         console.log("Role check successful: This is a BARBER.");
         setUserRole('barber');
-        setBarberProfile(response.data);
+        const profileData = response.data;
+        setBarberProfile(profileData);
+        await updateAvailability(profileData.id, user.id, true); // Set available on login
     } catch(error) {
         if (error.response && error.response.status === 404) {
           // 404 is a clean "Not Found," meaning they are a customer
           console.log("Role check: Not a barber (404), setting role to CUSTOMER.");
-          setUserRole('customer');
+          setUserRole('customer'); 
         } else {
           // Any other error (500, etc.)
           console.error("Error checking/fetching barber profile:", error);
@@ -1306,7 +1307,7 @@ function App() {
     } finally {
         setLoadingRole(false);
     }
-  }, []); // This dependency is correct
+  }, [updateAvailability]); // This dependency is correct
 
   // --- Auth State Change Listener (FIXED TO PREVENT RACE CONDITION) ---
   useEffect(() => {
@@ -1341,7 +1342,7 @@ function App() {
   if (loadingRole) { return <div className="loading-fullscreen">Loading Application...</div>; }
   if (!session) { return <AuthForm />; }
   else if (userRole === null) { return <div className="loading-fullscreen">Verifying User Role...</div>; }
-  else if (userRole === 'barber' && barberProfile) { return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} />; }
+  else if (userRole === 'barber' && barberProfile) { return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} handleLogout={() => handleLogout(session.user.id, barberProfile.id)} />; }
   else { return <CustomerAppLayout session={session} />; }
 }
 
