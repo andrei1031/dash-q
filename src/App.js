@@ -359,9 +359,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     const [openChatQueueId, setOpenChatQueueId] = useState(null); // The Queue ID of the current open chat
     const [unreadMessages, setUnreadMessages] = useState({});
     const isPageVisible = usePageVisibility(); // <<< ADDED: Hook to detect when page is active
-    const [referenceImageFile, setReferenceImageFile] = useState(null);
-    const [referenceImageUrl, setReferenceImageUrl] = useState(''); // Saved URL after upload
-    const [currentQueueEntryDetails, setCurrentQueueEntryDetails] = useState(null); // Full details for image replacement logic
     const notificationSoundRef = useRef(null); // For sound notifications
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
@@ -731,7 +728,6 @@ function CustomerView({ session }) {
           setChatMessagesFromBarber(formattedHistory);
       } catch(err) { console.error("Error fetching customer chat history:", err); }
   }, []);
-  
 
    // --- Handlers ---
    const handleCloseInstructions = () => {
