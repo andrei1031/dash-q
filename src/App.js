@@ -1411,6 +1411,7 @@ function App() {
         setLoadingRole(false);
       }
     });
+    
 
     return () => subscription?.unsubscribe();
   }, [checkUserRole]); 
