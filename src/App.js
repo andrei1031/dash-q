@@ -593,8 +593,7 @@ function CustomerView({ session }) {
    const [isQueueLoading, setIsQueueLoading] = useState(true);
    const [services, setServices] = useState([]);
    const [selectedServiceId, setSelectedServiceId] = useState('');
-   const [isChatOpen, setIsChatOpen] = useState(false);
-   const [, setChatTargetBarberUserId] = useState(null); // This state is kept for consistency but could be removed.
+   const [isChatOpen, setIsChatOpen] = useState(false);   
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
    const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
