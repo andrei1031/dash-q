@@ -697,17 +697,27 @@ function CustomerView({ session }) {
         } else { console.warn("[Customer] Cannot send message (socket disconnected or missing IDs)."); setMessage("Chat disconnected."); }
    };
    const fetchPublicQueue = useCallback(async (barberId) => {
-       if (!barberId) { setLiveQueue([]); liveQueueRef.current = []; setIsQueueLoading(false); return; }
-       setIsQueueLoading(true);
+       if (!barberId) {
+           setLiveQueue(() => []); // <-- Functional update
+           liveQueueRef.current = [];
+           setIsQueueLoading(() => false); // <-- Functional update
+           return;
+       }
+       setIsQueueLoading(() => true); // <-- Functional update
        try {
          const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
          const queueData = response.data || [];
-         setLiveQueue(queueData);
-         liveQueueRef.current = queueData;
+         setLiveQueue(() => queueData); // <-- Functional update
+         liveQueueRef.current = queueData; // Update ref
        } catch (error) { 
-           console.error("Failed fetch public queue:", error); setLiveQueue([]); liveQueueRef.current = []; setQueueMessage("Could not load queue data."); 
-       } finally { setIsQueueLoading(false); }
-   }, []);
+           console.error("Failed fetch public queue:", error);
+           setLiveQueue(() => []); // <-- Functional update
+           liveQueueRef.current = [];
+           setQueueMessage(() => "Could not load queue data."); // <-- Functional update
+       } finally {
+           setIsQueueLoading(() => false); // <-- Functional update
+       }
+   }, []); // <-- Keep the dependency array empty
    
    const handleFileChange = (e) => {
        const file = e.target.files[0];
@@ -1028,7 +1038,7 @@ function CustomerView({ session }) {
             liveQueueRef.current = [];
         }
     }, [selectedBarberId, fetchPublicQueue]); // <-- Dependencies
-    
+
    useEffect(() => { // Smart EWT Calculation
        const calculateWaitTime = () => {
            const oldQueue = liveQueueRef.current || [];
