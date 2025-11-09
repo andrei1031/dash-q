@@ -1016,6 +1016,19 @@ function CustomerView({ session }) {
             } 
         };
     }, [session, joinedBarberId, myQueueEntryId, currentChatTargetBarberUserId, fetchChatHistory]);
+
+    useEffect(() => {
+        if (selectedBarberId) {
+            // A barber is selected, fetch their queue for EWT
+            console.log(`[EWT Preview] Fetching queue for barber ${selectedBarberId}`);
+            fetchPublicQueue(selectedBarberId);
+        } else {
+            // No barber selected, clear the live queue
+            setLiveQueue([]);
+            liveQueueRef.current = [];
+        }
+    }, [selectedBarberId, fetchPublicQueue]); // <-- Dependencies
+    
    useEffect(() => { // Smart EWT Calculation
        const calculateWaitTime = () => {
            const oldQueue = liveQueueRef.current || [];
