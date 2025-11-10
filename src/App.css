@@ -851,3 +851,23 @@ form button[type="submit"]:hover:not(:disabled) {
 .toggle-password:hover {
   background: #777;
 }
+/* Add this to App.css */
+
+.forgot-password-link {
+  text-align: right;
+  margin-top: -10px;
+  margin-bottom: 15px;
+}
+
+.forgot-password-link button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #007aff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.forgot-password-link button:hover {
+  text-decoration: underline;
+}

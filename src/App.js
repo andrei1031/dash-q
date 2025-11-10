@@ -134,6 +134,9 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
 // ##############################################
 // ##       LOGIN/SIGNUP COMPONENTS          ##
 // ##############################################
+// ##############################################
+// ##       LOGIN/SIGNUP COMPONENTS          ##
+// ##############################################
 function AuthForm() {
     const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(true);
     const [username, setUsername] = useState('');
@@ -142,16 +145,20 @@ function AuthForm() {
     const [fullName, setFullName] = useState('');
     const [barberCode, setBarberCode] = useState('');
     const [pin, setPin] = useState('');
-    const [isLogin, setIsLogin] = useState(true);
+    
+    // <<< --- 1. REPLACE 'isLogin' STATE WITH 'authView' --- >>>
+    const [authView, setAuthView] = useState('login'); // 'login', 'signup', or 'forgotPassword'
+    
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [selectedRole, setSelectedRole] = useState('customer');
-    const [showPassword, setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState(false); 
 
     const handleAuth = async (e) => {
         e.preventDefault(); setLoading(true); setMessage('');
         try {
-            if (isLogin) {
+            // <<< --- 2. CHECK THE 'authView' STATE --- >>>
+            if (authView === 'login') {
                 if (!username || !password) throw new Error("Username/password required.");
                 if (selectedRole === 'barber' && !pin) throw new Error("Barber PIN required.");
                 const response = await axios.post(`${API_URL}/login/username`, { username: username.trim(), password, role: selectedRole, pin: selectedRole === 'barber' ? pin : undefined });
@@ -159,23 +166,56 @@ function AuthForm() {
                     const { error } = await supabase.auth.signInWithPassword({ email: response.data.user.email, password });
                     if (error) throw error;
                 } else { throw new Error("Login failed: Invalid server response."); }
-            } else {
+            } else { // This is now just for 'signup'
                 if (!email.trim() || !fullName.trim()) throw new Error("Email/Full Name required.");
                 if (selectedRole === 'barber' && !barberCode.trim()) throw new Error("Barber Code required.");
                 const response = await axios.post(`${API_URL}/signup/username`, { username: username.trim(), email: email.trim(), password, fullName: fullName.trim(), role: selectedRole, barberCode: selectedRole === 'barber' ? barberCode.trim() : undefined });
                 setMessage(response.data.message || 'Account created! You can now log in.');
-                setIsLogin(true);
+                setAuthView('login'); // <<< --- 3. GO BACK TO LOGIN VIEW --- >>>
                 setUsername(''); setEmail(''); setPassword(''); setFullName(''); setBarberCode(''); setPin(''); setSelectedRole('customer');
             }
         } catch (error) { console.error('Auth error:', error); setMessage(`Authentication failed: ${error.response?.data?.error || error.message || 'Unexpected error.'}`); }
         finally { setLoading(false); }
     };
 
+    // <<< --- 4. ADD NEW HANDLER FOR FORGOT PASSWORD --- >>>
+    const handleForgotPassword = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setMessage('');
+        try {
+            if (!email) throw new Error("Email is required.");
+            
+            // This is the Supabase client-side function
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin, // Redirects back to your main app page
+            });
+            if (error) throw error;
+
+            setMessage('Password reset link sent! Please check your email.');
+            // Go back to login view so they can't spam the button
+            setTimeout(() => {
+                setAuthView('login');
+                setEmail(''); // Clear email field
+                setMessage('');
+            }, 3000);
+
+        } catch (error) {
+            console.error('Forgot password error:', error);
+            setMessage(`Error: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+    // <<< --- END OF NEW HANDLER --- >>>
+
+
     return (
         <div className="card auth-card">
+            {/* --- Welcome Modal (Only shows on Sign Up) --- */}
             <div
                 className="modal-overlay"
-                style={{ display: (isWelcomeModalOpen && !isLogin) ? 'flex' : 'none' }}
+                style={{ display: (isWelcomeModalOpen && authView === 'signup') ? 'flex' : 'none' }} // <<< 5. UPDATE THIS CHECK
             >
                 <div className="modal-content">
                     <h2>Welcome to Dash-Q!</h2>
@@ -191,37 +231,158 @@ function AuthForm() {
                     </button>
                 </div>
             </div>
+            
+            {/* <<< --- 6. NEW CONDITIONAL RENDERING --- >>> */}
+            
+            {authView === 'forgotPassword' ? (
+                <>
+                    <h2>Reset Password</h2>
+                    <form onSubmit={handleForgotPassword}>
+                        <p>Enter your email. We will send you a link to reset your password.</p>
+                        <div className="form-group">
+                            <label>Email:</label>
+                            <input 
+                                type="email" 
+                                value={email} 
+                                onChange={(e) => setEmail(e.target.value)} 
+                                required 
+                                autoComplete="email"
+                            />
+                        </div>
+                        <button type="submit" disabled={loading}>
+                            {loading ? '...' : 'Send Reset Link'}
+                        </button>
+                    </form>
+                    <button type="button" onClick={() => { setAuthView('login'); setMessage(''); }} className="toggle-auth-button">
+                        Back to Login
+                    </button>
+                </>
+            ) : (
+                <>
+                    <h2>{authView === 'login' ? 'Login' : 'Sign Up'}</h2>
+                    <form onSubmit={handleAuth}>
+                        <div className="form-group"><label>Username:</label><input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required minLength="3" autoComplete="username"/></div>
+                        
+                        <div className="form-group password-group">
+                          <label>Password:</label>
+                          <input 
+                            type={showPassword ? 'text' : 'password'} 
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)} 
+                            required 
+                            minLength="6" 
+                            autoComplete={authView === 'login' ? "current-password" : "new-password"}
+                          />
+                          <button 
+                            type="button" 
+                            className="toggle-password" 
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
 
-            <h2>{isLogin ? 'Login' : 'Sign Up'}</h2>
-            <form onSubmit={handleAuth}>
-                <div className="form-group"><label>Username:</label><input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required minLength="3" autoComplete="username"/></div>
-                {/* <<< --- 2. THIS IS THE MODIFIED PASSWORD BLOCK --- >>> */}
+                        {authView === 'login' && (
+                            <>
+                                <div className="login-role-select"><label>Login As:</label><div className="role-toggle"><button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button><button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button></div>{selectedRole === 'barber' && (<div className="form-group pin-input"><label>Barber PIN:</label><input type="password" value={pin} onChange={(e) => setPin(e.target.value)} required={selectedRole === 'barber'} autoComplete="off" /></div>)}</div>
+                                
+                                {/* <<< --- 7. ADD FORGOT PASSWORD BUTTON --- >>> */}
+                                <div className="forgot-password-link">
+                                    <button type="button" onClick={() => { setAuthView('forgotPassword'); setMessage(''); setEmail(''); }}>
+                                        Forgot Password?
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                        
+                        {authView === 'signup' && (
+                            <>
+                                <div className="signup-role-select"><label>Sign Up As:</label><div className="role-toggle"><button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button><button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button></div></div>
+                                <div className="form-group"><label>Email:</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email"/><small>Needed for account functions.</small></div>
+                                <div className="form-group"><label>Full Name:</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name"/></div>
+                                {selectedRole === 'barber' && (<div className="form-group"><label>Barber Code:</label><input type="text" value={barberCode} placeholder="Secret code" onChange={(e) => setBarberCode(e.target.value)} required={selectedRole === 'barber'} /><small>Required.</small></div>)}
+                            </>
+                        )}
+                        
+                        <button type="submit" disabled={loading}>{loading ? '...' : (authView === 'login' ? 'Login' : 'Sign Up')}</button>
+                    </form>
+                </>
+            )}
+
+            {message && <p className={`message ${message.includes('successful') || message.includes('created') || message.includes('can now log in') || message.includes('sent') ? 'success' : 'error'}`}>{message}</p>}
+            
+            {/* <<< --- 8. UPDATE THIS BUTTON LOGIC --- >>> */}
+            {authView !== 'forgotPassword' && (
+                <button type="button" onClick={() => { setAuthView(authView === 'login' ? 'signup' : 'login'); setMessage(''); setSelectedRole('customer'); setPin(''); setBarberCode(''); }} className="toggle-auth-button">
+                    {authView === 'login' ? 'Need account? Sign Up' : 'Have account? Login'}
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ##############################################
+// ##       UPDATE PASSWORD COMPONENT          ##
+// ##############################################
+function UpdatePasswordForm({ onPasswordUpdated }) {
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState('');
+
+    const handlePasswordReset = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setMessage('');
+
+        if (password.length < 6) {
+            setMessage('Password must be at least 6 characters.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            // Supabase client automatically reads the token from the URL
+            const { error } = await supabase.auth.updateUser({ password: password });
+            if (error) throw error;
+            
+            setMessage('Password updated successfully! You can now log in.');
+            // Wait 2 seconds, then go back to the login screen
+            setTimeout(() => {
+                onPasswordUpdated();
+            }, 2000);
+
+        } catch (error) {
+            console.error('Error updating password:', error);
+            setMessage(`Error: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="card auth-card">
+            <h2>Set Your New Password</h2>
+            <p>You have been verified. Please enter a new password.</p>
+            <form onSubmit={handlePasswordReset}>
                 <div className="form-group password-group">
-                  <label>Password:</label>
+                  <label>New Password:</label>
                   <input 
-                    type={showPassword ? 'text' : 'password'} // <-- This line changed
+                    type='password'
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
                     required 
                     minLength="6" 
-                    autoComplete={isLogin ? "current-password" : "new-password"}
                   />
-                  {/* This button toggles the state */}
-                  <button 
-                    type="button" 
-                    className="toggle-password" 
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
                 </div>
-                {/* <<< --- END OF MODIFICATION --- >>> */}
-                {isLogin && (<div className="login-role-select"><label>Login As:</label><div className="role-toggle"><button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button><button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button></div>{selectedRole === 'barber' && (<div className="form-group pin-input"><label>Barber PIN:</label><input type="password" value={pin} onChange={(e) => setPin(e.target.value)} required={selectedRole === 'barber'} autoComplete="off" /></div>)}</div>)}
-                {!isLogin && (<><div className="signup-role-select"><label>Sign Up As:</label><div className="role-toggle"><button type="button" className={selectedRole === 'customer' ? 'active' : ''} onClick={() => setSelectedRole('customer')}>Customer</button><button type="button" className={selectedRole === 'barber' ? 'active' : ''} onClick={() => setSelectedRole('barber')}>Barber</button></div></div><div className="form-group"><label>Email:</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required={!isLogin} autoComplete="email"/><small>Needed for account functions.</small></div><div className="form-group"><label>Full Name:</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required={!isLogin} autoComplete="name"/></div>{selectedRole === 'barber' && (<div className="form-group"><label>Barber Code:</label><input type="text" value={barberCode} placeholder="Secret code" onChange={(e) => setBarberCode(e.target.value)} required={selectedRole === 'barber' && !isLogin} /><small>Required.</small></div>)}</>)}
-                <button type="submit" disabled={loading}>{loading ? '...' : (isLogin ? 'Login' : 'Sign Up')}</button>
+                <button type="submit" disabled={loading}>
+                    {loading ? '...' : 'Set New Password'}
+                </button>
             </form>
-            {message && <p className={`message ${message.includes('successful') || message.includes('created') || message.includes('can now log in') ? 'success' : 'error'}`}>{message}</p>}
-            <button type="button" onClick={() => { setIsLogin(!isLogin); setMessage(''); setSelectedRole('customer'); setPin(''); setBarberCode(''); }} className="toggle-auth-button">{isLogin ? 'Need account? Sign Up' : 'Have account? Login'}</button>
+            {message && (
+                <p className={`message ${message.includes('successfully') ? 'success' : 'error'}`}>
+                    {message}
+                </p>
+            )}
         </div>
     );
 }
@@ -1345,6 +1506,7 @@ function App() {
   const [userRole, setUserRole] = useState(null);
   const [barberProfile, setBarberProfile] = useState(null);
   const [loadingRole, setLoadingRole] = useState(true);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false); // <<< --- 1. ADD NEW STATE
 
   // --- OneSignal Setup ---
   useEffect(() => {
@@ -1359,10 +1521,10 @@ function App() {
         });
       });
     }
-    return () => {};
+    return () => { /* Cleanup if needed */ };
   }, []);
 
-  // --- Helper to Check Role ---
+  // --- Helper to Check Role (FIXED TO PREVENT RACE CONDITION) ---
   const checkUserRole = useCallback(async (user) => {
     if (!user || !user.id) {
       console.warn("checkUserRole called with incomplete user, defaulting to customer.");
@@ -1396,7 +1558,7 @@ function App() {
     }
   }, []);
 
-  // --- Auth State Change Listener ---
+  // --- Auth State Change Listener (FIXED TO PREVENT RACE CONDITION) ---
   useEffect(() => {
     if (!supabase?.auth) {
       console.error("Supabase auth not initialized.");
@@ -1404,8 +1566,17 @@ function App() {
       return;
     }
 
+    // This ONE listener handles everything: page load, login, and logout.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       console.log("Auth State Change Detected:", _event, currentSession);
+      
+      // <<< --- 2. ADD THIS LOGIC --- >>>
+      if (_event === 'PASSWORD_RECOVERY') {
+        console.log("Password recovery event detected!");
+        setIsUpdatingPassword(true); // Show the update password form
+      }
+      // <<< --- END NEW LOGIC --- >>>
+
       setSession(currentSession);
       
       if (currentSession?.user) {
@@ -1418,6 +1589,8 @@ function App() {
         setUserRole('customer');
         setBarberProfile(null);
         setLoadingRole(false);
+        // <<< --- 3. ADD THIS LINE --- >>>
+        setIsUpdatingPassword(false); // Hide update form if user logs out
       }
 
     });
@@ -1427,6 +1600,17 @@ function App() {
 
   // --- Render Logic ---
   if (loadingRole) { return <div className="loading-fullscreen">Loading Application...</div>; }
+
+  // <<< --- 4. ADD THIS RENDER BLOCK --- >>>
+  if (isUpdatingPassword) {
+    return (
+        <UpdatePasswordForm 
+            onPasswordUpdated={() => setIsUpdatingPassword(false)}
+        />
+    );
+  }
+  // <<< --- END NEW RENDER BLOCK --- >>>
+
   if (!session) { return <AuthForm />; }
   else if (userRole === null) { return <div className="loading-fullscreen">Verifying User Role...</div>; }
   else if (userRole === 'barber' && barberProfile) { return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} />; }
