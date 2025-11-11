@@ -186,11 +186,31 @@ function AuthForm() {
         try {
             if (!email) throw new Error("Email is required.");
             
-            // This is the Supabase client-side function
+            // --- NEW STEP: Check if email exists first ---
+            console.log(`Checking if email ${email} exists...`);
+            const checkResponse = await axios.post(`${API_URL}/check-email`, { email });
+            
+            if (!checkResponse.data.found) {
+                console.log("Email not found, but showing generic message.");
+                // We show a generic success message for security.
+                // This prevents attackers from guessing registered emails.
+                setMessage('If an account exists for this email, a reset link has been sent.');
+                setLoading(false);
+                return;
+            }
+            // --- END NEW STEP ---
+
+            // If we get here, the email *does* exist. Proceed to send the reset link.
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: window.location.origin, // Redirects back to your main app page
             });
-            if (error) throw error;
+            if (error) {
+                // Handle Supabase's rate limit error specifically
+                if (error.message.includes('rate limit')) {
+                  throw new Error('Email rate limit exceeded. Please wait a moment.');
+                }
+                throw error;
+            }
 
             setMessage('Password reset link sent! Please check your email.');
             // Go back to login view so they can't spam the button
