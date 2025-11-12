@@ -1080,7 +1080,9 @@ function CustomerView({ session }) {
         }
         setIsServiceCompleteModalOpen(false); setIsCancelledModalOpen(false); setIsYourTurnModalOpen(false);
         stopBlinking();
-        localStorage.removeItem('myQueueEntryId'); localStorage.removeItem('joinedBarberId');
+        localStorage.removeItem('myQueueEntryId'); 
+        localStorage.removeItem('joinedBarberId');
+        localStorage.removeItem('stickyModal');
         setMyQueueEntryId(null); setJoinedBarberId(null);
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
@@ -1137,14 +1139,67 @@ function CustomerView({ session }) {
         if (!hasSeen) { setIsInstructionsModalOpen(true); }
    }, []);
 
+   // <<< --- NEW "MASTER LOADER" useEffect (Replaces both Catcher and Sticky Modal) --- >>>
    useEffect(() => {
-        const modalFlag = localStorage.getItem('stickyModal');
-        if (modalFlag === 'yourTurn') {
-            setIsYourTurnModalOpen(true);
-        } else if (modalFlag === 'tooFar') {
-            setIsTooFarModalOpen(true);
-        }
-    }, []);
+        const runOnLoadChecks = async () => {
+            const currentQueueId = localStorage.getItem('myQueueEntryId');
+            const stickyModal = localStorage.getItem('stickyModal');
+            
+            // --- Priority 1: Check for a "sticky" modal ---
+            // This happens if the user just refreshed the page while a modal was open
+            if (stickyModal === 'yourTurn') {
+                console.log("[Loader] Found 'stickyModal' for 'yourTurn'. Re-opening modal.");
+                setIsYourTurnModalOpen(true);
+                return; // Stop here.
+            }
+            if (stickyModal === 'tooFar') {
+                console.log("[Loader] Found 'stickyModal' for 'tooFar'. Re-opening modal.");
+                setIsTooFarModalOpen(true);
+                return; // Stop here.
+            }
+            
+            // --- Priority 2: Check for a "stale" queue entry ---
+            // This happens if the app was closed and missed an event
+            if (currentQueueId) {
+                console.log(`[Loader] Found stored queue ID: ${currentQueueId}. Checking its status...`);
+                try {
+                    // This calls your NEW endpoint
+                    const response = await axios.get(`${API_URL}/api/queue-status/${currentQueueId}`);
+                    const status = response.data.status; // "Waiting", "Done", "Cancelled", "Archived", or null
+                    
+                    console.log(`[Loader] Server reports status: ${status}`);
+
+                    if (status === 'Done') {
+                        // This is a "missed feedback" event.
+                        setIsServiceCompleteModalOpen(true);
+                        // Clear the stale ID
+                        localStorage.removeItem('myQueueEntryId');
+                        localStorage.removeItem('joinedBarberId');
+                    } else if (status === 'Cancelled' || status === 'Archived' || status === null) {
+                        // This is a "missed cancelled" event, or the entry is just old and gone.
+                        setIsCancelledModalOpen(true);
+                        // Clear the stale ID
+                        localStorage.removeItem('myQueueEntryId');
+                        localStorage.removeItem('joinedBarberId');
+                    }
+                    // If status is "Waiting", "Up Next", or "In Progress", we do nothing.
+                    // The app will load normally, and the realtime useEffect will take over.
+
+                } catch (error) {
+                    console.error("[Loader] Error fetching queue status:", error.message);
+                    // Failsafe: clear local storage to prevent loops
+                    localStorage.removeItem('myQueueEntryId');
+                    localStorage.removeItem('joinedBarberId');
+                }
+            }
+        };
+        
+        // Run this check 1 second after app load to let session load
+        const timer = setTimeout(runOnLoadChecks, 1000); 
+        return () => clearTimeout(timer);
+        
+    }, []); // <-- Empty array ensures this runs only ONCE on load
+   // <<< --- END NEW BLOCK --- >>>
    
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
