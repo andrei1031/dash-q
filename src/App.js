@@ -631,45 +631,47 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
 
         const queueId = queueDetails.inProgress.id;
         
-        // --- HARDENED VIP STATUS CHECK ---
-        // 1. Check if is_vip exists and is explicitly true.
+        // --- Step 1: Retrieve necessary data from state ---
+        const serviceName = queueDetails.inProgress.services?.name || 'Service';
+        const servicePrice = parseFloat(queueDetails.inProgress.services?.price_php) || 0; // 1000.00
         const isVIP = queueDetails.inProgress.is_vip === true; 
         
-        const serviceName = queueDetails.inProgress.services?.name || 'Service';
-        const servicePrice = parseFloat(queueDetails.inProgress.services?.price_php) || 0;
+        // --- Step 2: Calculate VIP fee and total amount due (before tip) ---
+        const vipCharge = isVIP ? 100 : 0; // 100
+        const subtotalDue = servicePrice + vipCharge; // 1000 + 100 = 1100
         
-        // --- Calculate the charges ---
-        // Use a safe calculation for the VIP charge
-        const vipCharge = isVIP ? 100 : 0; 
-        const priceToDisplay = servicePrice + vipCharge;
-        
-        // --- Prompt the barber for tip amount ---
-        const tipAmount = window.prompt(
-            `Service: ${serviceName} (₱${servicePrice.toFixed(2)})${isVIP ? ' + VIP Fee (₱100.00)' : ''}. \n\nTotal Due: ₱${priceToDisplay.toFixed(2)}.\n\nPlease enter TIP amount (e.g., 50):`
+        // --- Step 3: Prompt the barber for tip amount ---
+        const tipAmountInput = window.prompt(
+            // The prompt confirms the subtotal (1100.00)
+            `Service: ${serviceName} (₱${servicePrice.toFixed(2)})${isVIP ? ' + VIP Fee (₱100.00)' : ''}. \n\nTotal Due: ₱${subtotalDue.toFixed(2)}.\n\nPlease enter TIP amount (e.g., 50):`
         );
         
-        if (tipAmount === null) return;
-        const parsedTip = parseInt(tipAmount);
+        if (tipAmountInput === null) return;
+        const parsedTip = parseInt(tipAmountInput); // 0 (if no input)
         
         if (isNaN(parsedTip) || parsedTip < 0) { 
             window.alert('Invalid tip. Please enter 0 or more.'); 
             return; 
         }
         
+        // --- Step 4: Calculate the final profit for the alert ---
+        const finalLoggedProfit = subtotalDue + parsedTip; // 1100 + 0 = 1100
+
         setError('');
         try {
-          // --- Send the calculated charges to the server ---
+          // --- Step 5: Send ALL charges to the server ---
+          // The server will calculate: 1000 + 0 + 100 = 1100 (Correct)
           await axios.post(`${API_URL}/queue/complete`, {
             queue_id: queueId,
             barber_id: barberId,
             tip_amount: parsedTip,
-            vip_charge: vipCharge, // Send the calculated value (100 or 0)
+            vip_charge: vipCharge, 
           });
           
           onCutComplete();
           
-          // The alert confirms the final logged profit (Base + VIP + Tip)
-          window.alert(`Cut completed! Total logged profit: ₱${(priceToDisplay + parsedTip).toFixed(2)}`);
+          // --- Step 6: Display the correct final logged profit (1100.00) ---
+          window.alert(`Cut completed! Total logged profit: ₱${finalLoggedProfit.toFixed(2)}`);
         } catch (err) { 
             console.error('Failed complete cut:', err); 
             setError(err.response?.data?.error || 'Failed to complete cut.'); 
