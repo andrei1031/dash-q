@@ -926,7 +926,7 @@ function CustomerView({ session }) {
            setQueueMessage(() => "Could not load queue data."); 
        }
        // <<< --- THIS IS THE FIX --- >>>
-   }, [setIsQueueLoading, setLiveQueue, setQueueMessage]); 
+   }, [setIsQueueLoading, setLiveQueue, setQueueMessage]);
    // <<< --- END OF FIX --- >>>
    
    const handleFileChange = (e) => {
@@ -1341,38 +1341,31 @@ function CustomerView({ session }) {
    }, [isYourTurnModalOpen, isServiceCompleteModalOpen, isCancelledModalOpen, isTooFarModalOpen]); // <-- All 4 modals are now in the array
    // <<< --- END MODIFIED BLOCK --- >>>
 
-   // <<< --- NEW "MASTER LOADER" useEffect (Replaces all others) --- >>>
+   // <<< --- NEW "MASTER LOADER" useEffect (Replaces old Catcher) --- >>>
     useEffect(() => {
         const runOnLoadChecks = async () => {
             const currentQueueId = localStorage.getItem('myQueueEntryId');
             const stickyModal = localStorage.getItem('stickyModal');
-
-            // --- Priority 1: Check for a "sticky" modal ---
-            // This happens if the user just refreshed the page while a modal was open
+            
+            // --- Priority 1: Check for a "sticky" modal (Happens on refresh) ---
             if (stickyModal === 'yourTurn') {
-                console.log("[Loader] Found 'stickyModal' for 'yourTurn'. Re-opening modal.");
                 setIsYourTurnModalOpen(true);
-                return; // Stop here. The user is live.
+                return; // Stop here.
             }
             if (stickyModal === 'tooFar') {
-                console.log("[Loader] Found 'stickyModal' for 'tooFar'. Re-opening modal.");
                 setIsTooFarModalOpen(true);
                 return; // Stop here.
             }
-
-            // --- Priority 2: Check for a "stale" queue entry ---
-            // This happens if the app was closed and missed an event
+            
+            // --- Priority 2: Check for a "stale" queue entry (Happens after phone was off) ---
             if (currentQueueId) {
                 console.log(`[Loader] Found stored queue ID: ${currentQueueId}. Checking its status...`);
                 try {
-                    // --- THIS IS THE CACHE-BUSTING FIX ---
-                    const cacheBuster = `_=${new Date().getTime()}`;
                     // This calls your NEW, CORRECT endpoint in server.js
+                    const cacheBuster = `_=${new Date().getTime()}`;
                     const response = await axios.get(`${API_URL}/api/queue-status/${currentQueueId}?${cacheBuster}`);
-                    // --- END FIX ---
-
-                    const status = response.data.status; // "Waiting", "Done", "Cancelled", "Archived", or null
-
+                    const status = response.data.status; // "Done", "Cancelled", "Archived", or null
+                    
                     console.log(`[Loader] Server reports status: ${status}`);
 
                     if (status === 'Done') {
@@ -1399,11 +1392,11 @@ function CustomerView({ session }) {
                 }
             }
         };
-
+        
         // Run this check 1 second after app load to let session load
         const timer = setTimeout(runOnLoadChecks, 1000); 
         return () => clearTimeout(timer);
-
+        
     }, []); // <-- Empty array ensures this runs only ONCE on load
     // <<< --- END NEW BLOCK --- >>>
 
