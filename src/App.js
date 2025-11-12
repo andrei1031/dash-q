@@ -1378,6 +1378,51 @@ function CustomerView({ session }) {
        };
    }, [isYourTurnModalOpen, isServiceCompleteModalOpen, isCancelledModalOpen, isTooFarModalOpen]); // <-- All 4 modals are now in the array
    // <<< --- END MODIFIED BLOCK --- >>>
+
+   // <<< --- NEW "MISSED EVENT CATCHER" (Your Idea) --- >>>
+   useEffect(() => {
+        // This runs ONCE when the component loads
+        const checkMissedEvents = async () => {
+            const currentQueueId = localStorage.getItem('myQueueEntryId');
+            const userId = session?.user?.id;
+
+            // Only run if we think we *should* be in a queue, but might have missed it
+            if (currentQueueId && userId) {
+                console.log("[Catcher] Checking backend for missed 'Done' or 'Cancelled' events...");
+                try {
+                    const response = await axios.get(`${API_URL}/missed-event/${userId}`);
+                    const eventType = response.data.event; // "Done", "Cancelled", or null
+
+                    if (eventType === 'Done') {
+                        console.log("[Catcher] Backend reports a missed 'Done' event. Showing Feedback modal.");
+                        setIsServiceCompleteModalOpen(true);
+                        // We were completed, so clear the queue IDs from storage
+                        localStorage.removeItem('myQueueEntryId');
+                        localStorage.removeItem('joinedBarberId');
+                        localStorage.removeItem('stickyModal'); // Clear sticky modal too
+                    } else if (eventType === 'Cancelled') {
+                        console.log("[Catcher] Backend reports a missed 'Cancelled' event. Showing Cancelled modal.");
+                        setIsCancelledModalOpen(true);
+                        // We were cancelled, so clear the queue IDs
+                        localStorage.removeItem('myQueueEntryId');
+                        localStorage.removeItem('joinedBarberId');
+                        localStorage.removeItem('stickyModal'); // Clear sticky modal too
+                    } else {
+                        console.log("[Catcher] Backend reports no missed events.");
+                    }
+
+                } catch (error) {
+                    console.error("[Catcher] Error fetching missed event:", error.message);
+                }
+            }
+        };
+
+        // Wait 2 seconds just to let the main queue load/realtime settle
+        const timer = setTimeout(checkMissedEvents, 2000);
+        return () => clearTimeout(timer);
+        
+    }, [session]); // Run this check when the session becomes available
+   // <<< --- END NEW BLOCK --- >>>
    
    console.log("RENDERING CustomerView:", { myQueueEntryId, joinedBarberId, liveQueue_length: liveQueue.length, nowServing: nowServing?.id, upNext: upNext?.id, peopleWaiting, estimatedWait, displayWait, isQueueLoading, queueMessage });
 
