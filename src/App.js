@@ -86,6 +86,10 @@ function stopBlinking() {
     document.title = originalTitle;
 }
 
+function isIOsDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 // ##############################################
 // ##           CHAT COMPONENT               ##
 // ##############################################
@@ -1026,7 +1030,15 @@ function CustomerView({ session }) {
         console.log("[handleReturnToJoin] Function called.");
         if (userInitiated && myQueueEntryId) {
             setIsLoading(true);
-            try { await axios.delete(`${API_URL}/queue/${myQueueEntryId}`); setMessage("You left the queue."); } 
+            try { 
+                // --- THIS IS THE CHANGE ---
+                // We must send our user ID to prove who we are
+                await axios.delete(`${API_URL}/queue/${myQueueEntryId}`, {
+                   data: { userId: session.user.id } 
+                });
+                // --- END CHANGE ---
+                setMessage("You left the queue."); 
+            } 
             catch (error) { console.error("Failed to leave queue:", error); setMessage("Error leaving queue."); }
             finally { setIsLoading(false); }
         }
@@ -1399,6 +1411,13 @@ function CustomerView({ session }) {
                     
                     {selectedBarberId && (<div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>)}
                     
+                    {isIOsDevice() && (
+                      <p className="message warning small">
+                        <b>iPhone Users:</b> Push alerts and sounds are not supported. 
+                        Please keep this tab open and watch your email for notifications!
+                      </p>
+                    )}
+
                     <button type="submit" disabled={isLoading || !selectedBarberId || barbers.length === 0 || isUploading} className="join-queue-button">{isLoading ? 'Joining...' : 'Join Queue'}</button>
                 </form>
                 {message && <p className={`message ${message.toLowerCase().includes('failed') || message.toLowerCase().includes('error') ? 'error' : ''}`}>{message}</p>}
