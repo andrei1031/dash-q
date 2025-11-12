@@ -854,6 +854,8 @@ function CustomerView({ session }) {
    const [selectedFile, setSelectedFile] = useState(null);
    const [referenceImageUrl, setReferenceImageUrl] = useState('');
    const [isUploading, setIsUploading] = useState(false);
+   const [isVIPToggled, setIsVIPToggled] = useState(false); // Tracks the toggle state
+   const [isVIPModalOpen, setIsVIPModalOpen] = useState(false); // Controls the confirmation modal
    
    // --- AI Feedback & UI State ---
    const [feedbackText, setFeedbackText] = useState('');
@@ -1061,6 +1063,32 @@ function CustomerView({ session }) {
        }
    };
 
+   // --- NEW VIP HANDLER: Opens the confirmation modal ---
+   const handleVIPToggle = (e) => {
+    // Check for both native checkbox event (e.target.checked) 
+    // and our simulated button click event (e.target.checked)
+        const isChecked = e.target.checked; 
+        
+        if (isChecked) {
+            // If turning ON, open modal for confirmation
+            setIsVIPModalOpen(true);
+        } else {
+            // If turning OFF, just update the state
+            setIsVIPToggled(false);
+        }
+    };
+   
+   // --- NEW VIP MODAL HANDLER: Confirms VIP status ---
+   const confirmVIP = () => {
+       setIsVIPToggled(true);
+       setIsVIPModalOpen(false);
+   };
+   
+   const cancelVIP = () => {
+       setIsVIPToggled(false); // Ensure the toggle is visually unchecked
+       setIsVIPModalOpen(false);
+   };
+
    const handleJoinQueue = async (e) => {
         e.preventDefault();
         if (!customerName || !selectedBarberId || !selectedServiceId) { setMessage('Name, Barber, AND Service required.'); return; }
@@ -1077,6 +1105,7 @@ function CustomerView({ session }) {
                 service_id: selectedServiceId,
                 player_id: player_id,
                 user_id: session.user.id,
+                is_vip: isVIPToggled,
             });
             const newEntry = response.data;
             if (newEntry && newEntry.id) {
@@ -1088,6 +1117,7 @@ function CustomerView({ session }) {
                 setSelectedBarberId(''); setSelectedServiceId(''); 
                 setReferenceImageUrl(newEntry.reference_image_url || '');
                 fetchPublicQueue(newEntry.barber_id.toString());
+                setIsVIPToggled(false); // Reset VIP flag after join
             } else { throw new Error("Invalid response from server."); }
         } catch (error) {
             console.error('Failed to join queue:', error);
@@ -1532,7 +1562,40 @@ function CustomerView({ session }) {
                     <div className="form-group"><label>Your Phone (Optional):</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="e.g., 09171234567" /></div>
                     <div className="form-group"><label>Your Email:</label><input type="email" value={customerEmail} readOnly className="prefilled-input" /></div>
                     <div className="form-group"><label>Select Service:</label><select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required><option value="">-- Choose service --</option>{services.map((service) => (<option key={service.id} value={service.id}>{service.name} ({service.duration_minutes} min / ₱{service.price_php})</option>))}</select></div>
-                    
+                    {/* --- NEW VIP TOGGLE --- */}
+                    {selectedServiceId && (
+                        <div className="form-group vip-toggle-group">
+                            <label>Service Priority:</label>
+                            <div className="priority-toggle-control">
+                                
+                                {/* NO PRIORITY Button */}
+                                <button 
+                                    type="button"
+                                    className={`priority-option ${!isVIPToggled ? 'active' : ''}`}
+                                    onClick={() => setIsVIPToggled(false)}
+                                >
+                                    No Priority
+                                </button>
+                                
+                                {/* VIP PRIORITY Button - Triggers the modal if clicked */}
+                                <button 
+                                    type="button"
+                                    className={`priority-option ${isVIPToggled ? 'active vip' : ''}`}
+                                    onClick={() => handleVIPToggle({ target: { checked: true } })} // Simulate check event
+                                    disabled={isVIPToggled} // Disable if already toggled on (to prevent multiple modal opens)
+                                >
+                                    VIP Priority (+₱100)
+                                </button>
+                                
+                            </div>
+                            {isVIPToggled && (
+                                <p className="success-message small">
+                                    VIP Priority is active. You will be placed Up Next.
+                                </p>
+                            )}
+                        </div>
+                    )}
+                    {/* --- END NEW VIP TOGGLE --- */}
                     <div className="form-group photo-upload-group">
                         <label>Desired Haircut Photo (Optional):</label>
                         <input type="file" accept="image/*" onChange={handleFileChange} disabled={isUploading} />
@@ -1632,7 +1695,36 @@ function CustomerView({ session }) {
                 <button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='leave-queue-button'>{isLoading ? 'Leaving...' : 'Leave Queue / Join Another'}</button>
             </div>
          )}
+
+        <div className="modal-overlay" style={{ display: isVIPModalOpen ? 'flex' : 'none' }}>
+            <div className="modal-content">
+                <h2>Priority Service Confirmation</h2>
+                {selectedServiceId && services.find(s => s.id.toString() === selectedServiceId) ? (
+                    <p>You have selected **{services.find(s => s.id.toString() === selectedServiceId).name}**. This VIP priority service incurs an **additional ₱100** fee, guaranteeing you the next "Up Next" slot.</p>
+                ) : (
+                    <p>VIP priority service incurs an **additional ₱100** fee, guaranteeing you the next "Up Next" slot. Please ensure you have selected a service.</p>
+                )}
+                
+                <div className="modal-actions">
+                    <button 
+                        onClick={confirmVIP} 
+                        disabled={!selectedServiceId} 
+                        className="join-queue-button"
+                    >
+                        Confirm (+₱100)
+                    </button>
+                    <button 
+                        onClick={cancelVIP} 
+                        className="cancel-button"
+                    >
+                        Cancel VIP
+                    </button>
+                </div>
+                {!selectedServiceId && <p className="error-message small">Please select a service first.</p>}
+            </div>
+        </div>
        </div>
+       
    );
 }
 
