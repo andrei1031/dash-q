@@ -838,6 +838,8 @@ function CustomerView({ session }) {
    const [isChatOpen, setIsChatOpen] = useState(false);
    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
    const [modalAlert, setModalAlert] = useState({ title: "You're up next!", text: "Please take a seat and stay put." });
+   const [isModalButtonDisabled, setIsModalButtonDisabled] = useState(false);
+   const [modalCountdown, setModalCountdown] = useState(10);
    const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
    const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
    const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(false);
@@ -902,28 +904,62 @@ function CustomerView({ session }) {
             setChatMessagesFromBarber(prev => [...prev, { senderId: session.user.id, message: messageText }]);
         } else { console.warn("[Customer] Cannot send message (socket disconnected or missing IDs)."); setMessage("Chat disconnected."); }
    };
+   // <<< --- REPLACE THIS ENTIRE FUNCTION --- >>>
    const fetchPublicQueue = useCallback(async (barberId) => {
-       if (!barberId) {
-           setLiveQueue(() => []); // <-- Functional update
-           liveQueueRef.current = [];
-           setIsQueueLoading(() => false); // <-- Functional update
-           return;
+       if (!barberId) { 
+           setLiveQueue(() => []); 
+           liveQueueRef.current = []; 
+           setIsQueueLoading(() => false); 
+           return; 
        }
-       setIsQueueLoading(() => true); // <-- Functional update
+       setIsQueueLoading(() => true);
+       let queueData = [];
        try {
          const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
-         const queueData = response.data || [];
-         setLiveQueue(() => queueData); // <-- Functional update
-         liveQueueRef.current = queueData; // Update ref
+         queueData = response.data || [];
+         setLiveQueue(() => queueData);
+         liveQueueRef.current = queueData;
        } catch (error) { 
-           console.error("Failed fetch public queue:", error);
-           setLiveQueue(() => []); // <-- Functional update
-           liveQueueRef.current = [];
-           setQueueMessage(() => "Could not load queue data."); // <-- Functional update
+           console.error("Failed fetch public queue:", error); 
+           setLiveQueue(() => []); 
+           liveQueueRef.current = []; 
+           setQueueMessage(() => "Could not load queue data."); 
        } finally {
-           setIsQueueLoading(() => false); // <-- Functional update
+         setIsQueueLoading(() => false);
+         
+         // --- THIS IS THE NEW "MISSED EVENT" LOGIC ---
+         const currentQueueId = localStorage.getItem('myQueueEntryId');
+         
+         // This logic only runs if we have a queue ID stored
+         if (currentQueueId) {
+             // Check if my ID is in the *active* queue data we just fetched
+             const amIInActiveQueue = queueData.some(entry => entry.id.toString() === currentQueueId);
+             
+             // This checks if the user is *not* in the active queue,
+             // AND if the "Done" modal is not *already* open (to prevent loops),
+             // AND if the "Cancelled" modal is not *already* open.
+             setIsServiceCompleteModalOpen(isDoneOpen => {
+                setIsCancelledModalOpen(isCancelledOpen => {
+
+                    if (!amIInActiveQueue && !isDoneOpen && !isCancelledOpen) {
+                        // My ID is NOT in the active queue.
+                        // This means I must have been "Done" or "Cancelled" while my app was closed.
+                        console.log("Missed Event Catcher: My entry is no longer active. Showing Feedback/Cancelled modal.");
+                        
+                        // We can't be sure which it was, so we'll just default to showing 
+                        // the "Service Complete" / Feedback modal, as it's the most common case.
+                        return true; // Show the "Done" modal
+                    }
+                    return isDoneOpen; // Keep its current state
+
+                });
+                return isDoneOpen; // Keep its current state
+             });
+         }
+         // --- END NEW LOGIC ---
        }
-   }, []); // <-- Keep the dependency array empty
+   }, [setIsQueueLoading, setLiveQueue, setQueueMessage, setIsServiceCompleteModalOpen, setIsCancelledModalOpen]); // <-- Dependencies are added
+   // <<< --- END OF REPLACEMENT --- >>>
    
    const handleFileChange = (e) => {
        const file = e.target.files[0];
@@ -1061,7 +1097,11 @@ function CustomerView({ session }) {
         console.log("[handleReturnToJoin] State reset complete.");
    };
    
-   const handleModalClose = () => { setIsYourTurnModalOpen(false); stopBlinking(); };
+   const handleModalClose = () => { 
+    setIsYourTurnModalOpen(false); 
+    localStorage.removeItem('stickyModal'); // <<< --- ADD THIS
+    stopBlinking(); 
+};
 
    // --- Effects ---
    useEffect(() => { // Geolocation Watcher 
@@ -1078,6 +1118,7 @@ function CustomerView({ session }) {
          if (distance > DISTANCE_THRESHOLD_METERS) {
            if (!isTooFarModalOpen && !isOnCooldown) {
              console.log('Customer is too far! Triggering modal.');
+             localStorage.setItem('stickyModal', 'tooFar'); // <<< --- ADD THIS
              setIsTooFarModalOpen(true);
              setIsOnCooldown(true); 
            }
@@ -1095,6 +1136,15 @@ function CustomerView({ session }) {
         const hasSeen = localStorage.getItem('hasSeenInstructions_v1');
         if (!hasSeen) { setIsInstructionsModalOpen(true); }
    }, []);
+
+   useEffect(() => {
+        const modalFlag = localStorage.getItem('stickyModal');
+        if (modalFlag === 'yourTurn') {
+            setIsYourTurnModalOpen(true);
+        } else if (modalFlag === 'tooFar') {
+            setIsTooFarModalOpen(true);
+        }
+    }, []);
    
    useEffect(() => { // Fetch Services
         const fetchServices = async () => {
@@ -1141,11 +1191,12 @@ function CustomerView({ session }) {
                     if (payload.eventType === 'UPDATE' && payload.new.id.toString() === myQueueEntryId) {
                         const newStatus = payload.new.status;
                         console.log(`My status updated to: ${newStatus}`);
-                        if (newStatus === 'Up Next') {
+                        if (newStatus === 'Up Next') { 
                             setModalAlert({ title: "You're up next!", text: "Please take a seat and stay put." });
                             playSound(queueNotificationSound); 
                             startBlinking(); 
                             setIsYourTurnModalOpen(true); 
+                            localStorage.setItem('stickyModal', 'yourTurn'); // <<< --- ADD THIS
                             if (navigator.vibrate) navigator.vibrate([500,200,500]); 
                         } 
                         else if (newStatus === 'In Progress') {
@@ -1153,6 +1204,7 @@ function CustomerView({ session }) {
                             playSound(queueNotificationSound); 
                             startBlinking(); 
                             setIsYourTurnModalOpen(true); 
+                            localStorage.setItem('stickyModal', 'yourTurn'); // <<< --- ADD THIS
                             if (navigator.vibrate) navigator.vibrate([500,200,500]);
                         }
                         else if (newStatus === 'Done') { setIsServiceCompleteModalOpen(true); stopBlinking(); } 
@@ -1291,6 +1343,41 @@ function CustomerView({ session }) {
        return () => clearInterval(timerId);
    }, [myQueueEntryId]);
    
+   useEffect(() => {
+       let timerId = null;
+       let countdownInterval = null;
+
+       // This now checks if ANY of the 4 modals are open
+       if (isYourTurnModalOpen || isServiceCompleteModalOpen || isCancelledModalOpen || isTooFarModalOpen) {
+           
+           // 1. Disable the button and reset the countdown
+           setIsModalButtonDisabled(true);
+           setModalCountdown(10); // <-- Changed to 10
+
+           // 2. Start the 10-second timer to re-enable the button
+           timerId = setTimeout(() => {
+               setIsModalButtonDisabled(false);
+           }, 10000); // <-- Changed to 10000 (10 seconds)
+
+           // 3. Start a 1-second interval to update the countdown text
+           countdownInterval = setInterval(() => {
+               setModalCountdown(prevCount => {
+                   if (prevCount <= 1) {
+                       clearInterval(countdownInterval); // Stop the interval
+                       return 0;
+                   }
+                   return prevCount - 1; // Decrement
+               });
+           }, 1000); // 1 second
+       }
+
+       // This is a cleanup function to prevent memory leaks
+       return () => {
+           if (timerId) clearTimeout(timerId);
+           if (countdownInterval) clearInterval(countdownInterval);
+       };
+   }, [isYourTurnModalOpen, isServiceCompleteModalOpen, isCancelledModalOpen, isTooFarModalOpen]); // <-- All 4 modals are now in the array
+   // <<< --- END MODIFIED BLOCK --- >>>
    
    console.log("RENDERING CustomerView:", { myQueueEntryId, joinedBarberId, liveQueue_length: liveQueue.length, nowServing: nowServing?.id, upNext: upNext?.id, peopleWaiting, estimatedWait, displayWait, isQueueLoading, queueMessage });
 
@@ -1302,7 +1389,16 @@ function CustomerView({ session }) {
             <div className="modal-content">
                 <h2>{modalAlert.title}</h2>
                 <p>{modalAlert.text}</p>
-                <button id="close-modal-btn" onClick={handleModalClose}>Okay!</button>
+                
+                {/* <<< --- THIS BUTTON IS NOW MODIFIED --- >>> */}
+                <button 
+                  id="close-modal-btn" 
+                  onClick={handleModalClose} 
+                  disabled={isModalButtonDisabled}
+                >
+                  {isModalButtonDisabled ? `Please wait (${modalCountdown})...` : 'Okay!'}
+                </button>
+                
             </div>
          </div>
           <div className="modal-overlay" style={{ display: isServiceCompleteModalOpen ? 'flex' : 'none' }}>
@@ -1353,16 +1449,46 @@ function CustomerView({ session }) {
                               onClick={() => {
                                   handleReturnToJoin(false);
                               }}
+                              disabled={isModalButtonDisabled} // <-- Add This
                           >
-                              Okay
+                              {/* vvv Change This vvv */}
+                              {isModalButtonDisabled ? `Please wait (${modalCountdown})...` : 'Okay'}
                           </button>
                       </>
                   )}
               </div>
           </div>
          
-         <div className="modal-overlay" style={{ display: isCancelledModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>Appointment Cancelled</h2><p>Your queue entry was cancelled.</p><button id="close-cancel-modal-btn" onClick={() => handleReturnToJoin(false)}>Okay</button></div></div>
-         <div className="modal-overlay" style={{ display: isTooFarModalOpen ? 'flex' : 'none' }}><div className="modal-content"><h2>A Friendly Reminder!</h2><p>Hey, please don’t wander off too far—we’d really appreciate it if you stayed close to the queue!</p><button id="close-too-far-modal-btn" onClick={() => { setIsTooFarModalOpen(false); console.log("Cooldown started."); setTimeout(() => { console.log("Cooldown finished."); setIsOnCooldown(false); }, 300000); }}>Okay, I'll stay close</button></div></div>
+         <div className="modal-overlay" style={{ display: isCancelledModalOpen ? 'flex' : 'none' }}>
+            <div className="modal-content">
+                <h2>Appointment Cancelled</h2>
+                <p>Your queue entry was cancelled.</p>
+                <button 
+                  id="close-cancel-modal-btn" 
+                  onClick={() => handleReturnToJoin(false)}
+                  disabled={isModalButtonDisabled} // <-- Add This
+                >
+                  {/* vvv Change This vvv */}
+                  {isModalButtonDisabled ? `Please wait (${modalCountdown})...` : 'Okay'}
+                </button>
+            </div>
+         </div>
+         <div className="modal-overlay" style={{ display: isTooFarModalOpen ? 'flex' : 'none' }}>
+            <div className="modal-content">
+                <h2>A Friendly Reminder!</h2>
+                <p>Hey, please don’t wander off too far...</p>
+                <button id="close-too-far-modal-btn" onClick={() => { 
+                    setIsTooFarModalOpen(false); 
+                    localStorage.removeItem('stickyModal'); // <<< --- ADD THIS
+                    console.log("Cooldown started."); 
+                    setTimeout(() => { console.log("Cooldown finished."); setIsOnCooldown(false); }, 300000); 
+                }}
+                >
+                  {/* vvv Change This vvv */}
+                  {isModalButtonDisabled ? `Please wait (${modalCountdown})...` : "Okay, I'll stay close"}
+                </button>
+            </div>
+         </div>
 
          {!myQueueEntryId ? (
             <>
