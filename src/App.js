@@ -628,9 +628,38 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
     };
     const handleCompleteCut = async () => {
         if (!queueDetails.inProgress) return;
-        const serviceName = queueDetails.inProgress.services?.name || 'Service';
-        const servicePrice = parseFloat(queueDetails.inProgress.services?.price_php) || 0;
-        const tipAmount = window.prompt(`Service: ${serviceName} (₱${servicePrice.toFixed(2)}). \n\nPlease enter TIP amount (e.g., 50):`);
+        const queueId = queueDetails.inProgress.id;
+        let isVIP = false;
+        let servicePrice = 0;
+        let serviceName = '';
+        try {
+            // Fetch the entry directly from the DB to get the latest price and VIP status
+            // Note: This relies on your Supabase client having 'services(price_php, name)' available.
+            const { data: entryData, error: fetchError } = await supabase.from('queue_entries')
+                .select(`services(price_php, name), is_vip`)
+                .eq('id', queueId)
+                .maybeSingle();
+
+            if (fetchError || !entryData || !entryData.services) throw new Error("Failed to fetch current service data.");
+
+            serviceName = entryData.services.name || 'Service';
+            servicePrice = parseFloat(entryData.services.price_php) || 0;
+            isVIP = entryData.is_vip || false;
+
+        } catch (err) {
+            console.error('Failed to fetch entry details for completion:', err);
+            setError("Could not confirm service price/VIP status.");
+            return;
+        }
+        // --- END NEW FETCH ---
+
+        // --- NEW: Calculate the VIP charge and adjust the displayed price ---
+        const vipCharge = isVIP ? 100 : 0;
+        const priceToDisplay = servicePrice + vipCharge;
+        
+        const tipAmount = window.prompt(
+            `Service: ${serviceName} (₱${servicePrice.toFixed(2)}) ${isVIP ? ' + VIP Fee (₱100.00)' : ''}. \n\nTotal Due: ₱${priceToDisplay.toFixed(2)}.\n\nPlease enter TIP amount (e.g., 50):`
+        );
         if (tipAmount === null) return;
         const parsedTip = parseInt(tipAmount);
         if (isNaN(parsedTip) || parsedTip < 0) { window.alert('Invalid tip. Please enter 0 or more.'); return; }
