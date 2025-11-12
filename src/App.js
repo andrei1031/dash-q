@@ -1379,18 +1379,18 @@ function CustomerView({ session }) {
    }, [isYourTurnModalOpen, isServiceCompleteModalOpen, isCancelledModalOpen, isTooFarModalOpen]); // <-- All 4 modals are now in the array
    // <<< --- END MODIFIED BLOCK --- >>>
 
-   // <<< --- NEW "MISSED EVENT CATCHER" (Your Idea) --- >>>
+   // <<< --- NEW "MISSED EVENT CATCHER" (FIXED) --- >>>
    useEffect(() => {
         // This runs ONCE when the component loads
         const checkMissedEvents = async () => {
             const currentQueueId = localStorage.getItem('myQueueEntryId');
-            const userId = session?.user?.id;
-
-            // Only run if we think we *should* be in a queue, but might have missed it
-            if (currentQueueId && userId) {
-                console.log("[Catcher] Checking backend for missed 'Done' or 'Cancelled' events...");
+            
+            // Only run if we think we *should* be in a queue
+            if (currentQueueId) {
+                console.log(`[Catcher] Checking backend for status of *my* queue ID: ${currentQueueId}`);
                 try {
-                    const response = await axios.get(`${API_URL}/missed-event/${userId}`);
+                    // Call the new, specific endpoint
+                    const response = await axios.get(`${API_URL}/api/missed-event-for-queue/${currentQueueId}`);
                     const eventType = response.data.event; // "Done", "Cancelled", or null
 
                     if (eventType === 'Done') {
@@ -1408,7 +1408,7 @@ function CustomerView({ session }) {
                         localStorage.removeItem('joinedBarberId');
                         localStorage.removeItem('stickyModal'); // Clear sticky modal too
                     } else {
-                        console.log("[Catcher] Backend reports no missed events.");
+                        console.log("[Catcher] Backend reports no missed events for this queue entry.");
                     }
 
                 } catch (error) {
@@ -1421,7 +1421,7 @@ function CustomerView({ session }) {
         const timer = setTimeout(checkMissedEvents, 2000);
         return () => clearTimeout(timer);
         
-    }, [session]); // Run this check when the session becomes available
+    }, []); // <-- Empty array ensures this runs only ONCE on load
    // <<< --- END NEW BLOCK --- >>>
    
    console.log("RENDERING CustomerView:", { myQueueEntryId, joinedBarberId, liveQueue_length: liveQueue.length, nowServing: nowServing?.id, upNext: upNext?.id, peopleWaiting, estimatedWait, displayWait, isQueueLoading, queueMessage });
