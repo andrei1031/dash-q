@@ -952,6 +952,36 @@ function CustomerView({ session }) {
          queueData = response.data || [];
          setLiveQueue(() => queueData);
          liveQueueRef.current = queueData;
+
+         // <<< --- NEW "MISSED EVENT" CATCHER for In Progress/Up Next --- >>>
+         const currentQueueId = localStorage.getItem('myQueueEntryId');
+         if (currentQueueId) {
+             const myEntry = queueData.find(e => e.id.toString() === currentQueueId);
+             
+             if (myEntry && (myEntry.status === 'In Progress' || myEntry.status === 'Up Next')) {
+                // We are in the queue and our turn is now, but we might have missed the modal.
+                // Check if the sticky flag is already set. If not, set it and show the modal.
+                const modalFlag = localStorage.getItem('stickyModal');
+                
+                if (modalFlag !== 'yourTurn') {
+                    console.log(`[Catcher] Missed event! My status is ${myEntry.status}. Triggering modal.`);
+                    
+                    if (myEntry.status === 'In Progress') {
+                         setModalAlert({ title: "It's your turn!", text: "The barber is calling you now." });
+                    } else {
+                         setModalAlert({ title: "You're up next!", text: "Please take a seat and stay put." });
+                    }
+                    
+                    playSound(queueNotificationSound); 
+                    startBlinking(); 
+                    setIsYourTurnModalOpen(true); 
+                    localStorage.setItem('stickyModal', 'yourTurn'); 
+                    if (navigator.vibrate) navigator.vibrate([500,200,500]);
+                }
+             }
+         }
+         // <<< --- END OF NEW CATCHER --- >>>
+
        } catch (error) { 
            console.error("Failed fetch public queue:", error); 
            setLiveQueue(() => []); 
@@ -960,7 +990,7 @@ function CustomerView({ session }) {
        } finally {
          setIsQueueLoading(() => false);
          
-         // --- THIS IS THE NEW "MISSED EVENT" LOGIC (Kept as is for now) ---
+         // --- THIS IS THE "MISSED EVENT" LOGIC (For Done/Cancelled) ---
          const currentQueueId = localStorage.getItem('myQueueEntryId');
          
          if (currentQueueId) {
@@ -969,40 +999,30 @@ function CustomerView({ session }) {
              setIsServiceCompleteModalOpen(isDoneOpen => {
                 setIsCancelledModalOpen(isCancelledOpen => {
 
-                    // *** NEW CRITICAL FIX: Only run this logic if we are NOT in the queue ***
-                    // We also ensure no modals are ALREADY open to prevent loops.
                     if (!amIInActiveQueue && !isDoneOpen && !isCancelledOpen) {
                         
-                        // We must call the server to confirm what happened.
                         const checkServerForMissedEvent = async () => {
                             const userId = session?.user?.id;
                             if (!userId) return;
 
                             console.log("[Catcher] My entry is no longer active. Checking server for missed event...");
                             try {
-                                // Server should find and *delete* the 'Done' or 'Cancelled' entry
                                 const response = await axios.get(`${API_URL}/missed-event/${userId}`);
                                 const eventType = response.data.event; 
 
                                 if (eventType === 'Done') {
                                     console.log("[Catcher] Server confirmed 'Done'. Showing Feedback modal.");
-                                    // This triggers the modal to open on the next render loop
                                     setIsServiceCompleteModalOpen(true); 
                                     localStorage.removeItem('myQueueEntryId');
                                     localStorage.removeItem('joinedBarberId');
                                     localStorage.removeItem('stickyModal');
                                 } else if (eventType === 'Cancelled') {
                                     console.log("[Catcher] Server confirmed 'Cancelled'. Showing Cancelled modal.");
-                                    // This triggers the modal to open on the next render loop
                                     setIsCancelledModalOpen(true); 
                                     localStorage.removeItem('myQueueEntryId');
                                     localStorage.removeItem('joinedBarberId');
                                     localStorage.removeItem('stickyModal');
                                 } else {
-                                     // This is the race condition area. 
-                                     // It means the server already deleted the 'Done'/'Cancelled' entry, 
-                                     // but the main queue entry (Up Next/In Progress) was deleted by the barber.
-                                     // This should default to a "Done" state for safety.
                                      if (currentQueueId) {
                                          console.warn("[Catcher] Server returned null, but entry is gone. Assuming 'Done' for safe cleanup.");
                                          setIsServiceCompleteModalOpen(true);
@@ -1011,23 +1031,20 @@ function CustomerView({ session }) {
                                          localStorage.removeItem('stickyModal');
                                      }
                                 }
-
                             } catch (error) {
                                 console.error("[Catcher] Error fetching missed event from server:", error.message);
                             }
                         };
                         checkServerForMissedEvent();
                     }
-                    return isCancelledOpen; // Keep its current state
-
+                    return isCancelledOpen; 
                 });
-                return isDoneOpen; // Keep its current state
+                return isDoneOpen; 
              });
          }
-         // --- END NEW LOGIC ---
+         // --- END "DONE/CANCELLED" LOGIC ---
        }
-   }, [session, setIsQueueLoading, setLiveQueue, setQueueMessage, setIsServiceCompleteModalOpen, setIsCancelledModalOpen]); // <-- Dependencies are added
-// <<< --- END OF REPLACEMENT --- >>>
+   }, [session, setIsQueueLoading, setLiveQueue, setQueueMessage, setIsServiceCompleteModalOpen, setIsCancelledModalOpen]); // <-- Dependencies are correct
    
    const handleFileChange = (e) => {
        const file = e.target.files[0];
