@@ -919,3 +919,35 @@ form button[type="submit"]:hover:not(:disabled) {
 .priority-option:not(.active):hover {
     background-color: #444; 
 }
+/* --- VIP Live Queue Styles (App.css) --- */
+
+/* Base style for the VIP row */
+.queue-list.live .vip-entry {
+    background-color: #4CAF5015; /* Light green background */
+    border-left: 5px solid #4CAF50; /* Solid green bar on the left */
+    font-weight: 500;
+}
+
+/* Ensure VIP status stands out even when also 'Up Next' or 'In Progress' */
+.queue-list.live .vip-entry.up-next-public {
+    border-color: #4CAF50; 
+}
+.queue-list.live .vip-entry.in-progress-public {
+    border-color: #4CAF50; 
+}
+
+/* Style for the "👑 VIP" tag */
+.queue-status .vip-tag {
+    /* Use a clear, modern system font for readability */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    font-size: 0.85em; /* Slightly larger for prominence */
+    font-weight: 700;
+    margin-left: 8px;
+    padding: 2px 7px; /* A bit more padding */
+    border-radius: 4px;
+    background-color: #007bff; /* Change to a deep blue for a modern look */
+    color: #ffffff; 
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}

@@ -637,7 +637,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session}) {
         const isVIP = queueDetails.inProgress.is_vip === true; 
         
         // --- Step 2: Calculate VIP fee and total amount due (before tip) ---
-        const vipCharge = isVIP ? 100 : 0; // 100
+        const vipCharge = isVIP ? 149 : 0; // 100
         const subtotalDue = servicePrice + vipCharge; // 1000 + 100 = 1100
         
         // --- Step 3: Prompt the barber for tip amount ---
