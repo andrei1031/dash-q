@@ -2149,58 +2149,70 @@ function CustomerView({ session }) {
                         )}
                     </ul>
 
+                    {/* --- Action Group --- */}
+                    <div className="live-queue-actions">
+                        {isQueueUpdateAllowed && (
+                            <div className="form-group photo-upload-group live-update-group">
+                                <label>Update Haircut Photo:</label>
+                                <input type="file" accept="image/*" onChange={handleFileChange} disabled={isUploading} id="file-upload-update" className="file-upload-input" />
+                                <label htmlFor="file-upload-update" className="btn btn-secondary btn-icon-label file-upload-label">
+                                    <IconUpload />
+                                    {selectedFile ? selectedFile.name : 'Choose a file...'}
+                                </label>
 
-                    {isQueueUpdateAllowed && (
-                        <div className="form-group photo-upload-group live-update-group">
-                            <label>Update Haircut Photo:</label>
-                            <input type="file" accept="image/*" onChange={handleFileChange} disabled={isUploading} id="file-upload-update" className="file-upload-input" />
-                             <label htmlFor="file-upload-update" className="btn btn-secondary btn-icon-label file-upload-label">
-                                <IconUpload />
-                                {selectedFile ? selectedFile.name : 'Choose a file...'}
-                            </label>
+                                <button type="button" onClick={() => handleUploadPhoto(myQueueEntryId)} disabled={!selectedFile || isUploading} className="btn btn-secondary btn-icon-label">
+                                    {isUploading ? <Spinner /> : <IconUpload />}
+                                    {isUploading ? 'Uploading...' : 'Replace Photo'}
+                                </button>
+                                {myQueueEntry?.reference_image_url && <p className="success-message small">Current Photo: <a href={myQueueEntry.reference_image_url} target="_blank" rel="noopener noreferrer">View</a></p>}
+                                {referenceImageUrl && referenceImageUrl !== myQueueEntry?.reference_image_url && <p className="success-message small">New photo uploaded.</p>}
+                            </div>
+                        )}
 
-                            <button type="button" onClick={() => handleUploadPhoto(myQueueEntryId)} disabled={!selectedFile || isUploading} className="btn btn-secondary btn-icon-label">
-                                {isUploading ? <Spinner /> : <IconUpload />}
-                                {isUploading ? 'Uploading...' : 'Replace Photo'}
-                            </button>
-                            {myQueueEntry?.reference_image_url && <p className="success-message small">Current Photo: <a href={myQueueEntry.reference_image_url} target="_blank" rel="noopener noreferrer">View</a></p>}
-                            {referenceImageUrl && referenceImageUrl !== myQueueEntry?.reference_image_url && <p className="success-message small">New photo uploaded.</p>}
+                        {/* --- Chat Section --- */}
+                        <div className="chat-section">
+                            {!isChatOpen && myQueueEntryId && (
+                                <button onClick={() => {
+                                    if (currentChatTargetBarberUserId) {
+                                        setIsChatOpen(true);
+                                        setHasUnreadFromBarber(false);
+                                        localStorage.removeItem('hasUnreadFromBarber');
+                                    } else { console.error("Barber user ID missing."); setMessage("Cannot initiate chat."); }
+                                }}
+                                    className="btn btn-secondary btn-full-width btn-icon-label chat-toggle-button"
+                                >
+                                    <IconChat />
+                                    Chat with Barber
+                                    {hasUnreadFromBarber && (<span className="notification-badge"></span>)}
+                                </button>
+                            )}
+
+                            {isChatOpen && currentChatTargetBarberUserId && (
+                                <div className="chat-window-container">
+                                    <div className="chat-window-header">
+                                        <h4>Chat with {currentBarberName}</h4>
+                                        <button onClick={() => setIsChatOpen(false)} className="btn btn-icon btn-close-chat" title="Close Chat">
+                                            <IconX />
+                                        </button>
+                                    </div>
+                                    <ChatWindow
+                                        currentUser_id={session.user.id}
+                                        otherUser_id={currentChatTargetBarberUserId}
+                                        messages={chatMessagesFromBarber}
+                                        onSendMessage={sendCustomerMessage}
+                                        isVisible={isChatOpen}
+                                    />
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
 
-                    {!isChatOpen && myQueueEntryId && (
-                        <button onClick={() => {
-                            if (currentChatTargetBarberUserId) {
-                                setIsChatOpen(true);
-                                setHasUnreadFromBarber(false);
-                                localStorage.removeItem('hasUnreadFromBarber');
-                            } else { console.error("Barber user ID missing."); setMessage("Cannot initiate chat."); }
-                        }}
-                            className="btn btn-secondary btn-full-width btn-icon-label chat-toggle-button"
-                        >
-                            <IconChat />
-                            Chat with Barber
-                            {hasUnreadFromBarber && (<span className="notification-badge"></span>)}
+                    {/* --- Danger Zone / Leave Queue --- */}
+                    <div className="danger-zone">
+                        <button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='btn btn-danger btn-full-width'>
+                            {isLoading ? <Spinner /> : 'Leave Queue / Join Another'}
                         </button>
-                    )}
-                    {isChatOpen && (
-                        <button onClick={() => setIsChatOpen(false)} className="btn btn-secondary btn-full-width">
-                            Close Chat
-                        </button>
-                    )}
-
-                    {isChatOpen && currentChatTargetBarberUserId && (
-                        <ChatWindow
-                            currentUser_id={session.user.id}
-                            otherUser_id={currentChatTargetBarberUserId}
-                            messages={chatMessagesFromBarber}
-                            onSendMessage={sendCustomerMessage}
-                            isVisible={isChatOpen}
-                        />
-                    )}
-                    <button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='btn btn-danger btn-full-width'>
-                        {isLoading ? <Spinner /> : 'Leave Queue / Join Another'}
-                    </button>
+                    </div>
                 </div>
             )}
         </div>

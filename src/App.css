@@ -793,7 +793,7 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 
 .chat-toggle-button {
   position: relative;
-  margin-top: 15px;
+  /* margin-top: 15px; */ /* Removed, now part of flex gap */
 }
 .chat-toggle-button .notification-badge {
   top: 10px;
@@ -849,7 +849,7 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   width: 100%;
 }
 .live-update-group {
-  margin-top: 20px;
+  /* margin-top: 20px; */ /* Removed, now part of flex gap */
 }
 
 
@@ -1361,4 +1361,72 @@ button .spinner {
 .queue-list li.skeleton-li .skeleton-loader {
   height: 25px;
   border-radius: 4px;
+}
+
+/* ===================================================================
+   CUSTOMER: LIVE QUEUE RE-ORGANIZATION (CustomerView.js)
+   =================================================================== */
+
+.live-queue-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.chat-section {
+  width: 100%;
+}
+
+.chat-window-container {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-dark);
+}
+
+.chat-window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: var(--surface-color); /* Matches card header bg */
+  border-bottom: 1px solid var(--border-color);
+}
+
+.chat-window-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.btn-close-chat {
+  padding: 4px; /* Smaller padding for icon */
+  min-width: 30px;
+  min-height: 30px;
+}
+.btn-close-chat .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Make the chat window adopt the container's rounded corners */
+.chat-window-container .chat-window {
+  height: 300px; /* Slightly shorter */
+  border-radius: 0;
+}
+.chat-window-container .message-input-form {
+  background: var(--bg-dark); /* Match chat window bg */
+  border-radius: 0 0 8px 8px;
+  border-top: 1px solid var(--border-color);
+}
+.chat-window-container .message-input-form input {
+  background: transparent;
+}
+
+
+.danger-zone {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--error-color);
 }
