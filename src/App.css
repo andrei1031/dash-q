@@ -22,9 +22,9 @@
   --primary-orange: #FF9500;
   --primary-orange-hover: #E08400;
   --success-color: #34C759;
+  --success-color-hover: #30a34c;
   --error-color: #FF3B30;
-  --go-online-color: var(--success-color);
-  --go-offline-color: #FF3B30;
+  --error-color-hover: #d13025;
   --link-color: #007aff;
 
   --button-text-primary: #000000; /* For orange buttons */
@@ -44,18 +44,18 @@
   --priority-hover-bg: #444444;
   --priority-active-bg: var(--primary-orange);
   --priority-active-text: #000000;
+  --my-position-bg: #3a2d00; /* Dark highlight for 'my position' */
 
-  --spinner-base: rgba(0, 0, 0, 0.3);
-  --spinner-highlight: #000000;
-  --spinner-light-base: rgba(255, 255, 255, 0.3);
-  --spinner-light-highlight: #FFFFFF;
+  --spinner-base: rgba(255, 255, 255, 0.3);
+  --spinner-highlight: #FFFFFF;
+  --spinner-light-base: rgba(0, 0, 0, 0.2);
+  --spinner-light-highlight: #18181B;
   
   --skeleton-base: #2a2a2a;
   --skeleton-highlight: #333333;
 
-  --vip-maroon-dark: #7A0026; 
-  --vip-maroon-light: #A5003515;
-  --vip-maroon-border: #A50035;
+  --status-dot-online: var(--success-color);
+  --status-dot-offline: var(--text-secondary);
 }
 
 /* ===================================================================
@@ -87,26 +87,31 @@ body.light-mode {
   --priority-hover-bg: #F4F4F5;
   --priority-active-bg: var(--primary-orange);
   --priority-active-text: #000000;
+  --my-position-bg: #fffbeb; /* Light highlight for 'my position' */
 
   /* Spinners are swapped for light mode */
-  --spinner-base: rgba(255, 255, 255, 0.3);
-  --spinner-highlight: #FFFFFF;
-  --spinner-light-base: rgba(0, 0, 0, 0.2);
-  --spinner-light-highlight: #18181B;
+  --spinner-base: rgba(0, 0, 0, 0.2);
+  --spinner-highlight: #18181B;
+  --spinner-light-base: rgba(255, 255, 255, 0.3);
+  --spinner-light-highlight: #FFFFFF;
 
   --skeleton-base: #E4E4E7;
   --skeleton-highlight: #F4F4F5;
+
+  --status-dot-online: var(--success-color);
+  --status-dot-offline: var(--text-secondary);
 }
 
 
-/* Global reset and theme */
+/* ===================================================================
+   GLOBAL RESETS & BASE STYLES
+   =================================================================== */
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  /* --- 1. MODERN FONT APPLIED --- */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -117,45 +122,49 @@ body {
   transition: background-color 0.2s linear, color 0.2s linear;
 }
 
-/* --- 2. UPDATED FULLSCREEN LOADER --- */
-.loading-fullscreen {
-  display: flex;
-  flex-direction: column; /* Stack spinner and text */
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  gap: 15px; /* Space between spinner and text */
+/* Base link style */
+a {
+  color: var(--link-color);
+  text-decoration: none;
 }
-.loading-fullscreen span {
-  font-size: 1.25rem; /* Slightly smaller */
-  font-weight: 500;
-  color: var(--text-secondary); /* Softer color */
+a:hover {
+  text-decoration: underline;
 }
-
 
 /* ===================================================================
-   MAIN LAYOUT & HEADER
+   MAIN LAYOUT & HEADER (App.js, BarberAppLayout.js, CustomerAppLayout.js)
    =================================================================== */
 
-.App-header {
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
   background-color: var(--surface-color);
-  padding: 15px 30px;
+  padding: 15px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 2px solid var(--primary-orange);
+  flex-shrink: 0;
 }
 
-.App-header h1 {
+.app-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   color: var(--text-primary);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
+}
+
+.main-content {
+  flex-grow: 1;
 }
 
 .container {
@@ -167,42 +176,86 @@ body {
   gap: 20px;
 }
 
-/* Barber dashboard gets 2 columns */
+/* Barber dashboard gets 2 columns on larger screens */
 @media (min-width: 900px) {
   .barber-app-layout .container {
     grid-template-columns: 1fr 1fr;
   }
 }
 
+/* Customer view is always 1 column, but centered and max-width */
+.customer-app-layout .container {
+  max-width: 600px;
+}
+
+
 /* ===================================================================
-   CARD STYLES (The main containers)
+   FULLSCREEN LOADER (App.js)
+   =================================================================== */
+.loading-fullscreen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  gap: 15px;
+}
+.loading-fullscreen span {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+
+/* ===================================================================
+   CARD STYLES (Used by all components)
    =================================================================== */
 
 .card {
   background-color: var(--surface-color);
   border-radius: 12px;
-  /* --- 3. SOFTER BORDER (Using Variable) --- */
   border: 1px solid var(--card-border-color);
-  padding: 20px 25px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Softer shadow */
+  display: flex;
+  flex-direction: column;
 }
 
-.card h2 {
-  margin-top: 0;
-  color: var(--primary-orange);
+.card-header {
+  padding: 20px 25px 15px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 10px;
 }
 
-/* ===================================================================
-   AUTH FORM & LOGIN/SIGNUP STYLES
-   =================================================================== */
+.card-header h2 {
+  margin: 0;
+  color: var(--primary-orange);
+  font-size: 1.5rem;
+}
 
+.card-body {
+  padding: 20px 25px;
+  flex-grow: 1;
+}
+
+.card-footer {
+  padding: 15px 25px;
+  background-color: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 12px 12px;
+}
+
+/* Auth card is centered */
 .auth-card {
   max-width: 450px;
   margin: 50px auto;
-  padding: 30px;
 }
+
+
+/* ===================================================================
+   FORM STYLES (AuthForm.js, CustomerView.js, etc.)
+   =================================================================== */
 
 .form-group {
   margin-bottom: 15px;
@@ -217,19 +270,27 @@ body {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   width: 100%;
-  /* --- 4. MORE "AIR" IN INPUTS --- */
-  padding: 14px; /* Was 12px */
+  padding: 14px;
   background-color: var(--bg-dark);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   color: var(--text-primary);
   font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group textarea {
+  min-height: 70px;
+  resize: vertical;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: var(--primary-orange);
   box-shadow: 0 0 0 2px rgba(255, 149, 0, 0.3);
@@ -238,6 +299,7 @@ body {
 .prefilled-input {
   background-color: var(--prefilled-bg) !important;
   color: var(--text-secondary) !important;
+  cursor: not-allowed;
 }
 
 .form-group small {
@@ -246,55 +308,43 @@ body {
   padding-top: 4px;
 }
 
-/* All main action buttons */
-button {
+/* Password Toggle (AuthForm.js) */
+.password-group {
+  position: relative;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 1px;
+  top: 31px; /* Aligns with label */
+  height: 46px; /* Matches input padding + border */
+  width: 46px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  border-radius: 0 6px 6px 0;
   cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.toggle-password:hover {
+  color: var(--text-primary);
 }
 
-/* Primary "Submit" button */
-form button[type="submit"] {
-  width: 100%;
-  padding: 12px;
-  font-size: 1rem;
-  color: var(--button-text-primary);
-  background-color: var(--primary-orange);
-  border: none;
-  /* --- 5. BUTTON "POP" --- */
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+/* Forgot Password Link (AuthForm.js) */
+.forgot-password-link {
+  text-align: right;
+  margin-top: -10px;
+  margin-bottom: 15px;
 }
 
-form button[type="submit"]:hover:not(:disabled) {
-  background-color: var(--primary-orange-hover);
-  /* --- 5. BUTTON "POP" HOVER --- */
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+.forgot-password-link button {
+  font-size: 14px;
 }
 
-.toggle-auth-button {
-  background: none;
-  border: none;
-  color: var(--primary-orange);
-  display: block;
-  width: 100%;
-  margin-top: 20px;
-  padding: 5px;
-}
-
-.toggle-auth-button:hover {
-  text-decoration: underline;
-}
-
-/* Role Toggle (Customer/Barber) */
+/* Role Toggle (AuthForm.js) */
 .role-toggle {
   display: flex;
   width: 100%;
@@ -329,11 +379,160 @@ form button[type="submit"]:hover:not(:disabled) {
   margin-top: 15px;
 }
 
+
 /* ===================================================================
-   BARBER DASHBOARD STYLES
+   BUTTON STYLES (Global)
    =================================================================== */
 
-/* --- Availability Toggle --- */
+/* Base button reset */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  border: none;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Space for icons */
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ----- Button Variants ----- */
+
+/* Primary (Orange) */
+.btn-primary {
+  color: var(--button-text-primary);
+  background-color: var(--primary-orange);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-orange-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Secondary (Gray) */
+.btn-secondary {
+  border: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+  color: var(--text-secondary);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+}
+body.light-mode .btn-secondary {
+   background-color: var(--bg-dark);
+}
+body.light-mode .btn-secondary:hover:not(:disabled) {
+  background-color: #e4e4e7;
+}
+
+
+/* Success (Green) */
+.btn-success {
+  background-color: var(--success-color);
+  color: var(--button-text-light);
+}
+.btn-success:hover:not(:disabled) {
+  background-color: var(--success-color-hover);
+}
+
+/* Danger (Red) */
+.btn-danger {
+  background-color: var(--error-color);
+  color: var(--button-text-light);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--error-color-hover);
+}
+
+/* Link (Text-only) */
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary-orange);
+  padding: 5px;
+}
+.btn-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.auth-card .btn-link {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+}
+.forgot-password-link button.btn-link {
+  margin-top: 0;
+  width: auto;
+  display: inline;
+}
+
+
+/* Icon-only Button (Theme Toggle, Logout, Chat) */
+.btn-icon {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 6px;
+  min-width: 36px;
+  min-height: 36px;
+}
+.btn-icon:hover:not(:disabled) {
+  background-color: var(--hover-bg-dark);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+.btn-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+.toggle-password {
+  color: var(--text-secondary);
+}
+.toggle-password:hover {
+  color: var(--text-primary);
+}
+
+
+/* ----- Button Modifiers ----- */
+.btn-full-width {
+  width: 100%;
+}
+.btn-icon-label .icon {
+  width: 16px; /* Smaller icon when next to text */
+  height: 16px;
+}
+
+
+/* ===================================================================
+   SVG ICONS (Icons.js)
+   =================================================================== */
+.icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+  stroke: currentColor;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+}
+
+
+/* ===================================================================
+   BARBER: AVAILABILITY (AvailabilityToggle.js)
+   =================================================================== */
+
 .availability-toggle {
   display: flex;
   align-items: center;
@@ -342,43 +541,31 @@ form button[type="submit"]:hover:not(:disabled) {
 .availability-toggle p {
   margin: 0;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .availability-toggle strong {
   color: var(--text-primary);
+  font-weight: 600;
 }
 
-/* Go Online/Offline Buttons */
-.go-online-button,
-.go-offline-button {
-  padding: 8px 14px;
-  font-size: 0.9rem;
-  border: none;
-  color: var(--button-text-light);
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--status-dot-offline);
+  display: inline-block;
 }
-.go-online-button {
-  background-color: var(--go-online-color);
-}
-.go-online-button:hover {
-  background-color: #30a34c;
-}
-.go-offline-button {
-  background-color: var(--go-offline-color);
-}
-.go-offline-button:hover {
-  background-color: #d13025;
+.status-dot.online {
+  background-color: var(--status-dot-online);
+  box-shadow: 0 0 5px var(--status-dot-online);
 }
 
-.logout-button {
-  padding: 8px 14px;
-  font-size: 0.9rem;
-  border: 1px solid var(--border-color);
-  background-color: var(--surface-color);
-  color: var(--text-secondary);
-}
-.logout-button:hover {
-  background-color: var(--bg-dark);
-  color: var(--text-primary);
-}
+
+/* ===================================================================
+   BARBER: DASHBOARD (BarberDashboard.js)
+   =================================================================== */
 
 /* --- Serving Display --- */
 .current-serving-display {
@@ -403,6 +590,7 @@ form button[type="submit"]:hover:not(:disabled) {
 .serving-item strong {
   font-size: 1.8rem;
   color: var(--text-primary);
+  font-weight: 700;
 }
 .serving-item.up-next strong {
   color: var(--primary-orange);
@@ -411,27 +599,9 @@ form button[type="submit"]:hover:not(:disabled) {
 /* --- Action Buttons --- */
 .action-buttons-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr; /* Default to 1 column */
   gap: 10px;
   margin-bottom: 20px;
-}
-.action-buttons-container button {
-  padding: 12px;
-  font-size: 1rem;
-  border: none;
-}
-.next-button, .complete-button {
-  background-color: var(--primary-orange);
-  color: var(--button-text-primary);
-  grid-column: 1 / -1; /* Make it span full width */
-}
-.next-button:hover, .complete-button:hover {
-  background-color: var(--primary-orange-hover);
-}
-.cancel-button {
-  background-color: var(--error-color);
-  color: var(--button-text-light);
-  grid-column: 1 / -1; /* Make it span full width */
 }
 
 /* --- Queue Lists --- */
@@ -457,23 +627,32 @@ form button[type="submit"]:hover:not(:disabled) {
   background: var(--bg-dark);
   margin-bottom: 8px;
   font-weight: 500;
+  border: 1px solid var(--bg-dark);
 }
 .queue-list li.in-progress {
-  border: 1px solid var(--success-color);
+  border-color: var(--success-color);
+  box-shadow: 0 0 8px rgba(52, 199, 89, 0.3);
 }
 .queue-list li.up-next {
-  border: 1px solid var(--primary-orange);
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 8px rgba(255, 149, 0, 0.3);
 }
+
+.queue-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 1rem;
+}
+.queue-item-info span {
+  font-weight: 500;
+}
+.queue-item-info strong {
+  font-weight: 700;
+}
+
 .chat-icon-button {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  padding: 5px;
   position: relative;
-  color: var(--text-secondary);
-}
-.chat-icon-button:hover {
-  color: var(--text-primary);
 }
 .notification-badge {
   position: absolute;
@@ -486,19 +665,52 @@ form button[type="submit"]:hover:not(:disabled) {
   border: 1px solid var(--surface-color);
 }
 
-/* --- Analytics --- */
-.analytics-card .dashboard-header {
-  display: flex;
-  justify-content: space-between;
+/* Barber Photo Display */
+.barber-photo-display {
+  margin-top: 5px;
+}
+.barber-photo-display a {
+  font-size: 0.85rem;
+  color: var(--link-color);
+  display: inline-flex;
   align-items: center;
+  gap: 5px;
 }
-.toggle-visibility-button {
-  background: none;
+.barber-photo-display .icon {
+  width: 14px;
+  height: 14px;
+}
+.barber-photo-display a:hover {
+  text-decoration: none;
+  color: var(--primary-orange);
+}
+
+/* Barber Chat */
+.barber-chat-container {
+  margin-top: 20px;
   border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  padding: 5px 8px;
+  border-radius: 8px;
+  overflow: hidden;
 }
+.barber-chat-container h4 {
+  margin: 0;
+  padding: 15px;
+  background: var(--bg-dark);
+  border-bottom: 1px solid var(--border-color);
+}
+.barber-chat-container .chat-warning {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--bg-dark);
+  padding: 0 15px 15px 15px;
+  margin: 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+
+/* ===================================================================
+   BARBER: ANALYTICS (AnalyticsDashboard.js)
+   =================================================================== */
 
 .analytics-subtitle {
   font-size: 1rem;
@@ -510,7 +722,6 @@ form button[type="submit"]:hover:not(:disabled) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  /* --- 6. SET MIN-HEIGHT FOR SKELETONS --- */
   min-height: 75px; /* Ensures skeleton has space */
 }
 .analytics-item {
@@ -527,12 +738,13 @@ form button[type="submit"]:hover:not(:disabled) {
 }
 .analytics-value {
   font-size: 1.7rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--primary-orange);
 }
 .analytics-value.small {
   font-size: 1.1rem;
   color: var(--text-primary);
+  font-weight: 600;
 }
 .analytics-value.carbon {
   color: var(--success-color);
@@ -546,41 +758,10 @@ form button[type="submit"]:hover:not(:disabled) {
   padding-top: 20px;
   border-top: 1px solid var(--border-color);
 }
-.refresh-button {
-  width: 100%;
-  padding: 10px;
-  background: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  margin-top: 15px;
-}
-.refresh-button:hover {
-  background: var(--hover-bg-dark);
-  color: var(--text-primary);
-}
 
 /* ===================================================================
-   CUSTOMER VIEW STYLES
+   CUSTOMER: VIEW (CustomerView.js)
    =================================================================== */
-
-.join-queue-button {
-  width: 100%;
-  padding: 14px;
-  font-size: 1.1rem;
-  color: var(--button-text-primary);
-  background-color: var(--primary-orange);
-  border: none;
-  margin-top: 10px;
-  /* --- 7. BUTTON "POP" (CUSTOMER) --- */
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-.join-queue-button:hover:not(:disabled) {
-  background-color: var(--primary-orange-hover);
-  /* --- 7. BUTTON "POP" HOVER (CUSTOMER) --- */
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-}
 
 .live-queue-view .queue-number-display {
   text-align: center;
@@ -595,43 +776,24 @@ form button[type="submit"]:hover:not(:disabled) {
 .queue-list.live li.my-position {
   border: 2px solid var(--primary-orange);
   background: var(--my-position-bg);
-  font-weight: 600;
 }
-.queue-list.live .queue-status {
+.queue-list.live .public-queue-status {
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--text-secondary);
 }
-.queue-list.live .in-progress-public .queue-status {
+.queue-list.live .in-progress-public .public-queue-status {
   color: var(--success-color);
+  font-weight: 600;
 }
-.queue-list.live .up-next-public .queue-status {
+.queue-list.live .up-next-public .public-queue-status {
   color: var(--primary-orange);
+  font-weight: 600;
 }
 
-.leave-queue-button, .chat-toggle-button {
-  width: 100%;
-  padding: 12px;
-  font-size: 1rem;
-  margin-top: 15px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-dark);
-  color: var(--text-secondary);
-}
-.leave-queue-button:hover, .chat-toggle-button:hover {
-  background: var(--hover-bg-dark);
-  color: var(--text-primary);
-}
-.leave-queue-button {
-  border-color: var(--error-color);
-  color: var(--error-color);
-}
-.leave-queue-button:hover {
-  background-color: rgba(255, 59, 48, 0.1);
-  color: #ff5e52;
-}
 .chat-toggle-button {
   position: relative;
+  margin-top: 15px;
 }
 .chat-toggle-button .notification-badge {
   top: 10px;
@@ -649,7 +811,6 @@ form button[type="submit"]:hover:not(:disabled) {
   background: var(--bg-dark);
   padding: 10px;
   border-radius: 8px;
-  /* --- 8. SET MIN-HEIGHT FOR SKELETON --- */
   min-height: 40px; 
 }
 .ewt-item {
@@ -667,8 +828,33 @@ form button[type="submit"]:hover:not(:disabled) {
   color: var(--text-primary);
 }
 
+/* Photo Upload (CustomerView.js) */
+.photo-upload-group {
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.file-upload-input {
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  z-index: -1;
+}
+.file-upload-label {
+  width: 100%;
+}
+.live-update-group {
+  margin-top: 20px;
+}
+
+
 /* ===================================================================
-   MODAL & CHAT STYLES
+   MODAL (All components)
    =================================================================== */
 
 .modal-overlay {
@@ -682,99 +868,154 @@ form button[type="submit"]:hover:not(:disabled) {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 15px;
 }
 
 .modal-content {
   background: var(--surface-color);
-  padding: 30px;
   border-radius: 12px;
-  max-width: 400px;
-  width: 90%;
-  text-align: center;
+  max-width: 450px;
+  width: 100%;
   border: 1px solid var(--border-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
 }
-.modal-content h2 {
+.modal-body {
+  padding: 30px;
+  text-align: center;
+}
+.modal-body h2 {
   color: var(--primary-orange);
   margin-top: 0;
 }
-.modal-content p {
+.modal-body p {
   color: var(--text-secondary);
   font-size: 1rem;
   line-height: 1.5;
+  margin-bottom: 0;
 }
-.modal-content button {
-  width: 100%;
-  padding: 12px;
-  font-size: 1rem;
-  color: var(--button-text-primary);
-  background-color: var(--primary-orange);
-  border: none;
-  margin-top: 10px;
+.modal-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 20px 30px;
+  background-color: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 12px 12px;
+}
+
+/* Modal with only one button */
+.modal-footer.single-action {
+  grid-template-columns: 1fr;
+}
+.modal-footer.single-action button {
+  grid-column: 1 / -1;
 }
 
 .instructions-list {
   text-align: left;
   color: var(--text-secondary);
   line-height: 1.6;
+  padding-left: 20px;
 }
 
-.chat-window .message-list {
+/* For Tip Prompt Modal (BarberDashboard.js) */
+.modal-content.modal-form {
+  text-align: left;
+}
+.modal-form .modal-body {
+  text-align: left;
+}
+.modal-form-details {
+  background: var(--bg-dark);
+  padding: 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+  line-height: 1.6;
+}
+.modal-form-details strong {
+  color: var(--text-primary);
+}
+
+
+/* ===================================================================
+   CHAT STYLES (ChatWindow.js)
+   =================================================================== */
+
+.chat-window {
   display: flex;
   flex-direction: column;
+  height: 350px; /* Fixed height for chat */
+  background: var(--bg-dark);
+}
+
+.message-list {
+  flex-grow: 1;
+  overflow-y: auto;
   padding: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* NEW CHAT STYLES (Variables) */
+.message-bubble {
+  padding: 8px 14px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+  max-width: 75%;
+  word-wrap: break-word;
+  line-height: 1.4;
+  font-size: 0.95rem;
+}
+
 .my-message {
   background: var(--my-message-bg);
   color: var(--my-message-text);
-  padding: 8px 12px;
   border-radius: 18px 18px 5px 18px; /* Bubble on the right */
-  margin-bottom: 8px;
   align-self: flex-end; /* Aligns to the right */
-  max-width: 70%;
-  word-wrap: break-word;
 }
 
 .other-message {
   background: var(--other-message-bg);
   color: var(--other-message-text);
-  padding: 8px 12px;
   border-radius: 18px 18px 18px 5px; /* Bubble on the left */
-  margin-bottom: 8px;
   align-self: flex-start; /* Aligns to the left */
-  max-width: 70%;
-  word-wrap: break-word;
 }
 
 .message-input-form {
   display: flex;
   border-top: 1px solid var(--border-color);
+  background: var(--surface-color);
 }
 .message-input-form input {
   flex-grow: 1;
   border: none;
   background: none;
-  padding: 12px;
+  padding: 14px;
   color: var(--text-primary);
   font-size: 0.95rem;
 }
 .message-input-form input:focus {
   outline: none;
 }
-.message-input-form button {
-  background: none;
-  border: none;
+.message-input-form .btn-send {
   color: var(--primary-orange);
-  padding: 0 15px;
-  font-size: 0.9rem;
+  background: none;
+  border-left: 1px solid var(--border-color);
+  border-radius: 0;
+  min-width: 50px;
 }
-.message-input-form button:disabled {
+.message-input-form .btn-send:hover {
+  background: var(--hover-bg-dark);
+}
+.message-input-form .btn-send:disabled {
   color: var(--text-secondary);
+  background: none;
 }
 
 /* ===================================================================
-   NEW FEEDBACK FEATURE STYLES (Variables)
+   FEEDBACK FEATURE (AnalyticsDashboard.js, CustomerView.js)
    =================================================================== */
 
 .feedback-list-container {
@@ -832,16 +1073,17 @@ form button[type="submit"]:hover:not(:disabled) {
   display: flex;
   align-items: center;
   margin-bottom: 5px;
+  gap: 8px;
 }
 
-.feedback-score {
-  font-size: 1.2rem;
-  margin-right: 8px;
+.feedback-score .icon {
+  width: 18px;
+  height: 18px;
 }
 
-.customer-feedback .feedback-score {
-  font-size: 1rem;
-  margin-right: 5px;
+.customer-feedback .feedback-score .icon {
+  width: 16px;
+  height: 16px;
 }
 
 .feedback-customer {
@@ -868,54 +1110,16 @@ form button[type="submit"]:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   width: 100%;
-  margin: 15px 0;
 }
-
-.feedback-form textarea {
-  width: 100%;
-  min-height: 70px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  padding: 8px;
-  font-family: inherit;
-  font-size: 0.95rem;
-  margin-bottom: 10px;
-  background-color: var(--bg-dark);
-  color: var(--text-primary);
-}
-.feedback-form textarea:focus {
-  outline: none;
-  border-color: var(--primary-orange);
+.feedback-form .modal-body {
+  padding-bottom: 15px;
 }
 
 
-.feedback-form button {
-  width: 100%;
-  padding: 12px;
-  background-color: var(--primary-orange);
-  color: var(--button-text-primary);
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.feedback-form button:hover {
-  background-color: var(--primary-orange-hover);
-}
+/* ===================================================================
+   UTILITY CLASSES (Error, Success, etc.)
+   =================================================================== */
 
-.modal-content .skip-button {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-top: 5px;
-  cursor: pointer;
-}
-.modal-content .skip-button:hover {
-  color: var(--text-primary);
-}
-
-/* Utility classes */
 .empty-text {
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -923,64 +1127,48 @@ form button[type="submit"]:hover:not(:disabled) {
   padding: 10px 5px;
 }
 
+.message {
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-top: 15px;
+  text-align: center;
+}
+
+.message.error,
 .error-message {
   color: var(--error-color);
   background: rgba(255, 59, 48, 0.1);
   border: 1px solid var(--error-color);
-  padding: 10px;
-  border-radius: 6px;
-  font-size: 0.9rem;
 }
-.message.error {
-  color: var(--error-color);
-}
-.message.success {
+
+.message.success,
+.success-message {
   color: var(--success-color);
+  background: rgba(52, 199, 89, 0.1);
+  border: 1px solid var(--success-color);
+}
+.message.warning {
+  color: var(--primary-orange);
+  background: rgba(255, 149, 0, 0.1);
+  border: 1px solid var(--primary-orange);
 }
 
-/* Password Toggle (Variables) */
-.password-group {
-  position: relative;
+.message.small,
+.error-message.small,
+.success-message.small {
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  margin-top: 5px;
+  text-align: left;
 }
 
-.toggle-password {
-  position: absolute;
-  right: 10px;
-  top: 40px; /* Adjust this to vertically center the button */
-  background: var(--toggle-password-bg);
-  border: none;
-  color: var(--button-text-light);
-  padding: 3px 6px;
-  font-size: 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
 
-.toggle-password:hover {
-  background: var(--toggle-password-hover-bg);
-}
+/* ===================================================================
+   VIP STYLES (CustomerView.js, BarberDashboard.js)
+   =================================================================== */
 
-/* Forgot Password Link (Variables) */
-.forgot-password-link {
-  text-align: right;
-  margin-top: -10px;
-  margin-bottom: 15px;
-}
-
-.forgot-password-link button {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--link-color);
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.forgot-password-link button:hover {
-  text-decoration: underline;
-}
-
-/* VIP Toggle Styling (Variables) */
+/* VIP Toggle (CustomerView.js) */
 .priority-toggle-control {
     display: flex;
     width: 100%;
@@ -993,10 +1181,9 @@ form button[type="submit"]:hover:not(:disabled) {
 .priority-option {
     flex: 1;
     padding: 12px 10px;
-    font-size: 16px;
-    font-weight: bold;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
     border: none;
     background-color: var(--priority-bg);
     color: var(--priority-text);
@@ -1012,14 +1199,15 @@ form button[type="submit"]:hover:not(:disabled) {
     opacity: 0.8;
 }
 
-.priority-option:not(.active):hover {
+.priority-option:not(.active):hover:not(:disabled) {
     background-color: var(--priority-hover-bg); 
 }
+.priority-option.vip.active {
+  box-shadow: 0 0 10px var(--primary-orange);
+}
 
-/* ===================================================================
-   NEW VIP BANNER STYLES (FIXED LAYOUT)
-   =================================================================== */
 
+/* VIP Banner in Queue */
 @keyframes vip-gradient-animation {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -1030,7 +1218,6 @@ form button[type="submit"]:hover:not(:disabled) {
     font-weight: 600;
     border: 1px solid transparent;
     background-size: 200% 200%;
-    /* Gradient is dark-mode specific, looks fine in light mode too */
     background-image: linear-gradient(
         -45deg, 
         #2a2a2a, 
@@ -1080,7 +1267,6 @@ body.light-mode .queue-list li.vip-entry {
   text-transform: uppercase;
   
   background-color: var(--primary-orange);
-  /* Uses bg-dark, which will be black or light gray based on theme */
   color: var(--button-text-primary); 
   
   padding: 3px 7px;
@@ -1094,67 +1280,7 @@ body.light-mode .queue-list li.vip-entry {
 
 
 /* ===================================================================
-   NEW MODERN MODAL STYLES (For Barber)
-   =================================================================== */
-.modal-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.modal-content .modal-cancel-button,
-.modal-content .modal-confirm-button {
-  width: 100%;
-  padding: 12px;
-  font-size: 1rem;
-  margin-top: 0; /* Override default */
-}
-
-.modal-content .modal-cancel-button {
-  background-color: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-.modal-content .modal-cancel-button:hover {
-  background-color: var(--hover-bg-dark);
-  color: var(--text-primary);
-}
-
-.modal-content .modal-confirm-button.danger {
-  background-color: var(--error-color);
-  color: var(--button-text-light);
-}
-.modal-content .modal-confirm-button.danger:hover {
-  background-color: #d13025;
-}
-
-/* For modals with only one button */
-.modal-actions.single-action {
-  grid-template-columns: 1fr;
-}
-.modal-actions .modal-confirm-button {
-  grid-column: 1 / -1; /* Span full width */
-}
-
-/* For Tip Prompt Modal */
-.modal-content.modal-form {
-  text-align: left;
-}
-.modal-form-details {
-  background: var(--bg-dark);
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  line-height: 1.6;
-}
-.modal-form-details strong {
-  color: var(--text-primary);
-}
-
-
-/* ===================================================================
-   NEW SPINNER (Variables)
+   SPINNER (Spinner.js)
    =================================================================== */
 .spinner {
   width: 18px;
@@ -1165,16 +1291,29 @@ body.light-mode .queue-list li.vip-entry {
   animation: spin 1s linear infinite;
   display: inline-block;
   vertical-align: middle;
-  margin: -3px 0; /* Center it */
+  margin: 0; /* Removed negative margin for better flex alignment */
 }
 
-/* Spinner for light buttons (e.g., logout) */
-.logout-button .spinner,
-.refresh-button .spinner,
-.leave-queue-button .spinner {
+/* Spinner inside a button */
+button .spinner {
+  width: 16px;
+  height: 16px;
+}
+
+/* Spinner for light buttons (e.g., secondary) */
+.btn-secondary .spinner,
+.btn-danger .spinner,
+.btn-success .spinner {
   border-color: var(--spinner-light-base);
   border-top-color: var(--spinner-light-highlight);
 }
+
+/* Primary button spinner is dark */
+.btn-primary .spinner {
+  border-color: rgba(0, 0, 0, 0.3);
+  border-top-color: #000000;
+}
+
 
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -1182,7 +1321,7 @@ body.light-mode .queue-list li.vip-entry {
 
 
 /* ===================================================================
-   NEW SKELETON LOADER (Variables)
+   SKELETON LOADER (SkeletonLoader.js)
    =================================================================== */
 @keyframes shimmer {
   0% {
@@ -1214,7 +1353,12 @@ body.light-mode .queue-list li.vip-entry {
 }
 
 /* Make skeletons in lists match list items */
-.queue-list li .skeleton-loader {
-  margin: 6px 0; /* approx half of padding */
+.queue-list li.skeleton-li {
+  background: transparent;
+  border-color: transparent;
+  padding: 6px 0; /* Adjust to match padding */
+}
+.queue-list li.skeleton-li .skeleton-loader {
+  height: 25px;
   border-radius: 4px;
 }
