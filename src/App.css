@@ -924,16 +924,17 @@ form button[type="submit"]:hover:not(:disabled) {
 }
 
 /* ===================================================================
-   NEW VIP BANNER STYLES (FIXED)
+   NEW VIP BANNER STYLES (FIXED LAYOUT)
    =================================================================== */
 
+/* This is your animation, unchanged */
 @keyframes vip-gradient-animation {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
 
-/* This is the main rule, combining your styles and my 'gap' */
+/* This is the main rule for the VIP list item */
 .queue-list li.vip-entry {
     font-weight: 600;
     border: 1px solid transparent;
@@ -949,10 +950,13 @@ form button[type="submit"]:hover:not(:disabled) {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     position: relative;
     overflow: hidden; 
-    gap: 10px; /* This adds space for the new tag */
+    
+    /* --- THIS IS THE LAYOUT FIX --- */
+    justify-content: flex-start; /* Aligns items to the left */
+    gap: 10px; /* Adds space between the tag and the name */
 }
 
-/* This is the glow effect on the left */
+/* This is the glow effect on the left, unchanged */
 .queue-list li.vip-entry::before {
     content: '';
     position: absolute;
@@ -964,10 +968,10 @@ form button[type="submit"]:hover:not(:disabled) {
     box-shadow: 0 0 8px var(--primary-orange), 0 0 12px var(--primary-orange-hover);
 }
 
-/* This is the new "VIP" tag */
+/* This is the new "VIP" tag, unchanged */
 .queue-list li.vip-entry::after {
   content: 'VIP';
-  order: -1; /* This makes the tag the first item on the left */
+  order: -1; /* This makes the tag the first item */
   
   /* Modern Font & Tag Styling */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
@@ -986,13 +990,11 @@ form button[type="submit"]:hover:not(:disabled) {
   line-height: 1;
 }
 
-/* *** THIS IS THE FIX ***
-  This targets the customer name/queue number (which is 
-  the first div or span in the list) and makes sure 
-  it's visible and in the correct order.
+/* *** THIS IS THE MAGIC FIX ***
+  This rule targets the *last* item in the list 
+  (the status text or the button group)
+  and pushes it all the way to the right.
 */
-.queue-list li.vip-entry > div:first-of-type,
-.queue-list li.vip-entry > span:first-of-type {
-  color: var(--text-primary); /* Explicitly set color back to white */
-  order: 0; /* Ensures it appears after the "VIP" tag */
+.queue-list li.vip-entry > *:last-child {
+  margin-left: auto;
 }
