@@ -924,7 +924,7 @@ form button[type="submit"]:hover:not(:disabled) {
 }
 
 /* ===================================================================
-   NEW VIP BANNER STYLES (MODERN & COOL)
+   NEW VIP BANNER STYLES (FIXED)
    =================================================================== */
 
 @keyframes vip-gradient-animation {
@@ -933,6 +933,7 @@ form button[type="submit"]:hover:not(:disabled) {
     100% { background-position: 0% 50%; }
 }
 
+/* This is the main rule, combining your styles and my 'gap' */
 .queue-list li.vip-entry {
     font-weight: 600;
     border: 1px solid transparent;
@@ -947,10 +948,11 @@ form button[type="submit"]:hover:not(:disabled) {
     animation: vip-gradient-animation 8s ease infinite;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     position: relative;
-    overflow: hidden; /* Ensures pseudo-elements stay within the border */
+    overflow: hidden; 
+    gap: 10px; /* This adds space for the new tag */
 }
 
-/* Add a glowing effect using a pseudo-element */
+/* This is the glow effect on the left */
 .queue-list li.vip-entry::before {
     content: '';
     position: absolute;
@@ -961,26 +963,18 @@ form button[type="submit"]:hover:not(:disabled) {
     background-color: var(--primary-orange);
     box-shadow: 0 0 8px var(--primary-orange), 0 0 12px var(--primary-orange-hover);
 }
-/* ===================================================================
-   MODERN VIP TAG STYLING
-   =================================================================== */
 
-/* This adjusts the main list item to make room for the tag */
-.queue-list li.vip-entry {
-  gap: 10px; /* Adds a bit of space between the new tag and the name */
-}
-
-/* This creates the new "VIP" tag */
+/* This is the new "VIP" tag */
 .queue-list li.vip-entry::after {
   content: 'VIP';
-  order: -1; /* This is the magic! It makes the tag the first item on the left */
+  order: -1; /* This makes the tag the first item on the left */
   
   /* Modern Font & Tag Styling */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; /* Clean, modern font */
-  font-weight: 700; /* Bold and strong */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-weight: 700;
   font-size: 0.7rem;
-  letter-spacing: 0.5px; /* Adds a premium feel */
-  text-transform: uppercase; /* Standard for tags */
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   
   /* Tag Colors (using your palette) */
   background-color: var(--primary-orange);
@@ -989,17 +983,16 @@ form button[type="submit"]:hover:not(:disabled) {
   /* Tag Shape */
   padding: 3px 7px;
   border-radius: 4px;
-  line-height: 1; /* Keeps it compact */
+  line-height: 1;
 }
 
-/* This ensures your existing glow doesn't get messed up */
-.queue-list li.vip-entry::before {
-  content: '';
-  position: absolute;
-  left: -5px;
-  top: 0;
-  height: 100%;
-  width: 5px;
-  background-color: var(--primary-orange);
-  box-shadow: 0 0 8px var(--primary-orange), 0 0 12px var(--primary-orange-hover);
+/* *** THIS IS THE FIX ***
+  This targets the customer name/queue number (which is 
+  the first div or span in the list) and makes sure 
+  it's visible and in the correct order.
+*/
+.queue-list li.vip-entry > div:first-of-type,
+.queue-list li.vip-entry > span:first-of-type {
+  color: var(--text-primary); /* Explicitly set color back to white */
+  order: 0; /* Ensures it appears after the "VIP" tag */
 }
