@@ -779,7 +779,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                     <h3 className="queue-subtitle">In Chair</h3>
                     {queueDetails.inProgress ? (
                         <ul className="queue-list">
-                            <li className="in-progress">
+                            <li className={`in-progress ${queueDetails.inProgress.is_vip ? 'vip-entry' : ''}`}>
                                 <div><strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong></div>
                                 <button onClick={() => openChat(queueDetails.inProgress)} className="chat-icon-button" title={queueDetails.inProgress.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.inProgress.profiles?.id}>💬{queueDetails.inProgress.profiles?.id && unreadMessages[queueDetails.inProgress.profiles.id] && (<span className="notification-badge">1</span>)}</button>
                                 <PhotoDisplay entry={queueDetails.inProgress} label="In Chair" />
@@ -790,7 +790,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                     <h3 className="queue-subtitle">Up Next</h3>
                     {queueDetails.upNext ? (
                         <ul className="queue-list">
-                            <li className="up-next">
+                            <li className={`up-next ${queueDetails.upNext.is_vip ? 'vip-entry' : ''}`}>
                                 <div><strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong></div>
                                 <button onClick={() => openChat(queueDetails.upNext)} className="chat-icon-button" title={queueDetails.upNext.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.upNext.profiles?.id}>💬{queueDetails.upNext.profiles?.id && unreadMessages[queueDetails.upNext.profiles.id] && (<span className="notification-badge">1</span>)}</button>
                                 <PhotoDisplay entry={queueDetails.upNext} label="Up Next" />
@@ -800,7 +800,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
 
                     <h3 className="queue-subtitle">Waiting</h3>
                     <ul className="queue-list">{queueDetails.waiting.length === 0 ? (<li className="empty-text">Waiting queue empty.</li>) : (queueDetails.waiting.map(c => (
-                        <li key={c.id}>
+                        <li key={c.id} className={c.is_vip ? 'vip-entry' : ''}>
                             <div>#{c.id} - {c.customer_name}</div>
                             <button onClick={() => openChat(c)} className="chat-icon-button" title={c.profiles?.id ? "Chat" : "Guest"} disabled={!c.profiles?.id}>💬{c.profiles?.id && unreadMessages[c.profiles.id] && (<span className="notification-badge">1</span>)}</button>
                             {c.reference_image_url && <PhotoDisplay entry={c} label="Waiting" />}
@@ -1464,12 +1464,12 @@ function CustomerView({ session }) {
 
             // 1. Disable the button and reset the countdown
             setIsModalButtonDisabled(true);
-            setModalCountdown(10); // <-- Changed to 10
+            setModalCountdown(5); // <-- Changed to 10
 
             // 2. Start the 10-second timer to re-enable the button
             timerId = setTimeout(() => {
                 setIsModalButtonDisabled(false);
-            }, 10000); // <-- Changed to 10000 (10 seconds)
+            }, 5000); // <-- Changed to 10000 (10 seconds)
 
             // 3. Start a 1-second interval to update the countdown text
             countdownInterval = setInterval(() => {
@@ -1701,7 +1701,15 @@ function CustomerView({ session }) {
                     {queueMessage && <p className="message error">{queueMessage}</p>}
                     {isQueueLoading && !queueMessage && <p className="loading-text">Loading queue...</p>}
                     <div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>
-                    <ul className="queue-list live">{!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => (<li key={entry.id} className={`${entry.id.toString() === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''}`}><span>{index + 1}. {entry.id.toString() === myQueueEntryId ? `You (${entry.customer_name})` : `Customer #${entry.id}`}</span><span className="queue-status">{entry.status}</span></li>)))}</ul>
+                    <ul className="queue-list live">{!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => 
+                        <li key={entry.id} className={`
+                        ${entry.id.toString() === myQueueEntryId ? 'my-position' : ''}
+                        ${entry.status === 'Up Next' ? 'up-next-public' : ''}
+                        ${entry.status === 'In Progress' ? 'in-progress-public' : ''}
+                        ${entry.is_vip ? 'vip-entry' : ''}
+                        `}></li>
+                    ))}</ul>
+
 
                     {isQueueUpdateAllowed && (
                         <div className="form-group photo-upload-group live-update-group">
