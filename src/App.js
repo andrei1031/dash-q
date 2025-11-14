@@ -1702,14 +1702,33 @@ function CustomerView({ session }) {
                     {queueMessage && <p className="message error">{queueMessage}</p>}
                     {isQueueLoading && !queueMessage && <p className="loading-text">Loading queue...</p>}
                     <div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>
-                    <ul className="queue-list live">{!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => 
-                        <li key={entry.id} className={`
-                        ${entry.id.toString() === myQueueEntryId ? 'my-position' : ''}
-                        ${entry.status === 'Up Next' ? 'up-next-public' : ''}
-                        ${entry.status === 'In Progress' ? 'in-progress-public' : ''}
-                        ${entry.is_vip ? 'vip-entry' : ''}
-                        `}></li>
-                    ))}</ul>
+                    <ul className="queue-list live">
+                        {!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (
+                            <li className="empty-text">Queue is empty.</li>
+                        ) : (
+                            liveQueue.map((entry, index) => (
+                                <li 
+                                    key={entry.id} 
+                                    className={`
+                                        ${entry.id.toString() === myQueueEntryId ? 'my-position' : ''}
+                                        ${entry.status === 'Up Next' ? 'up-next-public' : ''}
+                                        ${entry.status === 'In Progress' ? 'in-progress-public' : ''}
+                                        ${entry.is_vip ? 'vip-entry' : ''}
+                                    `}
+                                >
+                                    {/* --- THIS IS THE FIX --- */}
+                                    <span>{index + 1}. </span>
+                                    {entry.id.toString() === myQueueEntryId ? (
+                                        <strong>You ({entry.customer_name})</strong>
+                                    ) : (
+                                        <span>{entry.customer_name}</span>
+                                    )}
+                                    <span className="public-queue-status">{entry.status}</span>
+                                    {/* --- END OF FIX --- */}
+                                </li>
+                            ))
+                        )}
+                    </ul>
 
 
                     {isQueueUpdateAllowed && (
