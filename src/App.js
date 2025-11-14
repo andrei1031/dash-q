@@ -540,7 +540,10 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
     const [chatMessages, setChatMessages] = useState({});
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null);
     const [openChatQueueId, setOpenChatQueueId] = useState(null);
-    const [unreadMessages, setUnreadMessages] = useState({});
+    const [unreadMessages, setUnreadMessages] = useState(() => {
+        const saved = localStorage.getItem('barberUnreadMessages');
+        return saved ? JSON.parse(saved) : {};
+    });
 
     const fetchQueueDetails = useCallback(async () => {
         console.log(`[BarberDashboard] Fetching queue details for barber ${barberId}...`);
@@ -582,12 +585,17 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                 });
 
                 // 2. Handle unread status (Only if the chat is NOT open)
-                setOpenChatCustomerId(currentOpenChatId => {
-                    if (customerId !== currentOpenChatId) {
-                        setUnreadMessages(prevUnread => ({ ...prevUnread, [customerId]: true }));
-                    }
-                    return currentOpenChatId;
-                });
+               setOpenChatCustomerId(currentOpenChatId => {
+                if (customerId !== currentOpenChatId) {
+                    setUnreadMessages(prevUnread => {
+                        const newState = { ...prevUnread, [customerId]: true };
+                        // Save the updated object to localStorage
+                        localStorage.setItem('barberUnreadMessages', JSON.stringify(newState)); 
+                        return newState;
+                    });
+                }
+                return currentOpenChatId;
+            });
             };
             socket.on('chat message', messageListener);
             socket.on('connect_error', (err) => { console.error("[Barber] WebSocket Connection Error:", err); });
@@ -721,6 +729,8 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
             setUnreadMessages(prev => {
                 const updated = { ...prev };
                 delete updated[customerUserId];
+                // Save the object *with the flag removed*
+                localStorage.setItem('barberUnreadMessages', JSON.stringify(updated));
                 return updated;
             });
 
@@ -874,7 +884,7 @@ function CustomerView({ session }) {
     const [modalCountdown, setModalCountdown] = useState(10);
     const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
     const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
-    const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(false);
+    const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(() => localStorage.getItem('hasUnreadFromBarber') === 'true');
     const [chatMessagesFromBarber, setChatMessagesFromBarber] = useState([]);
     const [displayWait, setDisplayWait] = useState(0);
     const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
@@ -1380,7 +1390,10 @@ function CustomerView({ session }) {
 
                         setChatMessagesFromBarber(prev => [...prev, incomingMessage]);
                         setIsChatOpen(currentIsOpen => {
-                            if (!currentIsOpen) { setHasUnreadFromBarber(true); }
+                            if (!currentIsOpen) { 
+                                setHasUnreadFromBarber(true); 
+                                localStorage.setItem('hasUnreadFromBarber', 'true'); // <-- ADD THIS
+                            }
                             return currentIsOpen;
                         });
                     }
@@ -1749,6 +1762,7 @@ function CustomerView({ session }) {
 
                                 setIsChatOpen(true);
                                 setHasUnreadFromBarber(false);
+                                localStorage.removeItem('hasUnreadFromBarber'); // <-- ADD THIS
                             } else { console.error("Barber user ID missing."); setMessage("Cannot initiate chat."); }
                         }}
                             className="chat-toggle-button"
