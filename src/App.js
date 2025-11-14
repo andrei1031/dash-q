@@ -1261,9 +1261,7 @@ function CustomerView({ session }) {
 
     useEffect(() => {
         const modalFlag = localStorage.getItem('stickyModal');
-        if (modalFlag === 'yourTurn') {
-            setIsYourTurnModalOpen(true);
-        } else if (modalFlag === 'tooFar') {
+        if (modalFlag === 'tooFar') {
             setIsTooFarModalOpen(true);
         }
     }, []);
