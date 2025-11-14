@@ -1465,6 +1465,7 @@ function CustomerView({ session }) {
             // 1. Disable the button and reset the countdown
             setIsModalButtonDisabled(true);
             setModalCountdown(5); // <-- Changed to 10
+            
 
             // 2. Start the 10-second timer to re-enable the button
             timerId = setTimeout(() => {
