@@ -62,13 +62,16 @@
    LIGHT MODE THEME
    =================================================================== */
 body.light-mode {
-  --bg-dark: #F4F4F5; /* Light gray background */
+  /* FIX 1: Set the primary background to pure white for a full white screen */
+  --bg-dark: #FFFFFF; 
   --surface-color: #FFFFFF; /* White cards */
   --text-primary: #18181B; /* Near-black text */
   --text-secondary: #52525B; /* Gray text */
   --border-color: #E4E4E7; /* Light gray border */
   --card-border-color: #E4E4E7;
-  --prefilled-bg: #E4E4E7;
+  
+  /* FIX 2: Ensure prefilled and hover backgrounds use a light contrasting color */
+  --prefilled-bg: #E4E4E7; 
   --hover-bg-dark: #F4F4F5;
 
   /* Button text colors stay the same */
@@ -93,7 +96,7 @@ body.light-mode {
   --spinner-base: rgba(0, 0, 0, 0.2);
   --spinner-highlight: #18181B;
   --spinner-light-base: rgba(255, 255, 255, 0.3);
-  --spinner-light-highlight: #FFFFFF;
+  --spinner-light-highlight: #18181B; /* Changed to dark for light mode */
 
   --skeleton-base: #E4E4E7;
   --skeleton-highlight: #F4F4F5;
@@ -241,7 +244,8 @@ a:hover {
 
 .card-footer {
   padding: 15px 25px;
-  background-color: var(--bg-dark);
+  /* FIX 3: Change to surface-color so it remains white with the card body in light mode */
+  background-color: var(--surface-color); 
   border-top: 1px solid var(--border-color);
   border-radius: 0 0 12px 12px;
 }
@@ -274,7 +278,8 @@ a:hover {
 .form-group textarea {
   width: 100%;
   padding: 14px;
-  background-color: var(--bg-dark);
+  /* The input background should use --bg-dark for contrast in light mode */
+  background-color: var(--bg-dark); 
   border: 1px solid var(--border-color);
   border-radius: 6px;
   color: var(--text-primary);
@@ -282,6 +287,19 @@ a:hover {
   font-family: inherit;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
+/* FIX 4: For light mode, make sure input backgrounds are visible against white body */
+body.light-mode .form-group input,
+body.light-mode .form-group select,
+body.light-mode .form-group textarea {
+    background-color: #F4F4F5; /* Set to light grey for contrast */
+}
+body.light-mode .form-group input:focus,
+body.light-mode .form-group select:focus,
+body.light-mode .form-group textarea:focus {
+    background-color: #FFFFFF; /* White when focused */
+}
+
+
 
 .form-group textarea {
   min-height: 70px;
@@ -354,8 +372,8 @@ a:hover {
 .role-toggle button {
   width: 50%;
   padding: 10px;
-  font-size: 0.9rem;
-  background: var(--bg-dark);
+  /* Use surface for buttons, dark for input fields */
+  background: var(--surface-color);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
 }
@@ -374,6 +392,11 @@ a:hover {
   color: var(--button-text-primary);
   border-color: var(--primary-orange);
 }
+/* FIX 5: Ensure role toggle buttons look right in light mode */
+body.light-mode .role-toggle button {
+    background: #F4F4F5;
+}
+
 
 .pin-input {
   margin-top: 15px;
@@ -427,14 +450,18 @@ button:disabled {
   color: var(--text-secondary);
 }
 .btn-secondary:hover:not(:disabled) {
+  /* This is fine for dark mode: dark background (surface-color) -> darker background (bg-dark) */
   background-color: var(--bg-dark);
   color: var(--text-primary);
 }
+/* FIX 6: Secondary buttons in light mode should use a contrasting background/hover color */
 body.light-mode .btn-secondary {
-   background-color: var(--bg-dark);
+   background-color: #F4F4F5; /* Light grey background */
+   border-color: #D4D4D8;
+   color: var(--text-secondary);
 }
 body.light-mode .btn-secondary:hover:not(:disabled) {
-  background-color: #e4e4e7;
+  background-color: #E4E4E7; /* Slightly darker light grey on hover */
 }
 
 
@@ -580,8 +607,14 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   flex-direction: column;
   padding: 15px;
   border-radius: 8px;
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
 }
+/* FIX 7: Ensure serving items have contrast in light mode */
+body.light-mode .serving-item {
+    background: #F4F4F5;
+}
+
 .serving-item span {
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -624,11 +657,18 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   align-items: center;
   padding: 12px 10px;
   border-radius: 6px;
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
   margin-bottom: 8px;
   font-weight: 500;
   border: 1px solid var(--bg-dark);
 }
+/* FIX 8: Ensure list items have contrast in light mode */
+body.light-mode .queue-list li {
+    background: #F4F4F5;
+    border: 1px solid #F4F4F5;
+}
+
 .queue-list li.in-progress {
   border-color: var(--success-color);
   box-shadow: 0 0 8px rgba(52, 199, 89, 0.3);
@@ -695,12 +735,20 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 .barber-chat-container h4 {
   margin: 0;
   padding: 15px;
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
   border-bottom: 1px solid var(--border-color);
 }
+/* FIX 9: Ensure chat container h4/warning has contrast in light mode */
+body.light-mode .barber-chat-container h4,
+body.light-mode .barber-chat-container .chat-warning {
+    background: #F4F4F5;
+}
+
 .barber-chat-container .chat-warning {
   font-size: 0.85rem;
   color: var(--text-secondary);
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
   padding: 0 15px 15px 15px;
   margin: 0;
@@ -731,6 +779,11 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
 }
+/* FIX 10: Ensure analytics items have contrast in light mode */
+body.light-mode .analytics-item {
+    background: #F4F4F5;
+}
+
 .analytics-label {
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -808,11 +861,17 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin: 15px 0;
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
   padding: 10px;
   border-radius: 8px;
   min-height: 40px; 
 }
+/* FIX 11: Ensure EWT container has contrast in light mode */
+body.light-mode .ewt-container {
+    background: #F4F4F5;
+}
+
 .ewt-item {
   display: flex;
   flex-direction: column;
@@ -848,9 +907,7 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 .file-upload-label {
   width: 100%;
 }
-.live-update-group {
-  /* margin-top: 20px; */ /* Removed, now part of flex gap */
-}
+
 
 
 /* ===================================================================
@@ -900,10 +957,16 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   padding: 20px 30px;
+  /* Use --bg-dark for dark mode contrast */
   background-color: var(--bg-dark);
   border-top: 1px solid var(--border-color);
   border-radius: 0 0 12px 12px;
 }
+/* FIX 12: Ensure modal footer uses --surface-color in light mode (since the card body is surface-color) */
+body.light-mode .modal-footer {
+    background-color: var(--surface-color);
+}
+
 
 /* Modal with only one button */
 .modal-footer.single-action {
@@ -928,12 +991,18 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   text-align: left;
 }
 .modal-form-details {
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
   padding: 15px;
   border-radius: 8px;
   margin: 15px 0;
   line-height: 1.6;
 }
+/* FIX 13: Ensure modal form details block has contrast in light mode */
+body.light-mode .modal-form-details {
+    background: #F4F4F5;
+}
+
 .modal-form-details strong {
   color: var(--text-primary);
 }
@@ -947,7 +1016,12 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   height: 350px; /* Fixed height for chat */
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
+}
+/* FIX 14: Ensure chat window background has contrast in light mode */
+body.light-mode .chat-window {
+    background: #F4F4F5;
 }
 
 .message-list {
@@ -1031,10 +1105,15 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   border-top: none;
   max-height: 150px; /* Gives it a scrollbar if too long */
   overflow-y: auto;
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
   border-radius: 6px;
   padding: 8px;
   margin-bottom: 15px;
+}
+/* FIX 15: Ensure customer feedback container has contrast in light mode */
+body.light-mode .customer-feedback {
+    background: #F4F4F5;
 }
 
 .feedback-subtitle {
@@ -1057,11 +1136,16 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 }
 
 .feedback-item {
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 10px;
+}
+/* FIX 16: Ensure feedback items have contrast in light mode */
+body.light-mode .feedback-item {
+    background: #FFFFFF;
 }
 
 .customer-feedback .feedback-item {
@@ -1190,7 +1274,7 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 }
 
 .priority-option.active {
-    background-color: var(--priority-active-bg);
+    background-color: var(--primary-orange);
     color: var(--priority-active-text);
 }
 
@@ -1382,8 +1466,14 @@ button .spinner {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark);
 }
+/* FIX 17: Ensure chat window container background is correct in light mode */
+body.light-mode .chat-window-container {
+    background: #F4F4F5;
+}
+
 
 .chat-window-header {
   display: flex;
@@ -1416,10 +1506,16 @@ button .spinner {
   border-radius: 0;
 }
 .chat-window-container .message-input-form {
+  /* Use --bg-dark for dark mode contrast */
   background: var(--bg-dark); /* Match chat window bg */
   border-radius: 0 0 8px 8px;
   border-top: 1px solid var(--border-color);
 }
+/* FIX 18: Ensure chat input form background is correct in light mode */
+body.light-mode .chat-window-container .message-input-form {
+    background: #F4F4F5;
+}
+
 .chat-window-container .message-input-form input {
   background: transparent;
 }
