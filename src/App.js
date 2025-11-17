@@ -1570,6 +1570,7 @@ function CustomerView({ session }) {
         e.preventDefault();
         if (!customerName || !selectedBarberId || !selectedServiceId) { setMessage('Name, Barber, AND Service required.'); return; }
         if (myQueueEntryId) { setMessage('You are already checked in!'); return; }
+        if (selectedFile && !referenceImageUrl) { setMessage('Please click "Upload Photo" first!'); return; }
 
         setIsLoading(true); setMessage('Joining queue...');
         try {
