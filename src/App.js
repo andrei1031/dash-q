@@ -1652,16 +1652,23 @@ function CustomerView({ session }) {
         const BARBERSHOP_LAT = 16.414830431367967;
         const BARBERSHOP_LON = 120.59712292628716;
         const DISTANCE_THRESHOLD_METERS = 200;
+
         if (!('geolocation' in navigator)) { console.warn('Geolocation not available.'); return; }
+
         if (myQueueEntryId) {
-            console.log('User is in queue, starting location watch...');
             const onPositionUpdate = (position) => {
                 const { latitude, longitude } = position.coords;
                 const distance = getDistanceInMeters(latitude, longitude, BARBERSHOP_LAT, BARBERSHOP_LON);
-                console.log(`Current distance: ${Math.round(distance)}m. Cooldown: ${isOnCooldown}`);
-                if (distance > DISTANCE_THRESHOLD_METERS && estimatedWait < 15) {
+
+                // We use displayWait here (the countdown)
+                console.log(`Current distance: ${Math.round(distance)}m. Wait: ${displayWait}m. Cooldown: ${isOnCooldown}`);
+
+                // --- THIS IS THE CORRECTED LOGIC ---
+                if (distance > DISTANCE_THRESHOLD_METERS && displayWait < 15) {
+                // --- END CORRECTION ---
+
                     if (!isTooFarModalOpen && !isOnCooldown) {
-                        console.log('Customer is too far! Triggering modal.');
+                        console.log('Customer is too far AND turn is close! Triggering modal.');
                         localStorage.setItem('stickyModal', 'tooFar');
                         setIsTooFarModalOpen(true);
                         setIsOnCooldown(true);
@@ -1670,11 +1677,16 @@ function CustomerView({ session }) {
                     if (isOnCooldown) { console.log('Customer is back in range. Resetting cooldown.'); setIsOnCooldown(false); }
                 }
             };
+
             const onPositionError = (err) => { console.warn(`Geolocation error (Code ${err.code}): ${err.message}`); };
+
             locationWatchId.current = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
         }
+
         return () => { if (locationWatchId.current) { navigator.geolocation.clearWatch(locationWatchId.current); console.log('Stopping geolocation watch.'); } };
-    }, [myQueueEntryId, isTooFarModalOpen, isOnCooldown, estimatedWait]);
+
+    // --- THIS IS THE CORRECTED DEPENDENCY ARRAY ---
+    }, [myQueueEntryId, isTooFarModalOpen, isOnCooldown, displayWait]);
 
     useEffect(() => { // First Time Instructions
         const hasSeen = localStorage.getItem('hasSeenInstructions_v1');
