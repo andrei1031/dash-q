@@ -1315,7 +1315,11 @@ function CustomerView({ session }) {
     const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
     const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(() => localStorage.getItem('hasUnreadFromBarber') === 'true');
     const [chatMessagesFromBarber, setChatMessagesFromBarber] = useState([]);
-    const [displayWait, setDisplayWait] = useState(0);
+    const [displayWait, setDisplayWait] = useState(() => {
+        const savedWait = localStorage.getItem('displayWait');
+        const parsedWait = savedWait ? parseInt(savedWait, 10) : 0;
+        return parsedWait > 0 ? parsedWait : 0;
+    });
     const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
     const [isOnCooldown, setIsOnCooldown] = useState(false);
     const locationWatchId = useRef(null);
@@ -1619,7 +1623,9 @@ function CustomerView({ session }) {
         }
         setIsServiceCompleteModalOpen(false); setIsCancelledModalOpen(false); setIsYourTurnModalOpen(false);
         stopBlinking();
-        localStorage.removeItem('myQueueEntryId'); localStorage.removeItem('joinedBarberId');
+        localStorage.removeItem('myQueueEntryId'); 
+        localStorage.removeItem('joinedBarberId');
+        localStorage.removeItem('displayWait');
         setMyQueueEntryId(null); setJoinedBarberId(null);
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
@@ -1887,12 +1893,16 @@ function CustomerView({ session }) {
                 if (leaver && myIndexOld !== -1 && leaverIndexOld !== -1 && leaverIndexOld < myIndexOld) {
                     const leaverDuration = leaver.services?.duration_minutes || 30;
                     console.log(`Leaver detected in front: ${leaver.id}, duration: ${leaverDuration}`);
-                    const newCountdown = currentDisplayWait - leaverDuration;
-                    return newCountdown > 0 ? newCountdown : 0;
+                   const newCountdown = currentDisplayWait - leaverDuration;
+                    const finalTime = newCountdown > 0 ? newCountdown : 0;
+                    localStorage.setItem('displayWait', finalTime.toString()); // <-- ADD THIS
+                    return finalTime;
                 }
                 if (currentDisplayWait === 0 || newTotalWait < currentDisplayWait) {
+                    localStorage.setItem('displayWait', newTotalWait.toString());
                     return newTotalWait;
                 }
+                localStorage.setItem('displayWait', currentDisplayWait.toString());
                 return currentDisplayWait;
             });
         };
@@ -1901,7 +1911,14 @@ function CustomerView({ session }) {
 
     useEffect(() => { // 1-Minute Countdown Timer
         if (!myQueueEntryId) return;
-        const timerId = setInterval(() => { setDisplayWait(prevTime => (prevTime > 0 ? prevTime - 1 : 0)); }, 60000);
+        const timerId = setInterval(() => { 
+            setDisplayWait(prevTime => {
+                const newTime = (prevTime > 0 ? prevTime - 1 : 0);
+                // Save the new countdown time to storage
+                localStorage.setItem('displayWait', newTime.toString()); 
+                return newTime;
+            }); 
+        }, 60000);
         return () => clearInterval(timerId);
     }, [myQueueEntryId]);
 
