@@ -768,6 +768,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
     });
 
     const [modalState, setModalState] = useState({ type: null, data: null });
+    const [viewImageModalUrl, setViewImageModalUrl] = useState(null);
     const [tipInput, setTipInput] = useState('');
     const [modalError, setModalError] = useState('');
 
@@ -1036,13 +1037,18 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
 
     const closeChat = () => { setOpenChatCustomerId(null); setOpenChatQueueId(null); };
 
+    // REPLACE the old PhotoDisplay component with this:
     const PhotoDisplay = ({ entry, label }) => {
         if (!entry?.reference_image_url) return null;
         return (
             <div className="barber-photo-display">
-                <a href={entry.reference_image_url} target="_blank" rel="noopener noreferrer">
+                <button 
+                    type="button" 
+                    onClick={() => setViewImageModalUrl(entry.reference_image_url)}
+                    className="btn-link-style"
+                >
                     <IconCamera /> {label} Photo
-                </a>
+                </button>
             </div>
         );
     };
@@ -1238,6 +1244,28 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                     </div>
                 </div>
             )}
+            {viewImageModalUrl && (
+            <div className="modal-overlay" onClick={() => setViewImageModalUrl(null)}>
+                <div 
+                    className="modal-content image-modal-content" 
+                    onClick={(e) => e.stopPropagation()} /* Prevents modal from closing when clicking the image */
+                >
+                    <img 
+                        src={viewImageModalUrl} 
+                        alt="Reference" 
+                        className="image-modal-img" 
+                    />
+                    <div className="modal-footer single-action">
+                        <button 
+                            onClick={() => setViewImageModalUrl(null)} 
+                            className="btn btn-secondary"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </div>
     );
 }

@@ -1428,3 +1428,56 @@ button .spinner {
   padding-top: 20px;
   border-top: 1px dashed var(--error-color);
 }
+/* ===================================================================
+   IMAGE MODAL (NEW)
+   =================================================================== */
+
+/* This style makes our new <button> look like the old <a> link */
+.btn-link-style {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--link-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: inherit;
+    font-weight: 500;
+}
+.btn-link-style .icon {
+    width: 14px;
+    height: 14px;
+}
+.btn-link-style:hover {
+    text-decoration: none;
+    color: var(--primary-orange);
+}
+
+
+/* New styles for the image modal content */
+.image-modal-content {
+    max-width: 90vw; /* Max 90% of viewport width */
+    width: auto; /* Let the image define the width */
+    padding: 0;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    /* Remove padding from the modal body if it exists */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    overflow: hidden; /* Ensures image corners are rounded */
+}
+
+/* This is the most important part for responsiveness */
+.image-modal-img {
+    display: block;
+    width: 100%; /* Make the image fill its container */
+    max-width: 90vw; /* Ensure it never exceeds screen width */
+    max-height: 80vh; /* Ensure it never exceeds 80% of screen height */
+    object-fit: contain; /* This scales the image down to fit, maintaining aspect ratio */
+}
+
+.image-modal-content .modal-footer {
+    border-radius: 0;
+}
