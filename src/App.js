@@ -1300,17 +1300,14 @@ function CustomerView({ session }) {
     const [joinedBarberId, setJoinedBarberId] = useState(() => localStorage.getItem('joinedBarberId') || null);
     const [liveQueue, setLiveQueue] = useState([]);
     const [queueMessage, setQueueMessage] = useState('');
-    const [estimatedWait, setEstimatedWait] = useState(0);
     const [peopleWaiting, setPeopleWaiting] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
+    const [isModalButtonDisabled, setIsModalButtonDisabled] = useState(false);
+    const [modalCountdown, setModalCountdown] = useState(10);
     const [isQueueLoading, setIsQueueLoading] = useState(true);
     const [services, setServices] = useState([]);
     const [selectedServiceId, setSelectedServiceId] = useState('');
     const [isChatOpen, setIsChatOpen] = useState(false);
-    const [isYourTurnModalOpen, setIsYourTurnModalOpen] = useState(false);
-    const [modalAlert, setModalAlert] = useState({ title: "You're up next!", text: "Please take a seat and stay put." });
-    const [isModalButtonDisabled, setIsModalButtonDisabled] = useState(false);
-    const [modalCountdown, setModalCountdown] = useState(10);
     const [isServiceCompleteModalOpen, setIsServiceCompleteModalOpen] = useState(false);
     const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
     const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(() => localStorage.getItem('hasUnreadFromBarber') === 'true');
@@ -1391,37 +1388,20 @@ function CustomerView({ session }) {
                 const myEntry = queueData.find(e => e.id.toString() === currentQueueId);
 
                 if (myEntry && (myEntry.status === 'In Progress' || myEntry.status === 'Up Next')) {
-                    
-                    // My status is active. Check if the modal is *already open*.
-                    // We use the functional update to get the current state value.
-                    setIsYourTurnModalOpen(isModalCurrentlyOpen => {
+                    const modalFlag = localStorage.getItem('stickyModal');
 
-                        if (isModalCurrentlyOpen) {
-                            return true; // Modal is already open. Do nothing.
-                        }
-
-                        // Modal is NOT open, but it *should* be.
-                        // This will fire when the app re-focuses (from Part 1) or a Supabase event hits.
-                        console.log(`[Catcher] State sync. Status is ${myEntry.status}. Triggering modal.`);
-
-                        if (myEntry.status === 'In Progress') {
-                            setModalAlert({ title: "It's your turn!", text: "The barber is calling you now." });
-                        } else {
-                            setModalAlert({ title: "You're up next!", text: "Please take a seat and stay put." });
-                        }
+                    if (modalFlag !== 'yourTurn') {
+                        console.log(`[Catcher] Missed event! My status is ${myEntry.status}. Triggering notification.`);
 
                         playSound(queueNotificationSound);
                         startBlinking();
-                        localStorage.setItem('stickyModal', 'yourTurn'); // Keep using the flag
+                        localStorage.setItem('stickyModal', 'yourTurn');
                         if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
-                        
-                        return true; // Set state to OPEN the modal
-                    });
-                
+                    }
+
                 } else if (myEntry && myEntry.status === 'Waiting') {
                     // My status is just 'Waiting'. Ensure the modal is closed and the flag is cleared.
-                    // This handles edge cases where a user is demoted (e.g., by a new VIP)
-                    setIsYourTurnModalOpen(false);
+                    // This handles edge cases where a user is demoted (e.g., by a new VIP) 
                     stopBlinking();
                     if (localStorage.getItem('stickyModal') === 'yourTurn') {
                          localStorage.removeItem('stickyModal');
@@ -1621,7 +1601,7 @@ function CustomerView({ session }) {
             catch (error) { console.error("Failed to leave queue:", error); setMessage("Error leaving queue."); }
             finally { setIsLoading(false); }
         }
-        setIsServiceCompleteModalOpen(false); setIsCancelledModalOpen(false); setIsYourTurnModalOpen(false);
+        setIsServiceCompleteModalOpen(false); setIsCancelledModalOpen(false);
         stopBlinking();
         localStorage.removeItem('myQueueEntryId'); 
         localStorage.removeItem('joinedBarberId');
@@ -1630,7 +1610,7 @@ function CustomerView({ session }) {
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
         setIsChatOpen(false);
-        setChatMessagesFromBarber([]); setDisplayWait(0); setEstimatedWait(0);
+        setChatMessagesFromBarber([]); setDisplayWait(0);
         setReferenceImageUrl('');
         setSelectedFile(null);
         setIsUploading(false);
@@ -1640,11 +1620,6 @@ function CustomerView({ session }) {
         setBarberFeedback([]);
 
         console.log("[handleReturnToJoin] State reset complete.");
-    };
-
-    const handleModalClose = () => {
-        setIsYourTurnModalOpen(false);
-        stopBlinking();
     };
 
     // --- Effects ---
@@ -1727,28 +1702,27 @@ function CustomerView({ session }) {
 
     // Find this useEffect (around line 1073)
     useEffect(() => { // Blinking Tab Listeners
+        const handleFocus = () => stopBlinking();
+        
         const handleVisibility = () => {
             if (document.visibilityState === 'visible') {
-                console.log("Customer tab is visible. Re-syncing queue and unread status.");
-                if (joinedBarberId) {
-                    fetchPublicQueue(joinedBarberId);
-                }
                 stopBlinking();
+                
+                // Re-sync unread messages
                 const hasUnread = localStorage.getItem('hasUnreadFromBarber') === 'true';
                 setHasUnreadFromBarber(hasUnread);
+
+                // --- THIS IS THE FIX ---
+                // Immediately check queue status when user returns to the tab
+                const currentBarber = localStorage.getItem('joinedBarberId');
+                if (currentBarber) {
+                    console.log("Tab is visible, re-fetching queue status...");
+                    fetchPublicQueue(currentBarber);
+                }
+                // --- END FIX ---
             }
         };
         
-        const handleFocus = () => {
-            console.log("Customer tab is focused. Re-syncing queue and unread status.");
-            if (joinedBarberId) {
-                fetchPublicQueue(joinedBarberId);
-            }
-            stopBlinking();
-            const hasUnread = localStorage.getItem('hasUnreadFromBarber') === 'true';
-            setHasUnreadFromBarber(hasUnread);
-        };
-
         window.addEventListener("focus", handleFocus);
         document.addEventListener("visibilitychange", handleVisibility);
         
@@ -1757,7 +1731,7 @@ function CustomerView({ session }) {
             document.removeEventListener("visibilitychange", handleVisibility); 
             stopBlinking(); 
         };
-    }, [fetchPublicQueue, joinedBarberId, setHasUnreadFromBarber]);
+    }, [fetchPublicQueue]); // <-- IMPORTANT: Add fetchPublicQueue as a dependency
 
     useEffect(() => { // Realtime Subscription & Notifications
         if (joinedBarberId) { fetchPublicQueue(joinedBarberId); } else { setLiveQueue([]); setIsQueueLoading(false); }
@@ -1772,18 +1746,14 @@ function CustomerView({ session }) {
                         const newStatus = payload.new.status;
                         console.log(`My status updated to: ${newStatus}`);
                         if (newStatus === 'Up Next') {
-                            setModalAlert({ title: "You're up next!", text: "Please take a seat and stay put." });
                             playSound(queueNotificationSound);
                             startBlinking();
-                            setIsYourTurnModalOpen(true);
                             localStorage.setItem('stickyModal', 'yourTurn');
                             if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
                         }
-                        else if (newStatus === 'In Progress') {
-                            setModalAlert({ title: "It's your turn!", text: "The barber is calling you now." });
+                        else if (newStatus === 'In Progress') { 
                             playSound(queueNotificationSound);
                             startBlinking();
-                            setIsYourTurnModalOpen(true);
                             localStorage.setItem('stickyModal', 'yourTurn');
                             if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
                         }
@@ -1922,9 +1892,7 @@ function CustomerView({ session }) {
                 // DO NOTHING. Let the countdown timer continue from 14.
                 return currentCountdown;
             });
-
-            // Set this separately for the geofence logic
-            setEstimatedWait(newTotalWait); 
+; 
         };
 
         // Only run if the queue is loaded
@@ -1934,34 +1902,19 @@ function CustomerView({ session }) {
 
     }, [liveQueue, myQueueEntryId]);
 
-    useEffect(() => { // 1-Minute Countdown Timer
-        if (!myQueueEntryId) return; // Don't run if not in queue
-
-        const timerId = setInterval(() => { 
-            setDisplayWait(prevTime => {
-                const newTime = (prevTime > 0 ? prevTime - 1 : 0);
-
-                // CRITICAL: Save the new time to storage
-                localStorage.setItem('displayWait', newTime.toString()); 
-
-                return newTime;
-            }); 
-        }, 60000); // 60,000 milliseconds = 1 minute
-
-        return () => clearInterval(timerId); // Cleanup on component unmount
-    }, [myQueueEntryId]);
-
+    // ADD THIS ENTIRE BLOCK BACK
     useEffect(() => { // Modal Button Countdown
         let timerId = null;
         let countdownInterval = null;
 
-        if (isYourTurnModalOpen || isServiceCompleteModalOpen || isCancelledModalOpen || isTooFarModalOpen) {
+        // We only check the modals that still exist
+        if (isServiceCompleteModalOpen || isCancelledModalOpen || isTooFarModalOpen) {
             setIsModalButtonDisabled(true);
-            setModalCountdown(5);
-            
+            setModalCountdown(5); // Set to 5 seconds
+
             timerId = setTimeout(() => {
                 setIsModalButtonDisabled(false);
-            }, 5000);
+            }, 5000); // 5 seconds
 
             countdownInterval = setInterval(() => {
                 setModalCountdown(prevCount => {
@@ -1977,7 +1930,7 @@ function CustomerView({ session }) {
             if (timerId) clearTimeout(timerId);
             if (countdownInterval) clearInterval(countdownInterval);
         };
-    }, [isYourTurnModalOpen, isServiceCompleteModalOpen, isCancelledModalOpen, isTooFarModalOpen]);
+    }, [isServiceCompleteModalOpen, isCancelledModalOpen, isTooFarModalOpen]); // Dependencies are only for the remaining modals
 
     // --- Render Customer View ---
     return (
@@ -1999,25 +1952,6 @@ function CustomerView({ session }) {
                 </div>
             </div>
             
-            <div id="your-turn-modal-overlay" className="modal-overlay" style={{ display: isYourTurnModalOpen ? 'flex' : 'none' }}>
-                <div className="modal-content">
-                    <div className="modal-body">
-                        <h2>{modalAlert.title}</h2>
-                        <p>{modalAlert.text}</p>
-                    </div>
-                    <div className="modal-footer">
-                        <button
-                            id="close-modal-btn"
-                            onClick={handleModalClose}
-                            disabled={isModalButtonDisabled}
-                            className="btn btn-primary"
-                        >
-                            {isModalButtonDisabled ? `Please wait (${modalCountdown})...` : 'Okay!'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             <div className="modal-overlay" style={{ display: isServiceCompleteModalOpen ? 'flex' : 'none' }}>
                 <div className="modal-content">
                     {!feedbackSubmitted ? (
@@ -2259,6 +2193,20 @@ function CustomerView({ session }) {
                 </>
             ) : (
                 <div className="live-queue-view card-body">
+                    {/* --- ADD THIS NEW BANNER --- */}
+                    {myQueueEntry?.status === 'In Progress' && (
+                        <div className="status-banner in-progress-banner">
+                            <h2><IconCheck /> It's Your Turn!</h2>
+                            <p>The barber is calling you now.</p>
+                        </div>
+                    )}
+                    {myQueueEntry?.status === 'Up Next' && (
+                        <div className="status-banner up-next-banner">
+                            <h2><IconNext /> You're Up Next!</h2>
+                            <p>Please be ready and stay near the shop.</p>
+                        </div>
+                    )}
+                    {/* --- END NEW BANNER --- */}
                     <h2>Live Queue for {joinedBarberId ? currentBarberName : '...'}</h2>
                     <div className="queue-number-display">Your Queue Number is: <strong>#{myQueueEntryId}</strong></div>
                     <div className="current-serving-display"><div className="serving-item now-serving"><span>Now Serving</span><strong>{nowServing ? `Customer #${nowServing.id}` : '---'}</strong></div><div className="serving-item up-next"><span>Up Next</span><strong>{upNext ? `Customer #${upNext.id}` : '---'}</strong></div></div>

@@ -1481,3 +1481,69 @@ button .spinner {
 .image-modal-content .modal-footer {
     border-radius: 0;
 }
+/* ===================================================================
+   CUSTOMER: STATUS BANNER (NEW)
+   =================================================================== */
+
+.status-banner {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid;
+}
+
+.status-banner h2 {
+    margin: 0 0 5px 0;
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.status-banner .icon {
+    width: 20px;
+    height: 20px;
+}
+
+.status-banner p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.status-banner.in-progress-banner {
+    background: rgba(52, 199, 89, 0.1);
+    border-color: var(--success-color);
+}
+.status-banner.in-progress-banner h2 {
+    color: var(--success-color);
+}
+
+.status-banner.up-next-banner {
+    background: rgba(255, 149, 0, 0.1);
+    border-color: var(--primary-orange);
+}
+.status-banner.up-next-banner h2 {
+    color: var(--primary-orange);
+}
+
+/* Light mode adjustments for banners */
+body.light-mode .status-banner.in-progress-banner {
+    color: #1e5c2d;
+}
+body.light-mode .status-banner.in-progress-banner h2 {
+    color: #1e5c2d;
+}
+body.light-mode .status-banner.in-progress-banner p {
+    color: #277a3b;
+}
+
+body.light-mode .status-banner.up-next-banner {
+    color: #855300;
+}
+body.light-mode .status-banner.up-next-banner h2 {
+    color: #855300;
+}
+body.light-mode .status-banner.up-next-banner p {
+    color: #b97400;
+}
