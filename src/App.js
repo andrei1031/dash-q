@@ -89,6 +89,26 @@ const IconX = () => <IconWrapper><line x1="18" y1="6" x2="6" y2="18"></line><lin
 const IconNext = () => <IconWrapper><polyline points="9 18 15 12 9 6"></polyline></IconWrapper>;
 const IconUpload = () => <IconWrapper><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></IconWrapper>;
 
+const DistanceBadge = ({ meters }) => {
+    if (meters === null || meters === undefined) return null;
+    
+    let colorClass = 'dist-green';
+    let text = `${meters}m`;
+
+    if (meters > 1000) {
+        colorClass = 'dist-red';
+        text = `${(meters / 1000).toFixed(1)}km`;
+    } else if (meters > 200) {
+        colorClass = 'dist-orange';
+    }
+
+    return (
+        <span className={`distance-badge ${colorClass}`}>
+            📍 {text} away
+        </span>
+    );
+};
+
 
 // ##############################################
 // ##          THEME CONTEXT & PROVIDER        ##
@@ -867,8 +887,15 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                 fetchQueueDetails();
             })
             .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') { console.log(`Barber dashboard subscribed to queue ${barberId}`); }
-                else { console.error(`Barber dashboard subscription error: ${status}`, err); }
+                if (status === 'SUBSCRIBED') {
+                    console.log(`Barber dashboard subscribed to queue ${barberId}`);
+                } else if (status === 'CLOSED') {
+                    // This is normal cleanup, just log it as info
+                    console.log(`Barber dashboard subscription disconnected cleanly.`);
+                } else {
+                    // Only log actual errors (like CHANNEL_ERROR or TIMED_OUT)
+                    console.error(`Barber dashboard subscription error: ${status}`, err);
+                }
             });
 
         // --- START OF FIX ---
@@ -1117,6 +1144,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                                 <li className={`in-progress ${queueDetails.inProgress.is_vip ? 'vip-entry' : ''}`}>
                                     <div className="queue-item-info">
                                         <strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
+                                        <DistanceBadge meters={queueDetails.inProgress.current_distance_meters} />
                                         <PhotoDisplay entry={queueDetails.inProgress} label="In Chair" />
                                     </div>
                                     <button onClick={() => openChat(queueDetails.inProgress)} className="btn btn-icon" title={queueDetails.inProgress.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.inProgress.profiles?.id}>
@@ -1133,6 +1161,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                                 <li className={`up-next ${queueDetails.upNext.is_vip ? 'vip-entry' : ''}`}>
                                     <div className="queue-item-info">
                                         <strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong>
+                                        <DistanceBadge meters={queueDetails.upNext.current_distance_meters} />
                                         <PhotoDisplay entry={queueDetails.upNext} label="Up Next" />
                                     </div>
                                     <button onClick={() => openChat(queueDetails.upNext)} className="btn btn-icon" title={queueDetails.upNext.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.upNext.profiles?.id}>
@@ -1148,6 +1177,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                             <li key={c.id} className={c.is_vip ? 'vip-entry' : ''}>
                                 <div className="queue-item-info">
                                     <span>#{c.id} - {c.customer_name}</span>
+                                    <DistanceBadge meters={c.current_distance_meters} />
                                     {c.reference_image_url && <PhotoDisplay entry={c} label="Waiting" />}
                                 </div>
                                 <button onClick={() => openChat(c)} className="btn btn-icon" title={c.profiles?.id ? "Chat" : "Guest"} disabled={!c.profiles?.id}>
@@ -1331,10 +1361,10 @@ function CustomerView({ session }) {
     const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false);
     const [hasUnreadFromBarber, setHasUnreadFromBarber] = useState(() => localStorage.getItem('hasUnreadFromBarber') === 'true');
     const [chatMessagesFromBarber, setChatMessagesFromBarber] = useState([]);
-    const [displayWait, setDisplayWait] = useState(() => {
-        const savedWait = localStorage.getItem('displayWait');
-        const parsedWait = savedWait ? parseInt(savedWait, 10) : 0;
-        return parsedWait > 0 ? parsedWait : 0;
+    const [displayWait, setDisplayWait] = useState(0);
+    const [finishTime, setFinishTime] = useState(() => {
+        const saved = localStorage.getItem('targetFinishTime');
+        return saved ? parseInt(saved, 10) : 0;
     });
     const [isTooFarModalOpen, setIsTooFarModalOpen] = useState(false);
     const [isOnCooldown, setIsOnCooldown] = useState(false);
@@ -1347,6 +1377,7 @@ function CustomerView({ session }) {
     const [isUploading, setIsUploading] = useState(false);
     const [isVIPToggled, setIsVIPToggled] = useState(false);
     const [isVIPModalOpen, setIsVIPModalOpen] = useState(false);
+    const lastUploadTime = useRef(0);
 
     const [feedbackText, setFeedbackText] = useState('');
     const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
@@ -1625,6 +1656,7 @@ function CustomerView({ session }) {
         localStorage.removeItem('myQueueEntryId'); 
         localStorage.removeItem('joinedBarberId');
         localStorage.removeItem('displayWait');
+        localStorage.removeItem('targetFinishTime'); // <-- ADD THIS
         setMyQueueEntryId(null); setJoinedBarberId(null);
         setLiveQueue([]); setQueueMessage(''); setSelectedBarberId('');
         setSelectedServiceId(''); setMessage('');
@@ -1642,7 +1674,7 @@ function CustomerView({ session }) {
     };
 
     // --- Effects ---
-    useEffect(() => { // Geolocation Watcher 
+    useEffect(() => { // Geolocation Watcher + Uploader
         const BARBERSHOP_LAT = 16.414830431367967;
         const BARBERSHOP_LON = 120.59712292628716;
         const DISTANCE_THRESHOLD_METERS = 200;
@@ -1653,33 +1685,39 @@ function CustomerView({ session }) {
             const onPositionUpdate = (position) => {
                 const { latitude, longitude } = position.coords;
                 const distance = getDistanceInMeters(latitude, longitude, BARBERSHOP_LAT, BARBERSHOP_LON);
-
-                // We use displayWait here (the countdown)
-                console.log(`Current distance: ${Math.round(distance)}m. Wait: ${displayWait}m. Cooldown: ${isOnCooldown}`);
-
-                // --- THIS IS THE CORRECTED LOGIC ---
+                
+                // 1. LOCAL ALERT LOGIC (Existing)
                 if (distance > DISTANCE_THRESHOLD_METERS && displayWait < 15) {
-                // --- END CORRECTION ---
-
                     if (!isTooFarModalOpen && !isOnCooldown) {
-                        console.log('Customer is too far AND turn is close! Triggering modal.');
                         localStorage.setItem('stickyModal', 'tooFar');
                         setIsTooFarModalOpen(true);
                         setIsOnCooldown(true);
                     }
                 } else {
-                    if (isOnCooldown) { console.log('Customer is back in range. Resetting cooldown.'); setIsOnCooldown(false); }
+                    if (isOnCooldown) { setIsOnCooldown(false); }
+                }
+
+                // 2. SERVER UPLOAD LOGIC (New)
+                // We limit uploads to once every 60 seconds to save battery/data
+                const now = Date.now();
+                if (now - lastUploadTime.current > 60000) { 
+                    console.log(`[X-Ray] Uploading distance: ${Math.round(distance)}m`);
+                    axios.put(`${API_URL}/queue/location`, {
+                        queueId: myQueueEntryId,
+                        distance: distance
+                    }).catch(err => console.error("Loc upload failed", err));
+                    
+                    lastUploadTime.current = now;
                 }
             };
-
-            const onPositionError = (err) => { console.warn(`Geolocation error (Code ${err.code}): ${err.message}`); };
-
+            
+            const onPositionError = (err) => { console.warn(`GPS Error: ${err.message}`); };
+            
             locationWatchId.current = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
         }
-
-        return () => { if (locationWatchId.current) { navigator.geolocation.clearWatch(locationWatchId.current); console.log('Stopping geolocation watch.'); } };
-
-    // --- THIS IS THE CORRECTED DEPENDENCY ARRAY ---
+        
+        return () => { if (locationWatchId.current) { navigator.geolocation.clearWatch(locationWatchId.current); } };
+    
     }, [myQueueEntryId, isTooFarModalOpen, isOnCooldown, displayWait]);
 
     useEffect(() => { // First Time Instructions
@@ -1874,53 +1912,76 @@ function CustomerView({ session }) {
         }
     }, [selectedBarberId, fetchPublicQueue]);
 
-    useEffect(() => { // Smart EWT Calculation
+    useEffect(() => { // Smart EWT Calculation (Time-Adjusted)
         const calculateWaitTime = () => {
-            const newQueue = liveQueue; // Get the freshly fetched queue
+            const newQueue = liveQueue;
+            const myIndexNew = newQueue.findIndex(e => e.id.toString() === myQueueEntryId);
+            
+            // Determine who is ahead of us
+            const peopleAheadNew = myIndexNew !== -1 ? newQueue.slice(0, myIndexNew) : newQueue;
+            
             const relevantEntries = newQueue.filter(e => e.status === 'Waiting' || e.status === 'Up Next');
             setPeopleWaiting(relevantEntries.length);
 
-            const myIndexNew = newQueue.findIndex(e => e.id.toString() === myQueueEntryId);
-            const peopleAheadNew = myIndexNew !== -1 ? newQueue.slice(0, myIndexNew) : newQueue;
+            const now = Date.now();
 
-            const newTotalWait = peopleAheadNew.reduce((sum, entry) => {
-                if (['Waiting', 'Up Next', 'In Progress'].includes(entry.status)) { return sum + (entry.services?.duration_minutes || 30); }
+            // --- THE NEW LOGIC ---
+            const dbWaitMinutes = peopleAheadNew.reduce((sum, entry) => {
+                // 1. Get the standard duration for this service (default 30)
+                const duration = entry.services?.duration_minutes || 30;
+
+                // 2. If this person is "In Progress", they are partly done!
+                if (entry.status === 'In Progress' && entry.updated_at) {
+                    const startTime = new Date(entry.updated_at).getTime();
+                    const minutesElapsed = (now - startTime) / 60000;
+                    
+                    // Calculate remaining time (e.g., 30m total - 10m elapsed = 20m left)
+                    // We use Math.max(5, ...) to ensure we never assume less than 5 mins remains (Safety Buffer)
+                    const minutesRemaining = Math.max(5, duration - minutesElapsed);
+                    
+                    return sum + minutesRemaining;
+                }
+
+                // 3. If "Waiting" or "Up Next", count the full duration
+                if (['Waiting', 'Up Next'].includes(entry.status)) { 
+                    return sum + duration; 
+                }
+                
                 return sum;
             }, 0);
+            // ---------------------
 
-            // This is the new, correct logic
-            setDisplayWait(currentCountdown => {
+            const calculatedTarget = now + (dbWaitMinutes * 60000);
 
-                if (currentCountdown === 0) {
-                    // Case 1: Timer isn't running (e.g., new user).
-                    // Start the timer with the full calculated time.
-                    localStorage.setItem('displayWait', newTotalWait.toString());
-                    return newTotalWait;
+            // Logic Split: Browsing vs Joined
+            if (!myQueueEntryId) {
+                // Browsing: Update strictly based on the new "Time-Adjusted" math
+                setFinishTime(calculatedTarget);
+            } 
+            else {
+                // Joined: Apply "Stickiness" to prevent minor jitters
+                const storedTarget = localStorage.getItem('targetFinishTime');
+                let currentTarget = storedTarget ? parseInt(storedTarget, 10) : 0;
+
+                // Update if: No target, Old target passed, or New calculation is FASTER
+                if (!currentTarget || currentTarget < now || calculatedTarget < currentTarget) {
+                    currentTarget = calculatedTarget;
+                    localStorage.setItem('targetFinishTime', currentTarget.toString());
+                    setFinishTime(currentTarget);
                 }
-
-                if (newTotalWait < currentCountdown) {
-                    // Case 2: Someone left the queue.
-                    // The new total time (10) is less than the countdown (14).
-                    // Update the timer to the new, shorter time.
-                    localStorage.setItem('displayWait', newTotalWait.toString());
-                    return newTotalWait;
-                }
-
-                // Case 3: Refresh (or no change).
-                // The new total time (20) is >= the countdown (14).
-                // DO NOTHING. Let the countdown timer continue from 14.
-                return currentCountdown;
-            });
-; 
+            }
+            
+            // Update UI Minutes
+            const targetToUse = myQueueEntryId ? parseInt(localStorage.getItem('targetFinishTime') || calculatedTarget) : calculatedTarget;
+            const remainingMins = Math.max(0, Math.ceil((targetToUse - now) / 60000));
+            setDisplayWait(remainingMins);
         };
-
-        // Only run if the queue is loaded
-        if (liveQueue.length > 0 || !myQueueEntryId) {
+        
+        if (liveQueue.length > 0 || myQueueEntryId) {
             calculateWaitTime();
         }
-
+       
     }, [liveQueue, myQueueEntryId]);
-
     // ADD THIS ENTIRE BLOCK BACK
     useEffect(() => { // Modal Button Countdown
         let timerId = null;
@@ -1951,6 +2012,24 @@ function CustomerView({ session }) {
         };
     }, [isServiceCompleteModalOpen, isCancelledModalOpen, isTooFarModalOpen]); // Dependencies are only for the remaining modals
 
+    // --- ADD THIS NEW BLOCK ---
+    useEffect(() => { // UI Re-render Timer (Checks Timestamp)
+        if (!myQueueEntryId) return;
+
+        // Update the UI every 5 seconds to keep the minute accurate
+        const timerId = setInterval(() => { 
+            const storedTarget = localStorage.getItem('targetFinishTime');
+            if (storedTarget) {
+                const target = parseInt(storedTarget, 10);
+                const now = Date.now();
+                // Calculate remaining minutes based on Real Time
+                const remaining = Math.max(0, Math.ceil((target - now) / 60000));
+                setDisplayWait(remaining);
+            }
+        }, 5000); 
+
+        return () => clearInterval(timerId);
+    }, [myQueueEntryId]);
     // --- Render Customer View ---
     return (
         <div className="card">
@@ -2155,7 +2234,39 @@ function CustomerView({ session }) {
                             {referenceImageUrl && <p className="success-message small">Photo ready. <a href={referenceImageUrl} target="_blank" rel="noopener noreferrer">View Photo</a></p>}
                         </div>
 
-                        <div className="form-group"><label>Select Available Barber:</label><select value={selectedBarberId} onChange={(e) => setSelectedBarberId(e.target.value)} required><option value="">-- Choose --</option>{barbers.map((b) => (<option key={b.id} value={b.id}>{b.full_name}</option>))}</select></div>
+                        <div className="form-group">
+                            <label>Select Available Barber:</label>
+                            {barbers.length > 0 ? (
+                                <div className="barber-selection-list">
+                                    {barbers.map((barber) => (
+                                        <button
+                                            type="button"
+                                            key={barber.id}
+                                            className={`barber-card ${selectedBarberId === barber.id.toString() ? 'selected' : ''}`}
+                                            onClick={() => setSelectedBarberId(barber.id.toString())}
+                                        >
+                                            {/* Image removed, just the name and stars */}
+                                            
+                                            <span className="barber-name">{barber.full_name}</span>
+                                            
+                                            <div className="barber-rating">
+                                                <span className="star-icon">⭐</span>
+                                                <span className="score-text">
+                                                    {parseFloat(barber.average_score).toFixed(1)}
+                                                </span>
+                                                <span className="review-count">
+                                                    ({barber.review_count})
+                                                </span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="empty-text">No barbers are available right now.</p>
+                            )}
+                            {/* Keeps the form logic working */}
+                            <input type="hidden" value={selectedBarberId} required />
+                        </div>
 
                         {selectedBarberId && (
                             <div className="feedback-list-container customer-feedback">
@@ -2189,8 +2300,18 @@ function CustomerView({ session }) {
                         ) : (
                             selectedBarberId && (
                                 <div className="ewt-container">
-                                    <div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div>
-                                    <div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div>
+                                    <div className="ewt-item">
+                                        <span>Currently waiting</span>
+                                        <strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong>
+                                    </div>
+                                    <div className="ewt-item">
+                                        <span>Expected Time</span>
+                                        <strong>
+                                            {finishTime > 0 
+                                                ? new Date(finishTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) 
+                                                : 'Calculating...'}
+                                        </strong>
+                                    </div>
                                 </div>
                             )
                         )}
@@ -2230,8 +2351,17 @@ function CustomerView({ session }) {
                     <div className="current-serving-display"><div className="serving-item now-serving"><span>Now Serving</span><strong>{nowServing ? `Customer #${nowServing.id}` : '---'}</strong></div><div className="serving-item up-next"><span>Up Next</span><strong>{upNext ? `Customer #${upNext.id}` : '---'}</strong></div></div>
                     {queueMessage && <p className="message error">{queueMessage}</p>}
                     
-                    <div className="ewt-container"><div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div><div className="ewt-item"><span>Estimated wait</span><strong>~ {displayWait} min</strong></div></div>
-                    
+                    <div className="ewt-container">
+                        <div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div>
+                        <div className="ewt-item">
+                            <span>Expected Time</span>
+                            <strong>
+                                {finishTime > 0 
+                                    ? new Date(finishTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) 
+                                    : 'Calculating...'}
+                            </strong>
+                        </div>
+                    </div>
                     <ul className="queue-list live">
                         {isQueueLoading ? (
                             <>

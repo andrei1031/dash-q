@@ -1582,3 +1582,119 @@ body.light-mode .status-banner.up-next-banner h2 {
 body.light-mode .status-banner.up-next-banner p {
     color: #b97400;
 }
+/* App.css */
+
+/* Wrapper for the rating row */
+.barber-rating {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 0.85rem;
+}
+
+/* The gold star */
+.star-icon {
+    color: #FFD700; /* Gold */
+    font-size: 0.9rem;
+}
+
+/* The number (e.g., 4.8) */
+.score-text {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* The count (e.g., (12)) */
+.review-count {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+/* Adjust the card padding slightly to fit the extra text */
+.barber-card {
+    padding: 12px 5px;
+}
+/* ===================================================================
+   BARBER SELECTION (TEXT ONLY VERSION)
+   =================================================================== */
+
+.barber-selection-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* Wider cards since no image */
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.barber-card {
+    background-color: var(--bg-dark);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+}
+
+.barber-card:hover {
+    border-color: var(--primary-orange-hover);
+    transform: translateY(-2px);
+}
+
+.barber-card.selected {
+    border-color: var(--primary-orange);
+    background-color: var(--my-position-bg);
+    box-shadow: 0 0 10px rgba(255, 149, 0, 0.4);
+}
+
+.barber-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+    line-height: 1.2;
+}
+
+/* Rating Styles */
+.barber-rating {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.star-icon { color: #FFD700; }
+.score-text { font-weight: 700; color: var(--text-primary); }
+.review-count { color: var(--text-secondary); font-size: 0.8rem; }
+
+/* Light Mode */
+body.light-mode .barber-card { background-color: #F4F4F5; }
+body.light-mode .barber-card.selected { background-color: var(--my-position-bg); }
+body.light-mode .barber-rating { background: rgba(0, 0, 0, 0.05); }
+/* Barber X-Ray Badges */
+.distance-badge {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+    font-weight: 600;
+    display: inline-block;
+}
+.dist-green { background-color: rgba(52, 199, 89, 0.2); color: #34C759; }
+.dist-orange { background-color: rgba(255, 149, 0, 0.2); color: #FF9500; }
+.dist-red { background-color: rgba(255, 59, 48, 0.2); color: #FF3B30; }
+
+/* Light mode adjustments */
+body.light-mode .dist-green { background-color: #e6f9e9; color: #1e5c2d; }
+body.light-mode .dist-orange { background-color: #fff8e6; color: #b97400; }
+body.light-mode .dist-red { background-color: #ffebeb; color: #c41e15; }
