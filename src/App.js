@@ -103,8 +103,11 @@ export const ThemeProvider = ({ children }) => {
 
     useEffect(() => {
         if (theme === 'light') {
-            document.body.classList.add('light-mode');
+            // CHANGE: Use document.documentElement instead of document.body
+            document.documentElement.classList.add('light-mode');
+            document.body.classList.remove('light-mode'); // Clean up old class if present
         } else {
+            document.documentElement.classList.remove('light-mode');
             document.body.classList.remove('light-mode');
         }
         localStorage.setItem('theme', theme);

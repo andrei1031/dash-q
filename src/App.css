@@ -1231,16 +1231,15 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
     justify-content: flex-start;
     gap: 10px;
 }
-/* Light mode override for VIP background */
-body.light-mode .queue-list li.vip-entry {
-  background-image: linear-gradient(
-        -45deg, 
-        #fff8e6, 
-        #fffbeb, 
-        #fff8e6,
-        #ffeecf
-    );
-  border: 1px solid #FFD68A;
+/* ===================================================================
+   LIGHT MODE THEME
+   =================================================================== */
+/* CHANGE THIS SELECTOR from 'body.light-mode' to ':root.light-mode' */
+:root.light-mode {
+  /* The variables inside here stay exactly the same */
+  --bg-dark: #FFFFFF; 
+  --surface-color: #FFFFFF; 
+  /* ... (keep all your existing variable definitions) ... */
 }
 
 
