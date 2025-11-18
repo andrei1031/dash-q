@@ -952,7 +952,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
         const queueId = entry.id;
         const servicePrice = parseFloat(entry.services?.price_php) || 0;
         const isVIP = entry.is_vip === true;
-        const vipCharge = isVIP ? 149 : 0;
+        const vipCharge = isVIP ? 100 : 0;
         const subtotalDue = servicePrice + vipCharge;
         const parsedTip = parseInt(tipInput || '0');
 
@@ -1224,12 +1224,12 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                                     <strong>Service:</strong> {modalState.data.services?.name || 'Service'} (₱{parseFloat(modalState.data.services?.price_php || 0).toFixed(2)})<br/>
                                     {modalState.data.is_vip && (
                                         <>
-                                            <strong>VIP Fee:</strong> ₱149.00<br/>
+                                            <strong>VIP Fee:</strong> ₱100.00<br/>
                                         </>
                                     )}
                                     <strong>Subtotal: ₱{(
                                         (parseFloat(modalState.data.services?.price_php || 0)) + 
-                                        (modalState.data.is_vip ? 149 : 0)
+                                        (modalState.data.is_vip ? 100 : 0)
                                     ).toFixed(2)}</strong>
                                 </p>
                                 
@@ -2074,7 +2074,7 @@ function CustomerView({ session }) {
                     <div className="modal-body">
                         <h2>Priority Service Confirmation</h2>
                         {selectedServiceId && services.find(s => s.id.toString() === selectedServiceId) ? (
-                            <p>You have selected <strong>{services.find(s => s.id.toString() === selectedServiceId).name}</strong>. This VIP priority service incurs an <strong>additional ₱149</strong> fee, guaranteeing you the next "Up Next" slot.</p>
+                            <p>You have selected <strong>{services.find(s => s.id.toString() === selectedServiceId).name}</strong>. This VIP priority service incurs an <strong>additional ₱100</strong> fee, guaranteeing you the next "Up Next" slot.</p>
                         ) : (
                             <p>VIP priority service incurs an <strong>additional ₱100</strong> fee, guaranteeing you the next "Up Next" slot. Please ensure you have selected a service.</p>
                         )}
@@ -2092,7 +2092,7 @@ function CustomerView({ session }) {
                             disabled={!selectedServiceId}
                             className="btn btn-primary"
                         >
-                            Confirm (+₱149)
+                            Confirm (+100)
                         </button>
                     </div>
                 </div>
@@ -2126,7 +2126,7 @@ function CustomerView({ session }) {
                                         onClick={() => handleVIPToggle({ target: { checked: true } })}
                                         disabled={isVIPToggled}
                                     >
-                                        VIP Priority (+₱149)
+                                        VIP Priority (+₱100)
                                     </button>
                                 </div>
                                 {isVIPToggled && (
