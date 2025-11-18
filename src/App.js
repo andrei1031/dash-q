@@ -1162,6 +1162,11 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                                     <div className="queue-item-info">
                                         <strong>#{queueDetails.upNext.id} - {queueDetails.upNext.customer_name}</strong>
                                         <DistanceBadge meters={queueDetails.upNext.current_distance_meters} />
+                                        {queueDetails.upNext.is_confirmed ? (
+                                            <span className="badge-confirmed">✅ CONFIRMED</span>
+                                        ) : (
+                                            <span className="badge-waiting">⏳ Waiting for confirm...</span>
+                                        )}
                                         <PhotoDisplay entry={queueDetails.upNext} label="Up Next" />
                                     </div>
                                     <button onClick={() => openChat(queueDetails.upNext)} className="btn btn-icon" title={queueDetails.upNext.profiles?.id ? "Chat" : "Guest"} disabled={!queueDetails.upNext.profiles?.id}>
@@ -2340,9 +2345,31 @@ function CustomerView({ session }) {
                         </div>
                     )}
                     {myQueueEntry?.status === 'Up Next' && (
-                        <div className="status-banner up-next-banner">
+                        <div className={`status-banner up-next-banner ${myQueueEntry.is_confirmed ? 'confirmed-pulse' : ''}`}>
                             <h2><IconNext /> You're Up Next!</h2>
-                            <p>Please be ready and stay near the shop.</p>
+                            
+                            {!myQueueEntry.is_confirmed ? (
+                                <>
+                                    <p>Please confirm you are ready to take the chair.</p>
+                                    <button 
+                                        className="btn btn-primary btn-full-width"
+                                        style={{ marginTop: '10px' }}
+                                        onClick={async () => {
+                                            try {
+                                                await axios.put(`${API_URL}/queue/confirm`, { queueId: myQueueEntryId });
+                                                // Trigger a refresh to update UI immediately
+                                                fetchPublicQueue(joinedBarberId);
+                                            } catch (err) {
+                                                console.error("Confirm failed", err);
+                                            }
+                                        }}
+                                    >
+                                        I'm Coming! 🏃‍♂️
+                                    </button>
+                                </>
+                            ) : (
+                                <p><strong>✅ Confirmed!</strong> The barber knows you are coming. Please enter the shop now.</p>
+                            )}
                         </div>
                     )}
                     {/* --- END NEW BANNER --- */}
