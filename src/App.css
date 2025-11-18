@@ -385,6 +385,7 @@ a:hover {
    =================================================================== */
 
 /* Base button reset */
+/* Base button reset - UPDATED FOR MOBILE FIT */
 button {
   cursor: pointer;
   font-family: inherit;
@@ -392,13 +393,21 @@ button {
   border-radius: 6px;
   transition: all 0.2s ease;
   border: none;
-  padding: 10px 16px;
+  padding: 12px 16px; /* Slightly more padding for touch targets */
   font-size: 0.95rem;
-  line-height: 1.2;
+  line-height: 1.3; /* Better spacing for multi-line text */
+  
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px; /* Space for icons */
+  gap: 8px;
+  
+  /* --- NEW RESPONSIVE RULES --- */
+  max-width: 100%;       /* Never wider than the screen */
+  white-space: normal;   /* Allow text to wrap to next line */
+  height: auto;          /* Allow button to grow taller if text wraps */
+  min-height: 44px;      /* Minimum touch target size for mobile */
+  text-align: center;    /* Center text if it wraps */
 }
 
 button:disabled {
@@ -511,7 +520,13 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 .btn-icon-label .icon {
   width: 16px; /* Smaller icon when next to text */
   height: 16px;
+   flex-shrink: 0; /* Prevent icon from getting squished */
 }
+/* Fix for long text in action buttons */
+.btn-icon-label {
+  flex-wrap: wrap; /* Allow icon and text to flow if needed */
+}
+
 
 
 /* ===================================================================
@@ -901,6 +916,22 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   background-color: var(--bg-dark);
   border-top: 1px solid var(--border-color);
   border-radius: 0 0 12px 12px;
+}
+/* --- ADD THIS NEW MEDIA QUERY --- */
+/* On screens smaller than 400px (most phones), stack buttons vertically */
+@media (max-width: 400px) {
+  .modal-footer {
+    grid-template-columns: 1fr; /* Stack them: 1 column only */
+  }
+  
+  /* Make the secondary button (Cancel/Back) order last so it's at the bottom */
+  .modal-footer button.btn-secondary {
+    order: 2; 
+  }
+  .modal-footer button.btn-primary,
+  .modal-footer button.btn-danger {
+    order: 1;
+  }
 }
 
 /* Modal with only one button */
