@@ -867,12 +867,27 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                 if (status === 'SUBSCRIBED') { console.log(`Barber dashboard subscribed to queue ${barberId}`); }
                 else { console.error(`Barber dashboard subscription error: ${status}`, err); }
             });
-        dashboardRefreshInterval = setInterval(() => { console.log('Dashboard periodic refresh...'); fetchQueueDetails(); }, 15000);
+
+        // --- START OF FIX ---
+        dashboardRefreshInterval = setInterval(() => { 
+            console.log('Dashboard periodic refresh...'); 
+            fetchQueueDetails(); 
+
+            // --- ADD THIS FALLBACK ---
+            console.log('Periodic re-sync of unread messages...');
+            const saved = localStorage.getItem('barberUnreadMessages');
+            const unread = saved ? JSON.parse(saved) : {};
+            setUnreadMessages(unread);
+            // --- END FALLBACK ---
+
+        }, 15000);
+        // --- END OF FIX ---
+
         return () => {
             if (channel && supabase?.removeChannel) { supabase.removeChannel(channel).then(() => console.log('Barber unsubscribed.')); }
             if (dashboardRefreshInterval) { clearInterval(dashboardRefreshInterval); }
         };
-    }, [barberId, fetchQueueDetails]);
+    }, [barberId, fetchQueueDetails, setUnreadMessages]); // <-- Add setUnreadMessages here
 
     useEffect(() => {
         const handleVisibility = () => {
@@ -1292,7 +1307,6 @@ function CustomerView({ session }) {
     const [barbers, setBarbers] = useState([]);
     const [selectedBarberId, setSelectedBarberId] = useState('');
     const [customerName] = useState(() => session.user?.user_metadata?.full_name || '');
-    const [customerPhone, setCustomerPhone] = useState('');
     const [customerEmail] = useState(() => session.user?.email || '');
     const [message, setMessage] = useState('');
     const [player_id, setPlayerId] = useState(null);
@@ -1560,7 +1574,6 @@ function CustomerView({ session }) {
         try {
             const response = await axios.post(`${API_URL}/queue`, {
                 customer_name: customerName,
-                customer_phone: customerPhone,
                 customer_email: customerEmail,
                 barber_id: selectedBarberId,
                 reference_image_url: referenceImageUrl || null,
@@ -2090,7 +2103,6 @@ function CustomerView({ session }) {
                     </div>
                     <form onSubmit={handleJoinQueue} className="card-body">
                         <div className="form-group"><label>Your Name:</label><input type="text" value={customerName} required readOnly className="prefilled-input" /></div>
-                        <div className="form-group"><label>Your Phone (Optional):</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="e.g., 09171234567" /></div>
                         <div className="form-group"><label>Your Email:</label><input type="email" value={customerEmail} readOnly className="prefilled-input" /></div>
                         <div className="form-group"><label>Select Service:</label><select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required><option value="">-- Choose service --</option>{services.map((service) => (<option key={service.id} value={service.id}>{service.name} ({service.duration_minutes} min / ₱{service.price_php})</option>))}</select></div>
                         
