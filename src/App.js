@@ -886,16 +886,10 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                 console.log('Barber dashboard received queue update (via Realtime):', payload);
                 fetchQueueDetails();
             })
+            // ...
             .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log(`Barber dashboard subscribed to queue ${barberId}`);
-                } else if (status === 'CLOSED') {
-                    // This is normal cleanup, just log it as info
-                    console.log(`Barber dashboard subscription disconnected cleanly.`);
-                } else {
-                    // Only log actual errors (like CHANNEL_ERROR or TIMED_OUT)
-                    console.error(`Barber dashboard subscription error: ${status}`, err);
-                }
+                if (status === 'SUBSCRIBED') { console.log(`Barber dashboard subscribed to queue ${barberId}`); }
+                else { console.error(`Barber dashboard subscription error: ${status}`, err); } // <--- THIS LINE IS THE PROBLEM
             });
 
         // --- START OF FIX ---
