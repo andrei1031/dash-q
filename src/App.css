@@ -56,12 +56,16 @@
 
   --status-dot-online: var(--success-color);
   --status-dot-offline: var(--text-secondary);
+  
+  /* NEW: Secondary color for data metrics (dark mode) */
+  --data-secondary: #AAAAAA; 
 }
 
 /* ===================================================================
    LIGHT MODE THEME
    =================================================================== */
-body.light-mode {
+/* FIX: Changed body.light-mode to :root.light-mode for theme switching fix */
+:root.light-mode {
   --bg-dark: #F4F4F5; /* Light gray background */
   --surface-color: #FFFFFF; /* White cards */
   --text-primary: #18181B; /* Near-black text */
@@ -100,6 +104,9 @@ body.light-mode {
 
   --status-dot-online: var(--success-color);
   --status-dot-offline: var(--text-secondary);
+  
+  /* NEW: Secondary color for data metrics (light mode) */
+  --data-secondary: #18181B; 
 }
 
 
@@ -168,7 +175,8 @@ a:hover {
 }
 
 .container {
-  max-width: 1200px;
+  /* FIX: Remove max-width for better responsiveness on larger screens */
+  /* max-width: 1200px; */ 
   margin: 20px auto;
   padding: 0 20px;
   display: grid;
@@ -215,10 +223,17 @@ a:hover {
   background-color: var(--surface-color);
   border-radius: 12px;
   border: 1px solid var(--card-border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Softer shadow */
+  /* NEW: Add a subtle shadow to lift cards */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
   display: flex;
   flex-direction: column;
 }
+
+/* NEW: Light Mode Shadow for depth */
+:root.light-mode .card {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 
 .card-header {
   padding: 20px 25px 15px 25px;
@@ -250,6 +265,10 @@ a:hover {
 .auth-card {
   max-width: 450px;
   margin: 50px auto;
+  /* FIX: Added mobile-friendly margin */
+  margin-left: 15px;
+  margin-right: 15px;
+  width: calc(100% - 30px);
 }
 
 
@@ -258,7 +277,8 @@ a:hover {
    =================================================================== */
 
 .form-group {
-  margin-bottom: 15px;
+  /* TIGHTER SPACING */
+  margin-bottom: 12px; 
 }
 
 .form-group label {
@@ -384,7 +404,6 @@ a:hover {
    BUTTON STYLES (Global)
    =================================================================== */
 
-/* Base button reset */
 /* Base button reset - UPDATED FOR MOBILE FIT */
 button {
   cursor: pointer;
@@ -402,7 +421,6 @@ button {
   justify-content: center;
   gap: 8px;
   
-  /* --- NEW RESPONSIVE RULES --- */
   max-width: 100%;       /* Never wider than the screen */
   white-space: normal;   /* Allow text to wrap to next line */
   height: auto;          /* Allow button to grow taller if text wraps */
@@ -434,15 +452,21 @@ button:disabled {
   border: 1px solid var(--border-color);
   background-color: var(--surface-color);
   color: var(--text-secondary);
+  /* NEW: Subtle lift on hover */
+  transition: all 0.2s ease; 
 }
 .btn-secondary:hover:not(:disabled) {
   background-color: var(--bg-dark);
   color: var(--text-primary);
+  /* NEW: Subtle lift on hover */
+  transform: translateY(-1px); 
 }
-body.light-mode .btn-secondary {
+/* FIX: Change selector to :root.light-mode */
+:root.light-mode .btn-secondary {
    background-color: var(--bg-dark);
 }
-body.light-mode .btn-secondary:hover:not(:disabled) {
+/* FIX: Change selector to :root.light-mode */
+:root.light-mode .btn-secondary:hover:not(:disabled) {
   background-color: #e4e4e7;
 }
 
@@ -454,6 +478,7 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 }
 .btn-success:hover:not(:disabled) {
   background-color: var(--success-color-hover);
+  transform: translateY(-1px);
 }
 
 /* Danger (Red) */
@@ -463,6 +488,7 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 }
 .btn-danger:hover:not(:disabled) {
   background-color: var(--error-color-hover);
+  transform: translateY(-1px);
 }
 
 /* Link (Text-only) */
@@ -496,13 +522,16 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   min-width: 36px;
   min-height: 36px;
   
-  /* --- ADD THIS LINE --- */
-  position: relative; /* This keeps the red dot inside the button */
+  position: relative; 
+  /* NEW: Subtle lift on hover */
+  transition: all 0.2s ease;
 }
 .btn-icon:hover:not(:disabled) {
   background-color: var(--hover-bg-dark);
   color: var(--text-primary);
   border-color: var(--border-color);
+  /* NEW: Subtle lift on hover */
+  transform: translateY(-1px); 
 }
 .btn-icon .icon {
   width: 20px;
@@ -622,6 +651,13 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   margin-bottom: 20px;
 }
 
+/* FIX: Two columns on medium/large screens */
+@media (min-width: 600px) {
+  .action-buttons-container {
+    grid-template-columns: 1fr 1fr; 
+  }
+}
+
 /* --- Queue Lists --- */
 .queue-subtitle {
   font-size: 1rem;
@@ -643,7 +679,8 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   padding: 12px 10px;
   border-radius: 6px;
   background: var(--bg-dark);
-  margin-bottom: 8px;
+  /* TIGHTER SPACING */
+  margin-bottom: 8px; 
   font-weight: 500;
   border: 1px solid var(--bg-dark);
 }
@@ -659,7 +696,8 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 .queue-item-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  /* TIGHTER SPACING */
+  gap: 4px; 
   font-size: 1rem;
 }
 .queue-item-info span {
@@ -674,15 +712,14 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 }
 .notification-badge {
   position: absolute;
-  /* Adjust these to position the dot exactly where you want it */
   top: 2px;    
   right: 2px;  
-  width: 8px;  /* Slightly smaller looks cleaner */
+  width: 8px;  
   height: 8px;
   border-radius: 50%;
   background-color: var(--error-color);
   border: 1px solid var(--surface-color);
-  pointer-events: none; /* Ensures it doesn't block clicks */
+  pointer-events: none; 
 }
 
 /* Barber Photo Display */
@@ -736,14 +773,23 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 20px 0 10px 0;
+  /* TIGHTER SPACING */
+  margin: 15px 0 8px 0; 
 }
 .analytics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  min-height: 75px; /* Ensures skeleton has space */
+  min-height: 75px; 
 }
+
+/* FIX: 4-column grid on larger screens */
+@media (min-width: 600px) {
+  .analytics-grid:not(.carbon-grid) {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+  }
+}
+
 .analytics-item {
   background: var(--bg-dark);
   border-radius: 8px;
@@ -763,8 +809,9 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 }
 .analytics-value.small {
   font-size: 1.1rem;
-  color: var(--text-primary);
   font-weight: 600;
+  /* NEW: Use data-secondary for non-primary metrics */
+  color: var(--data-secondary); 
 }
 .analytics-value.carbon {
   color: var(--success-color);
@@ -778,6 +825,7 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   padding-top: 20px;
   border-top: 1px solid var(--border-color);
 }
+
 
 /* ===================================================================
    CUSTOMER: VIEW (CustomerView.js)
@@ -797,6 +845,22 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   border: 2px solid var(--primary-orange);
   background: var(--my-position-bg);
 }
+
+/* NEW: Active pulse animation for my position */
+.queue-list.live li.my-position:not(.in-progress):not(.up-next) {
+    animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+    0% {
+        box-shadow: 0 0 0 0px rgba(255, 149, 0, 0.4);
+    }
+    100% {
+        box-shadow: 0 0 0 4px rgba(255, 149, 0, 0);
+    }
+}
+
+
 .queue-list.live .public-queue-status {
   font-size: 0.9rem;
   font-weight: 500;
@@ -813,7 +877,6 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 
 .chat-toggle-button {
   position: relative;
-  /* margin-top: 15px; */ /* Removed, now part of flex gap */
 }
 .chat-toggle-button .notification-badge {
   top: 10px;
@@ -870,7 +933,6 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
 }
 
 
-
 /* ===================================================================
    MODAL (All components)
    =================================================================== */
@@ -922,8 +984,8 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
   border-top: 1px solid var(--border-color);
   border-radius: 0 0 12px 12px;
 }
-/* --- ADD THIS NEW MEDIA QUERY --- */
-/* On screens smaller than 400px (most phones), stack buttons vertically */
+
+/* FIX: Added media query for stacking modal buttons */
 @media (max-width: 400px) {
   .modal-footer {
     grid-template-columns: 1fr; /* Stack them: 1 column only */
@@ -1203,6 +1265,9 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
    =================================================================== */
 
 /* VIP Toggle (CustomerView.js) */
+.priority-toggle-group {
+  margin-top: 20px;
+}
 .priority-toggle-control {
     display: flex;
     width: 100%;
@@ -1267,15 +1332,16 @@ body.light-mode .btn-secondary:hover:not(:disabled) {
     justify-content: flex-start;
     gap: 10px;
 }
-/* ===================================================================
-   LIGHT MODE THEME
-   =================================================================== */
-/* CHANGE THIS SELECTOR from 'body.light-mode' to ':root.light-mode' */
-:root.light-mode {
-  /* The variables inside here stay exactly the same */
-  --bg-dark: #FFFFFF; 
-  --surface-color: #FFFFFF; 
-  /* ... (keep all your existing variable definitions) ... */
+/* FIX: Change selector to :root.light-mode */
+:root.light-mode .queue-list li.vip-entry {
+  /* This is to override the dark mode gradient */
+    background-image: linear-gradient(
+        -45deg, 
+        #fffbeb, 
+        #fff9e6, 
+        #fffbeb,
+        #f5f5f5
+    );
 }
 
 
@@ -1334,11 +1400,12 @@ button .spinner {
 }
 
 /* Spinner for light buttons (e.g., secondary) */
-.btn-secondary .spinner,
-.btn-danger .spinner,
-.btn-success .spinner {
-  border-color: var(--spinner-light-base);
-  border-top-color: var(--spinner-light-highlight);
+/* FIX: Ensure dark mode button spinners are white */
+.btn-secondary:not(:disabled) .spinner,
+.btn-danger:not(:disabled) .spinner,
+.btn-success:not(:disabled) .spinner {
+  border-color: var(--spinner-base);
+  border-top-color: var(--spinner-highlight);
 }
 
 /* Primary button spinner is dark */
@@ -1562,24 +1629,25 @@ button .spinner {
     color: var(--primary-orange);
 }
 
-/* Light mode adjustments for banners */
-body.light-mode .status-banner.in-progress-banner {
+/* FIX: Change selector to :root.light-mode */
+:root.light-mode .status-banner.in-progress-banner {
     color: #1e5c2d;
 }
-body.light-mode .status-banner.in-progress-banner h2 {
+:root.light-mode .status-banner.in-progress-banner h2 {
     color: #1e5c2d;
 }
-body.light-mode .status-banner.in-progress-banner p {
+:root.light-mode .status-banner.in-progress-banner p {
     color: #277a3b;
 }
 
-body.light-mode .status-banner.up-next-banner {
+/* FIX: Change selector to :root.light-mode */
+:root.light-mode .status-banner.up-next-banner {
     color: #855300;
 }
-body.light-mode .status-banner.up-next-banner h2 {
+:root.light-mode .status-banner.up-next-banner h2 {
     color: #855300;
 }
-body.light-mode .status-banner.up-next-banner p {
+:root.light-mode .status-banner.up-next-banner p {
     color: #b97400;
 }
 /* App.css */
@@ -1622,7 +1690,8 @@ body.light-mode .status-banner.up-next-banner p {
 
 .barber-selection-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* Wider cards since no image */
+    /* FIX: More responsive grid for smaller screens */
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); 
     gap: 10px;
     margin-top: 5px;
 }
@@ -1677,10 +1746,10 @@ body.light-mode .status-banner.up-next-banner p {
 .score-text { font-weight: 700; color: var(--text-primary); }
 .review-count { color: var(--text-secondary); font-size: 0.8rem; }
 
-/* Light Mode */
-body.light-mode .barber-card { background-color: #F4F4F5; }
-body.light-mode .barber-card.selected { background-color: var(--my-position-bg); }
-body.light-mode .barber-rating { background: rgba(0, 0, 0, 0.05); }
+/* FIX: Change selector to :root.light-mode */
+:root.light-mode .barber-card { background-color: #F4F4F5; }
+:root.light-mode .barber-card.selected { background-color: var(--my-position-bg); }
+:root.light-mode .barber-rating { background: rgba(0, 0, 0, 0.05); }
 /* Barber X-Ray Badges */
 .distance-badge {
     font-size: 0.75rem;
@@ -1694,10 +1763,10 @@ body.light-mode .barber-rating { background: rgba(0, 0, 0, 0.05); }
 .dist-orange { background-color: rgba(255, 149, 0, 0.2); color: #FF9500; }
 .dist-red { background-color: rgba(255, 59, 48, 0.2); color: #FF3B30; }
 
-/* Light mode adjustments */
-body.light-mode .dist-green { background-color: #e6f9e9; color: #1e5c2d; }
-body.light-mode .dist-orange { background-color: #fff8e6; color: #b97400; }
-body.light-mode .dist-red { background-color: #ffebeb; color: #c41e15; }
+/* FIX: Change selector to :root.light-mode */
+:root.light-mode .dist-green { background-color: #e6f9e9; color: #1e5c2d; }
+:root.light-mode .dist-orange { background-color: #fff8e6; color: #b97400; }
+:root.light-mode .dist-red { background-color: #ffebeb; color: #c41e15; }
 /* Confirmation Badges */
 .badge-confirmed {
     display: inline-block;

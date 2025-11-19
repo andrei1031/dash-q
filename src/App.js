@@ -29,7 +29,7 @@ const playSound = (audioElement) => {
 // --- Global Constants ---
 const SOCKET_URL = 'https://dash-q-backend.onrender.com';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-const API_URL = 'https://dash-q-backend.onrender.com/api' || 'http://localhost:3001/api';
+const API_URL = 'https://dash-q-backend.onrender.com/api' || 'http://localhost:3002/api';
 
 // --- Supabase Client Setup ---
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -123,9 +123,8 @@ export const ThemeProvider = ({ children }) => {
 
     useEffect(() => {
         if (theme === 'light') {
-            // CHANGE: Use document.documentElement instead of document.body
             document.documentElement.classList.add('light-mode');
-            document.body.classList.remove('light-mode'); // Clean up old class if present
+            document.body.classList.remove('light-mode');
         } else {
             document.documentElement.classList.remove('light-mode');
             document.body.classList.remove('light-mode');
