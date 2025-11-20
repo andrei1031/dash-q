@@ -325,11 +325,12 @@ function AuthForm() {
             // 1. SECURELY CHECK IF EMAIL EXISTS
             const checkResponse = await axios.post(`${API_URL}/check-email`, { email: trimmedEmail });
             
-            // 2. LOGIC SPLIT: If email is NOT found, show the specific error message.
+            // 2. LOGIC SPLIT: If email is NOT found, set the specific error message and return.
             if (!checkResponse.data.found) {
-                console.log("Email not found, showing error message.");
-                // This is the specific error message you requested
-                throw new Error(`Error: The email address "${trimmedEmail}" is not registered.`);
+                console.log("Email not found, showing specific error message.");
+                // Set the specific error message directly, then return.
+                setMessage(`Authentication failed: Error: The email address "${trimmedEmail}" is not registered.`);
+                return; // <-- CRITICAL: Exit the function here
             }
 
             // 3. If found, proceed with the actual password reset link generation via Supabase.
@@ -339,7 +340,6 @@ function AuthForm() {
             });
             
             if (resetError) {
-                // Handle Supabase-specific errors (e.g., rate limit)
                 if (resetError.message.includes('rate limit')) {
                     throw new Error('Email rate limit exceeded. Please wait a moment.');
                 }
@@ -356,9 +356,13 @@ function AuthForm() {
             }, 3000);
 
         } catch (error) {
-            console.error('Forgot password error:', error);
-            // Display the specific error message from the throw statements above
-            setMessage(`Authentication failed: ${error.message}`); 
+            console.error('Forgot password exception:', error);
+            
+            // If the error was not the "Email not registered" message above,
+            // check if it's a known error type and display a generic failure.
+            const clientErrorMessage = error.message.includes('not registered') ? error.message : 'Login failed due to an unexpected server issue or invalid credentials.';
+            setMessage(`Authentication failed: ${clientErrorMessage}`); 
+            
         } finally {
             setLoading(false);
         }
