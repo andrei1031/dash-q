@@ -1434,6 +1434,16 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                                         <span className="service">
                                             {entry.services?.name || 'Unknown Service'}
                                         </span>
+                                        {entry.is_vip && (
+                                            <span className="status-badge" style={{ 
+                                                backgroundColor: 'rgba(255, 149, 0, 0.3)', 
+                                                color: 'var(--primary-orange)', 
+                                                border: '1px solid var(--primary-orange)',
+                                                marginLeft: '8px'
+                                            }}>
+                                                VIP
+                                            </span>
+                                        )}
                                         <span 
                                             className="status-badge" 
                                             style={{ margin: '0 10px' }} // Add some spacing
