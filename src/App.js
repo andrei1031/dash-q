@@ -1387,17 +1387,17 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                     <div className="modal-body" style={{textAlign: 'left'}}>
                         <h2>⭐ Loyalty Status</h2>
                         <p>
-                            **Customer:** {modalState.data.name}<br/>
-                            **Email:** {modalState.data.email}
+                            Customer: {modalState.data.name}<br/>
+                            Email: {modalState.data.email}
                         </p>
 
                         <h3 style={{color: modalState.data.count >= 10 ? 'var(--success-color)' : 'var(--primary-orange)', marginTop: '15px'}}>
-                            Completed Cuts: **{modalState.data.count}**
+                            Completed Cuts: {modalState.data.count}
                         </h3>
 
                         {modalState.data.count >= 10 && (
                             <p className="success-message">
-                                **Loyalty Achieved!** This customer qualifies for a discount.
+                                Loyalty Achieved! This customer qualifies for a discount.
                             </p>
                         )}
 
