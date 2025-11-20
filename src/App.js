@@ -309,34 +309,46 @@ function AuthForm() {
         finally { setLoading(false); }
     };
 
+    // App.js (Inside function AuthForm, around line 430)
+
     const handleForgotPassword = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage('');
+
         try {
             if (!email) throw new Error("Email is required.");
+            const trimmedEmail = email.trim();
 
-            console.log(`Checking if email ${email} exists...`);
-            const checkResponse = await axios.post(`${API_URL}/check-email`, { email });
-
+            console.log(`Checking if email ${trimmedEmail} exists...`);
+            
+            // 1. SECURELY CHECK IF EMAIL EXISTS
+            const checkResponse = await axios.post(`${API_URL}/check-email`, { email: trimmedEmail });
+            
+            // 2. LOGIC SPLIT: If email is NOT found, show the specific error message.
             if (!checkResponse.data.found) {
-                console.log("Email not found, but showing generic message.");
-                setMessage('If an account exists for this email, a reset link has been sent.');
-                setLoading(false);
-                return;
+                console.log("Email not found, showing error message.");
+                // This is the specific error message you requested
+                throw new Error(`Error: The email address "${trimmedEmail}" is not registered.`);
             }
 
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            // 3. If found, proceed with the actual password reset link generation via Supabase.
+            console.log("Email found. Sending reset link via Supabase...");
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
                 redirectTo: window.location.origin,
             });
-            if (error) {
-                if (error.message.includes('rate limit')) {
+            
+            if (resetError) {
+                // Handle Supabase-specific errors (e.g., rate limit)
+                if (resetError.message.includes('rate limit')) {
                     throw new Error('Email rate limit exceeded. Please wait a moment.');
                 }
-                throw error;
+                throw resetError; 
             }
 
-            setMessage('Password reset link sent! Please check your email.');
+            // 4. Show SUCCESS message (as requested)
+            setMessage('Success! Check your email. The password reset link has been sent.');
+            
             setTimeout(() => {
                 setAuthView('login');
                 setEmail('');
@@ -345,7 +357,8 @@ function AuthForm() {
 
         } catch (error) {
             console.error('Forgot password error:', error);
-            setMessage(`Error: ${error.message}`);
+            // Display the specific error message from the throw statements above
+            setMessage(`Authentication failed: ${error.message}`); 
         } finally {
             setLoading(false);
         }
