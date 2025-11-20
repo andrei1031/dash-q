@@ -1409,6 +1409,12 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                                         <span className="service">
                                             {entry.services?.name || 'Unknown Service'}
                                         </span>
+                                        <span 
+                                            className="status-badge" 
+                                            style={{ margin: '0 10px' }} // Add some spacing
+                                        >
+                                            {entry.status}
+                                        </span>
                                         <span className="date" style={{marginLeft: 'auto'}}>
                                             {new Date(entry.created_at).toLocaleDateString()}
                                         </span>
