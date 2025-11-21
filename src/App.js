@@ -78,9 +78,6 @@ const IconChat = () => <IconWrapper><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0
 const IconCamera = () => <IconWrapper><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></IconWrapper>;
 const IconEye = () => <IconWrapper><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></IconWrapper>;
 const IconEyeOff = () => <IconWrapper><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></IconWrapper>;
-const IconHappy = () => <IconWrapper><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></IconWrapper>;
-const IconSad = () => <IconWrapper><circle cx="12" cy="12" r="10"></circle><path d="M16 16s-1.5-2-4-2-4 2-4 2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></IconWrapper>;
-const IconNeutral = () => <IconWrapper><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="15" x2="16" y2="15"></line><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></IconWrapper>;
 const IconSend = () => <IconWrapper><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></IconWrapper>;
 const IconLogout = () => <IconWrapper><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></IconWrapper>;
 const IconRefresh = () => <IconWrapper><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></IconWrapper>;
@@ -775,14 +772,24 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
                         feedback.map((item, index) => (
                             <li key={index} className="feedback-item">
                                 <div className="feedback-header">
-                                    <span className="feedback-score">
-                                        {item.score > 0 ? <IconHappy /> : item.score < 0 ? <IconSad /> : <IconNeutral />}
+                                    {/* FIX: Sanitize score to be between 0 and 5 and apply style */}
+                                    <span className="feedback-score" style={{fontSize: '1.2rem', lineHeight: '1'}}>
+                                        <span style={{color: '#FFD700'}}>
+                                            {'★'.repeat(Math.round(Math.max(0, Math.min(5, item.score || 0))))} 
+                                        </span>
+                                        <span style={{color: 'var(--text-secondary)'}}>
+                                            {'☆'.repeat(5 - Math.round(Math.max(0, Math.min(5, item.score || 0))))} 
+                                        </span>
                                     </span>
+                                    {/* END FIX */}
                                     <span className="feedback-customer">
                                         {item.customer_name || 'Customer'}
                                     </span>
                                 </div>
-                                <p className="feedback-comment">"{item.comments}"</p>
+                                {/* FIX: Ensure it handles null/empty comments */}
+                                {item.comments && item.comments.trim().length > 0 && 
+                                    <p className="feedback-comment">"{item.comments}"</p>
+                                }
                             </li>
                         ))
                     ) : (
@@ -1548,7 +1555,7 @@ function CustomerView({ session }) {
 
     const myQueueEntry = liveQueue.find(e => e.id.toString() === myQueueEntryId);
     const isQueueUpdateAllowed = myQueueEntry && (myQueueEntry.status === 'Waiting' || myQueueEntry.status === 'Up Next');
-
+    const [customerRating, setCustomerRating] = useState(0);
 
     const fetchLoyaltyHistory = useCallback(async (userId) => {
         if (!userId) return;
@@ -1671,11 +1678,18 @@ function CustomerView({ session }) {
                                         localStorage.removeItem('stickyModal');
                                     } else {
                                         if (currentQueueId) {
-                                            console.warn("[Catcher] Server returned null, but entry is gone. Assuming 'Done' for safe cleanup.");
-                                            setIsServiceCompleteModalOpen(true);
+                                            // FIX: This fallback is likely causing the generic error screen.
+                                            // Instead of assuming 'Done', we assume a general cleanup failure.
+                                            console.warn("[Catcher] Server returned null, but entry is gone. Performing safe cleanup and showing alert.");
+                                            setQueueMessage("Your queue entry was removed. See My History for details.");
+                                            
+                                            // Clear flags without showing modal
                                             localStorage.removeItem('myQueueEntryId');
                                             localStorage.removeItem('joinedBarberId');
                                             localStorage.removeItem('stickyModal');
+                                            
+                                            // Use the alert state if you need to notify the user
+                                            // Example: setModalState({ type: 'alert', data: { title: 'Queue Removed', message: 'Your entry was finalized.' } });
                                         }
                                     }
                                 } catch (error) {
@@ -2237,17 +2251,69 @@ return (
                 {!feedbackSubmitted ? (
                     <form className="feedback-form" onSubmit={async (e) => {
                         e.preventDefault();
-                        if (!feedbackText.trim()) { setFeedbackSubmitted(true); return; }
-                        try { await axios.post(`${API_URL}/feedback`, { barber_id: joinedBarberId, customer_name: customerName, comments: feedbackText }); } catch (err) { console.error("Failed to submit feedback", err); }
+                        if (customerRating === 0) { 
+                            setMessage('Please select a star rating.'); 
+                            return; 
+                        }
+                        if (feedbackText.trim().length < 1) { // Changed minLength to 1
+                            setMessage('Please leave a short comment.'); 
+                            return; 
+                        }
+                        
+                        try { 
+                            // API CALL: Sending both the required rating and required comment.
+                            // The server will now use 'rating' directly for the score.
+                            await axios.post(`${API_URL}/feedback`, { 
+                                barber_id: joinedBarberId, 
+                                customer_name: customerName, 
+                                comments: feedbackText.trim(), // Required comment
+                                rating: customerRating // Required star rating (1-5)
+                            }); 
+                        } catch (err) { 
+                            console.error("Failed to submit feedback", err); 
+                            setMessage('Failed to submit feedback.');
+                        }
                         setFeedbackSubmitted(true);
+                        setMessage(''); 
                     }}>
                         <div className="modal-body">
-                            <h2>Service Complete!</h2><p>Thank you! How was your experience with {currentBarberName}?</p>
-                            <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} placeholder="Leave optional feedback..."/>
+                            <h2>Service Complete!</h2>
+                            <p>Thank you! Please rate your experience with **{currentBarberName}**:</p>
+                            
+                            {/* NEW: Star Rating Input */}
+                            <div className="star-rating-input" style={{fontSize: '2rem', marginBottom: '15px'}}>
+                                {[1, 2, 3, 4, 5].map(star => (
+                                    <span 
+                                        key={star}
+                                        style={{cursor: 'pointer', color: star <= customerRating ? '#FFD700' : 'var(--text-secondary)'}}
+                                        onClick={() => setCustomerRating(star)}
+                                    >
+                                        ★
+                                    </span>
+                                ))}
+                            </div>
+                            {/* END NEW STAR RATING INPUT */}
+
+                            <textarea 
+                                value={feedbackText} 
+                                onChange={(e) => setFeedbackText(e.target.value)} 
+                                placeholder="Leave optional comments... (e.g., great service!)"
+                            />
+                            {message && <p className="message error small">{message}</p>}
                         </div>
                         <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" onClick={() => setFeedbackSubmitted(true)}>Skip</button>
-                            <button type="submit" className="btn btn-primary">Submit Feedback</button>
+                            <button 
+                                type="button" 
+                                className="btn btn-secondary" 
+                                onClick={() => { setFeedbackSubmitted(true); setCustomerRating(0); }} // Skip button action
+                            >
+                                Skip
+                            </button>
+                            <button type="submit" 
+                                className="btn btn-primary" 
+                                disabled={customerRating === 0 || feedbackText.trim().length < 5}>
+                                Submit Rating
+                            </button>
                         </div>
                     </form>
                 ) : (
@@ -2376,9 +2442,27 @@ return (
                 {selectedBarberId && (<div className="feedback-list-container customer-feedback">
                     <h3 className="feedback-subtitle">Recent Feedback</h3>
                     <ul className="feedback-list">
-                        {barberFeedback.length > 0 ? (barberFeedback.map((item, index) => (<li key={index} className="feedback-item">
-                            <div className="feedback-header"><span className="feedback-score">{item.score > 0 ? <IconHappy /> : item.score < 0 ? <IconSad /> : <IconNeutral />}</span><span className="feedback-customer">{item.customer_name || 'Customer'}</span></div>
-                            <p className="feedback-comment">"{item.comments}"</p></li>))) : (<p className="empty-text">No feedback yet for this barber.</p>)}</ul></div>)}
+                        {barberFeedback.length > 0 ? (barberFeedback.map((item, index) => (
+                            <li key={index} className="feedback-item">
+                                <div className="feedback-header">
+                                    {/* NEW: Display Stars based on item.score (which is now the rating) */}
+                                    <span className="feedback-score" style={{fontSize: '1.2rem', lineHeight: '1'}}>
+                                        <span style={{color: '#FFD700'}}>
+                                            {'★'.repeat(Math.round(Math.max(0, Math.min(5, item.score || 0))))}
+                                        </span>
+                                        <span style={{color: 'var(--text-secondary)'}}>
+                                            {'☆'.repeat(5 - Math.round(Math.max(0, Math.min(5, item.score || 0))))}
+                                        </span>
+                                    </span>
+                                    {/* END NEW */}
+                                    <span className="feedback-customer">
+                                        {item.customer_name || 'Customer'}
+                                    </span>
+                                </div>
+                                {/* Comments are now optional */}
+                                {item.comments && <p className="feedback-comment">"{item.comments}"</p>}
+                            </li>
+                        ))) : (<p className="empty-text">No feedback yet for this barber.</p>)}</ul></div>)}
 
                 {isQueueLoading && selectedBarberId ? (<div className="ewt-container skeleton-ewt"><SkeletonLoader height="40px" /></div>) : (selectedBarberId && (<div className="ewt-container">
                     <div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div>
@@ -2491,6 +2575,23 @@ return (
                                         <span className="service">
                                             {entry.services?.name || 'Unknown Service'}
                                         </span>
+                                        
+                                        {/* NEW: Display Sanitized Star Rating for Done entries */}
+                                        {entry.status === 'Done' && entry.score !== null && (
+                                            <span className="rating-display" style={{ /* ... */ }}>
+                                                {/* Line 2452 (or similar): Use entry.score for filled stars */}
+                                                <span style={{color: '#FFD700'}}>
+                                                    {'★'.repeat(Math.round(Math.max(0, Math.min(5, entry.score || 0))))} 
+                                                </span>
+                                                
+                                                {/* Line 2455 (or similar): Use entry.score for empty stars */}
+                                                <span style={{color: 'var(--text-secondary)'}}>
+                                                    {'☆'.repeat(5 - Math.round(Math.max(0, Math.min(5, entry.score || 0))))}
+                                                </span>
+                                            </span>
+                                        )}
+                                        {/* END NEW SANITIZED STAR RENDERING */}
+                                        
                                         {entry.is_vip && (
                                             <span className="status-badge" style={{ 
                                                 backgroundColor: 'rgba(255, 149, 0, 0.3)', 
@@ -2505,6 +2606,12 @@ return (
                                             {entry.status}
                                         </span>
                                     </div>
+                                    {/* FIX: Display Comment if it exists */}
+                                    {entry.comments && entry.comments.trim().length > 0 && (
+                                        <p className="feedback-comment" style={{paddingLeft: '0', fontStyle: 'normal', marginTop: '5px', color: 'var(--text-primary)'}}>
+                                            Comment: "{entry.comments}"
+                                        </p>
+                                    )}
                                     <div className="history-meta">
                                         <span className="barber-name">
                                             {barberName}
