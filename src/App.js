@@ -2449,10 +2449,10 @@ return (
                                     <span className="feedback-score" style={{fontSize: '1.2rem', lineHeight: '1'}}>
                                         <span style={{color: '#FFD700'}}>
                                             {/* FIX: Use 'entry.score' instead of 'item.score' */}
-                                            {'★'.repeat(Math.round(Math.max(0, Math.min(5, entry.score || 0))))}
+                                            {'★'.repeat(Math.round(Math.max(0, Math.min(5, item.score || 0))))}
                                         </span>
                                         <span style={{color: 'var(--text-secondary)'}}>
-                                            {'☆'.repeat(5 - Math.round(Math.max(0, Math.min(5, entry.score || 0))))}
+                                            {'☆'.repeat(5 - Math.round(Math.max(0, Math.min(5, item.score || 0))))}
                                         </span>
                                     </span>
                                     {/* END NEW */}
