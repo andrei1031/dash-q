@@ -2685,221 +2685,244 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
 // ##           ADMIN APP LAYOUT             ##
 // ##############################################
 function AdminAppLayout({ session }) {
-    const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'services', 'staff'
-    
-    // Data States
-    const [stats, setStats] = useState({ totalRevenue: 0, totalCuts: 0, activeBarbers: 0 });
-    const [services, setServices] = useState([]);
-    const [barbers, setBarbers] = useState([]);
-    
-    // Service Form States
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [editId, setEditId] = useState(null);
-    const [serviceName, setServiceName] = useState('');
-    const [serviceDuration, setServiceDuration] = useState('');
-    const [servicePrice, setServicePrice] = useState('');
-    
+    const [activeTab, setActiveTab] = useState('live'); // 'live', 'stats', 'users', 'menu', 'staff'
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
+    
+    // --- Live Shop Data ---
+    const [allQueues, setAllQueues] = useState([]);
+    const [barbers, setBarbers] = useState([]);
+    const [transferMode, setTransferMode] = useState(null); // { queueId, currentBarberId }
 
-    // --- FETCH DATA FUNCTIONS ---
-    const fetchStats = useCallback(async () => {
-        try { const res = await axios.get(`${API_URL}/admin/stats`); setStats(res.data); } catch (e) {}
+    // --- Analytics Data ---
+    const [advancedStats, setAdvancedStats] = useState(null);
+
+    // --- Users Data ---
+    const [users, setUsers] = useState([]);
+
+    // --- Menu/Staff Data (Reused from previous) ---
+    const [services, setServices] = useState([]);
+
+    // FETCHERS
+    const fetchLiveShop = useCallback(async () => {
+        try {
+            const [qRes, bRes] = await Promise.all([
+                supabase.from('queue_entries').select('*, services(name)').in('status', ['Waiting', 'Up Next', 'In Progress']),
+                axios.get(`${API_URL}/admin/barbers`)
+            ]);
+            setAllQueues(qRes.data || []);
+            setBarbers(bRes.data || []);
+        } catch (e) { console.error(e); }
     }, []);
 
-    const fetchServices = useCallback(async () => {
-        try { const res = await axios.get(`${API_URL}/services`); setServices(res.data || []); } catch (e) {}
+    const fetchAdvancedStats = useCallback(async () => {
+        try { const res = await axios.get(`${API_URL}/admin/analytics/advanced`); setAdvancedStats(res.data); } catch (e) {}
     }, []);
 
-    const fetchBarbers = useCallback(async () => {
-        try { const res = await axios.get(`${API_URL}/admin/barbers`); setBarbers(res.data || []); } catch (e) {}
+    const fetchUsers = useCallback(async () => {
+        try { const res = await axios.get(`${API_URL}/admin/users`); setUsers(res.data); } catch (e) {}
     }, []);
 
-    // Initial Load
+    // Tab Effects
     useEffect(() => {
-        if (activeTab === 'dashboard') fetchStats();
-        if (activeTab === 'services') fetchServices();
-        if (activeTab === 'staff') fetchBarbers();
-    }, [activeTab, fetchStats, fetchServices, fetchBarbers]);
+        if (activeTab === 'live') { fetchLiveShop(); const interval = setInterval(fetchLiveShop, 5000); return () => clearInterval(interval); }
+        if (activeTab === 'stats') fetchAdvancedStats();
+        if (activeTab === 'users') fetchUsers();
+    }, [activeTab, fetchLiveShop, fetchAdvancedStats, fetchUsers]);
 
-    // --- SERVICE HANDLERS ---
-    const handleEditClick = (service) => {
-        setIsEditMode(true);
-        setEditId(service.id);
-        setServiceName(service.name);
-        setServiceDuration(service.duration_minutes);
-        setServicePrice(service.price_php);
-        window.scrollTo(0,0); // Scroll to top to see form
-    };
 
-    const handleCancelEdit = () => {
-        setIsEditMode(false); setEditId(null);
-        setServiceName(''); setServiceDuration(''); setServicePrice('');
-    };
+    // --- ACTIONS ---
 
-    const handleServiceSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true); setMessage('');
-        try {
-            if (isEditMode) {
-                // EDIT EXISTING
-                await axios.put(`${API_URL}/admin/services/${editId}`, {
+    const handleTransfer = async (targetBarberId) => {
+        if (!transferMode) return;
+        if (window.confirm(`Transfer this customer to Barber #${targetBarberId}?`)) {
+            try {
+                await axios.put(`${API_URL}/admin/transfer`, {
                     userId: session.user.id,
-                    name: serviceName,
-                    duration_minutes: serviceDuration,
-                    price_php: servicePrice
+                    queueId: transferMode.queueId,
+                    targetBarberId: targetBarberId
                 });
-                setMessage('Service updated successfully!');
-            } else {
-                // ADD NEW
-                await axios.post(`${API_URL}/admin/services`, {
-                    userId: session.user.id,
-                    name: serviceName,
-                    duration_minutes: serviceDuration,
-                    price_php: servicePrice
-                });
-                setMessage('Service added successfully!');
-            }
-            handleCancelEdit(); // Reset form
-            fetchServices();
-        } catch (error) {
-            setMessage('Error: ' + (error.response?.data?.error || error.message));
-        } finally { setLoading(false); }
+                setTransferMode(null);
+                fetchLiveShop();
+            } catch (e) { alert("Transfer failed."); }
+        }
     };
 
-    const handleDeleteService = async (id) => {
-        if(!window.confirm("Delete this service?")) return;
+    const handleDeleteUser = async (targetId) => {
+        const confirmText = prompt("Type 'DELETE' to permanently ban/delete this user account.");
+        if (confirmText !== 'DELETE') return;
+        
         try {
-            await axios.delete(`${API_URL}/admin/services/${id}`, { data: { userId: session.user.id } });
-            fetchServices();
-        } catch (error) { alert("Failed to delete."); }
+            await axios.delete(`${API_URL}/admin/users/${targetId}`, { data: { userId: session.user.id } });
+            alert("User deleted.");
+            fetchUsers();
+        } catch (e) { alert("Delete failed: " + e.response?.data?.error); }
     };
 
-    // --- BARBER HANDLERS ---
-    const toggleBarberStatus = async (barber) => {
-        if(!window.confirm(`Are you sure you want to ${barber.is_active ? 'DISABLE' : 'ACTIVATE'} ${barber.full_name}?`)) return;
-        try {
-            await axios.put(`${API_URL}/admin/barbers/${barber.id}/status`, {
-                userId: session.user.id,
-                is_active: !barber.is_active
-            });
-            fetchBarbers();
-        } catch (error) { alert("Failed to update status."); }
+    // --- SUB-COMPONENTS FOR ADMIN ---
+    
+    const LiveShopView = () => (
+        <div className="live-shop-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
+            {barbers.map(barber => {
+                const barberQueue = allQueues.filter(q => q.barber_id === barber.id);
+                const inChair = barberQueue.find(q => q.status === 'In Progress');
+                const upNext = barberQueue.find(q => q.status === 'Up Next');
+                const waiting = barberQueue.filter(q => q.status === 'Waiting');
+
+                return (
+                    <div key={barber.id} className="card" style={{border: transferMode ? '2px dashed var(--primary-orange)' : '1px solid var(--border-color)'}}>
+                        <div className="card-header" style={{padding:'10px'}}>
+                            <h3 style={{fontSize:'1rem', margin:0}}>{barber.full_name}</h3>
+                            {transferMode && transferMode.currentBarberId !== barber.id && (
+                                <button onClick={() => handleTransfer(barber.id)} className="btn btn-primary" style={{fontSize:'0.8rem', padding:'4px 8px'}}>Select</button>
+                            )}
+                        </div>
+                        <div className="card-body" style={{padding:'10px'}}>
+                            {inChair && <div style={{background:'rgba(52,199,89,0.1)', padding:'5px', borderRadius:'4px', marginBottom:'5px', fontSize:'0.9rem'}}>✂️ <strong>{inChair.customer_name}</strong></div>}
+                            {upNext && <div style={{background:'rgba(255,149,0,0.1)', padding:'5px', borderRadius:'4px', marginBottom:'5px', fontSize:'0.9rem'}}>⚠️ <strong>{upNext.customer_name}</strong></div>}
+                            
+                            <h4 style={{fontSize:'0.8rem', color:'var(--text-secondary)', margin:'10px 0 5px 0'}}>Waiting ({waiting.length})</h4>
+                            <ul className="queue-list" style={{maxHeight:'150px', overflowY:'auto'}}>
+                                {waiting.map(q => (
+                                    <li key={q.id} style={{display:'flex', justifyContent:'space-between', padding:'5px', fontSize:'0.85rem'}}>
+                                        <span>{q.customer_name}</span>
+                                        <button onClick={() => setTransferMode({ queueId: q.id, currentBarberId: barber.id })} className="btn btn-secondary" style={{padding:'2px 5px', fontSize:'0.7rem'}}>➡ Move</button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+
+    const StatsView = () => {
+        if (!advancedStats) return <Spinner />;
+        
+        const chartData = {
+            labels: advancedStats.dailyTrend.map(d => d.day),
+            datasets: [{
+                label: 'Revenue (₱)',
+                data: advancedStats.dailyTrend.map(d => d.daily_total),
+                backgroundColor: 'rgba(255, 149, 0, 0.5)',
+                borderColor: 'rgba(255, 149, 0, 1)',
+                borderWidth: 2,
+            }]
+        };
+
+        return (
+            <div className="stats-container">
+                <div className="analytics-grid">
+                    <div className="analytics-item">
+                        <span className="analytics-label">Total Lifetime Revenue</span>
+                        <span className="analytics-value">₱{parseInt(advancedStats.totalRevenue).toLocaleString()}</span>
+                    </div>
+                    <div className="analytics-item">
+                        <span className="analytics-label">Total Lifetime Cuts</span>
+                        <span className="analytics-value">{advancedStats.totalCuts}</span>
+                    </div>
+                </div>
+
+                <div className="analytics-grid" style={{marginTop:'20px'}}>
+                     <div className="card" style={{padding:'15px'}}>
+                        <h3 style={{marginTop:0, fontSize:'1rem'}}>Top Earning Barbers</h3>
+                        <ul style={{listStyle:'none', padding:0}}>
+                            {advancedStats.barberStats.map((b, i) => (
+                                <li key={i} style={{display:'flex', justifyContent:'space-between', borderBottom:'1px solid var(--border-color)', padding:'8px 0'}}>
+                                    <span>{b.full_name}</span>
+                                    <strong>₱{b.total_earned.toLocaleString()}</strong>
+                                </li>
+                            ))}
+                        </ul>
+                     </div>
+                     <div className="card" style={{padding:'15px'}}>
+                        <h3 style={{marginTop:0, fontSize:'1rem'}}>Most Popular Services</h3>
+                        <ul style={{listStyle:'none', padding:0}}>
+                            {advancedStats.serviceStats.map((s, i) => (
+                                <li key={i} style={{display:'flex', justifyContent:'space-between', borderBottom:'1px solid var(--border-color)', padding:'8px 0'}}>
+                                    <span>{s.name}</span>
+                                    <strong>{s.usage_count} cuts</strong>
+                                </li>
+                            ))}
+                        </ul>
+                     </div>
+                </div>
+                
+                <div className="card" style={{marginTop:'20px', padding:'20px'}}>
+                     <h3 style={{marginTop:0}}>Revenue Trend (7 Days)</h3>
+                     <div style={{height:'250px'}}>
+                        <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false }} />
+                     </div>
+                </div>
+            </div>
+        );
     };
+
+    const UsersView = () => (
+        <div className="card">
+            <div className="card-body">
+                <table style={{width:'100%', borderCollapse:'collapse', color:'var(--text-primary)'}}>
+                    <thead>
+                        <tr style={{textAlign:'left', borderBottom:'1px solid var(--border-color)'}}>
+                            <th style={{padding:'10px'}}>Name</th>
+                            <th style={{padding:'10px'}}>Username</th>
+                            <th style={{padding:'10px'}}>Role</th>
+                            <th style={{padding:'10px'}}>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map(u => (
+                            <tr key={u.id} style={{borderBottom:'1px solid var(--border-color)'}}>
+                                <td style={{padding:'10px'}}>{u.full_name}</td>
+                                <td style={{padding:'10px'}}>{u.username}</td>
+                                <td style={{padding:'10px'}}>{u.role}</td>
+                                <td style={{padding:'10px'}}>
+                                    {u.role !== 'admin' && (
+                                        <button onClick={() => handleDeleteUser(u.id)} className="btn btn-danger" style={{fontSize:'0.8rem', padding:'5px 10px'}}>Delete</button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 
     return (
         <div className="app-layout admin-layout">
             <header className="app-header" style={{ borderBottom: '2px solid #7c4dff' }}>
-                <h1>Admin Panel</h1>
+                <h1>Admin Command Center</h1>
                 <div className="header-actions">
                     <ThemeToggleButton />
                     <button onClick={() => handleLogout(session.user.id)} className="btn btn-icon"><IconLogout /></button>
                 </div>
             </header>
 
-            {/* --- TABS NAVIGATION --- */}
-            <div className="customer-view-tabs card-header" style={{ justifyContent: 'center', background: 'var(--surface-color)', marginTop: '10px' }}>
-                <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>Overview</button>
-                <button className={activeTab === 'services' ? 'active' : ''} onClick={() => setActiveTab('services')}>Services</button>
-                <button className={activeTab === 'staff' ? 'active' : ''} onClick={() => setActiveTab('staff')}>Staff</button>
+            {transferMode && (
+                <div style={{background:'var(--primary-orange)', color:'black', padding:'10px', textAlign:'center', fontWeight:'bold'}}>
+                    TRANSFER MODE ACTIVE: Select a barber below to move the customer. 
+                    <button onClick={() => setTransferMode(null)} style={{marginLeft:'10px', background:'white', border:'none', padding:'2px 8px', borderRadius:'4px'}}>Cancel</button>
+                </div>
+            )}
+
+            {/* --- TABS --- */}
+            <div className="customer-view-tabs card-header" style={{ justifyContent: 'center', background: 'var(--surface-color)', marginTop: '10px', flexWrap: 'wrap' }}>
+                <button className={activeTab === 'live' ? 'active' : ''} onClick={() => setActiveTab('live')}>⚡ Live Shop</button>
+                <button className={activeTab === 'stats' ? 'active' : ''} onClick={() => setActiveTab('stats')}>📊 Analytics</button>
+                <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>👥 Users</button>
             </div>
 
             <main className="main-content">
-                <div className="container">
-                    
-                    {/* --- TAB 1: DASHBOARD OVERVIEW --- */}
-                    {activeTab === 'dashboard' && (
-                        <div className="analytics-grid">
-                            <div className="analytics-item">
-                                <span className="analytics-label">Total Revenue</span>
-                                <span className="analytics-value">₱{stats.totalRevenue.toLocaleString()}</span>
-                            </div>
-                            <div className="analytics-item">
-                                <span className="analytics-label">Total Cuts</span>
-                                <span className="analytics-value">{stats.totalCuts}</span>
-                            </div>
-                            <div className="analytics-item">
-                                <span className="analytics-label">Active Barbers</span>
-                                <span className="analytics-value">{stats.activeBarbers}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* --- TAB 2: SERVICE MANAGEMENT --- */}
-                    {activeTab === 'services' && (
-                        <div className="card">
-                            <div className="card-body">
-                                <form onSubmit={handleServiceSubmit} style={{marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid var(--border-color)'}}>
-                                    <h3>{isEditMode ? 'Edit Service' : 'Add New Service'}</h3>
-                                    <div className="form-group"><label>Service Name</label><input value={serviceName} onChange={e=>setServiceName(e.target.value)} required placeholder="e.g. Buzz Cut" /></div>
-                                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
-                                        <div className="form-group"><label>Duration (mins)</label><input type="number" value={serviceDuration} onChange={e=>setServiceDuration(e.target.value)} required placeholder="30" /></div>
-                                        <div className="form-group"><label>Price (₱)</label><input type="number" value={servicePrice} onChange={e=>setServicePrice(e.target.value)} required placeholder="250" /></div>
-                                    </div>
-                                    <div style={{display: 'flex', gap: '10px'}}>
-                                        <button type="submit" disabled={loading} className="btn btn-primary btn-full-width">
-                                            {loading ? <Spinner/> : (isEditMode ? 'Update Service' : 'Add Service')}
-                                        </button>
-                                        {isEditMode && (
-                                            <button type="button" onClick={handleCancelEdit} className="btn btn-secondary">Cancel</button>
-                                        )}
-                                    </div>
-                                    {message && <p className="message success">{message}</p>}
-                                </form>
-
-                                <h3>Current Menu</h3>
-                                <ul className="queue-list">
-                                    {services.map(s => (
-                                        <li key={s.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                            <div>
-                                                <strong>{s.name}</strong><br/>
-                                                <span style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>{s.duration_minutes}m | ₱{s.price_php}</span>
-                                            </div>
-                                            <div style={{display:'flex', gap:'5px'}}>
-                                                <button onClick={() => handleEditClick(s)} className="btn btn-secondary" style={{padding:'5px 10px', fontSize:'0.8rem'}}>Edit</button>
-                                                <button onClick={() => handleDeleteService(s.id)} className="btn btn-danger" style={{padding:'5px 10px', fontSize:'0.8rem'}}>Delete</button>
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* --- TAB 3: STAFF MANAGEMENT --- */}
-                    {activeTab === 'staff' && (
-                        <div className="card">
-                            <div className="card-header"><h2>Barber List</h2></div>
-                            <div className="card-body">
-                                <ul className="queue-list">
-                                    {barbers.map(b => (
-                                        <li key={b.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                            <div>
-                                                <strong>{b.full_name}</strong><br/>
-                                                <span style={{fontSize:'0.85rem', color: b.is_available ? 'var(--success-color)' : 'var(--text-secondary)'}}>
-                                                    {b.is_available ? '● Online' : '○ Offline'}
-                                                </span>
-                                            </div>
-                                            <button 
-                                                onClick={() => toggleBarberStatus(b)} 
-                                                className={`btn ${b.is_active ? 'btn-success' : 'btn-danger'}`}
-                                                style={{padding:'5px 10px', fontSize:'0.8rem'}}
-                                            >
-                                                {b.is_active ? 'Active' : 'Disabled'}
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    )}
-
+                <div className="container" style={{maxWidth:'1200px'}}>
+                    {activeTab === 'live' && <LiveShopView />}
+                    {activeTab === 'stats' && <StatsView />}
+                    {activeTab === 'users' && <UsersView />}
                 </div>
             </main>
         </div>
     );
 }
-
 
 // ##############################################
 // ##         CUSTOMER APP LAYOUT            ##
