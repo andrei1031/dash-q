@@ -3360,6 +3360,68 @@ function CustomerAppLayout({ session }) {
     );
 }
 
+function LandingPage({ onGetStarted, onLogin }) {
+    const { theme, toggleTheme } = useTheme(); // Assuming you moved ThemeProvider higher or pass props
+
+    return (
+        <div className="landing-container">
+            <nav className="landing-nav">
+                <div className="landing-logo">
+                    <span style={{fontSize: '2rem'}}>⚡</span> Dash-Q
+                </div>
+                <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
+                    <ThemeToggleButton />
+                    <button onClick={onLogin} className="btn btn-link" style={{color: 'var(--text-primary)', fontWeight: 600}}>
+                        Login
+                    </button>
+                </div>
+            </nav>
+
+            <header className="hero-section">
+                <h1 className="hero-title">
+                    Queue Smarter,<br /> <span>Look Sharper.</span>
+                </h1>
+                <p className="hero-subtitle">
+                    Skip the long wait. Join the live queue from anywhere, book appointments, and get notified when it's your turn.
+                </p>
+                <div className="hero-buttons">
+                    <button onClick={onGetStarted} className="btn btn-primary btn-hero">
+                        Get Started Now
+                    </button>
+                    <button onClick={onLogin} className="btn btn-secondary btn-hero">
+                        Barber Login
+                    </button>
+                </div>
+            </header>
+
+            <section className="features-section">
+                <div className="features-grid">
+                    <div className="feature-card">
+                        <div className="feature-icon"><IconNext /></div>
+                        <h3>Live Queue Tracking</h3>
+                        <p>See exactly how many people are ahead of you and your estimated wait time.</p>
+                    </div>
+                    <div className="feature-card">
+                        <div className="feature-icon"><IconChat /></div>
+                        <h3>Direct Chat</h3>
+                        <p>Message your barber directly to clarify styles or delays without leaving the app.</p>
+                    </div>
+                    <div className="feature-card">
+                        <div className="feature-icon"><IconCheck /></div>
+                        <h3>Hybrid Booking</h3>
+                        <p>Join the queue now for a quick cut or schedule an appointment for later.</p>
+                    </div>
+                </div>
+            </section>
+
+            <footer className="landing-footer">
+                <p>&copy; 2025 Dash-Q. University of the Cordilleras.</p>
+                <p style={{fontSize: '0.8rem', marginTop: '10px'}}>Developed by Aquino, Galima & Saldivar</p>
+            </footer>
+        </div>
+    );
+}
+
 // ##############################################
 // ##           MAIN APP COMPONENT           ##
 // ##############################################
@@ -3369,6 +3431,9 @@ function App() {
     const [barberProfile, setBarberProfile] = useState(null);
     const [loadingRole, setLoadingRole] = useState(true);
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+    
+    // --- NEW STATE: Controls Landing Page visibility ---
+    const [showLanding, setShowLanding] = useState(true); 
 
     // --- OneSignal Setup ---
     useEffect(() => {
@@ -3383,11 +3448,9 @@ function App() {
                 });
             });
         }
-        return () => { /* Cleanup if needed */ };
     }, []);
 
-   // --- Helper to Check Role (DEBUG VERSION) ---
-    // --- Helper to Check Role (UPDATED FOR ADMIN) ---
+    // --- Helper to Check Role ---
     const checkUserRole = useCallback(async (user) => {
         if (!user || !user.id) {
             setUserRole('customer');
@@ -3399,31 +3462,24 @@ function App() {
         console.log(`Checking role for user: ${user.id}`);
         setLoadingRole(true);
         try {
-            // STEP 1: Check the 'profiles' table for the explicit role
             const { data: profileData } = await supabase
                 .from('profiles')
                 .select('role')
                 .eq('id', user.id)
                 .single();
             
-            // If the database says 'admin', we stop here and set the role!
             if (profileData && profileData.role === 'admin') {
-                console.log("Role check: ADMIN confirmed.");
                 setUserRole('admin');
                 setBarberProfile(null);
                 setLoadingRole(false);
                 return; 
             }
 
-            // STEP 2: If not admin, check if they are a barber
             const response = await axios.get(`${API_URL}/barber/profile/${user.id}`);
-            console.log("Role check: BARBER confirmed.");
             setUserRole('barber');
             setBarberProfile(response.data);
 
         } catch (error) {
-            // STEP 3: Default to Customer
-            console.log("Role check: Not Admin/Barber. Defaulting to CUSTOMER.");
             setUserRole('customer');
             setBarberProfile(null);
         } finally {
@@ -3431,35 +3487,32 @@ function App() {
         }
     }, []);
 
-    // --- Auth State Change Listener (FIXED TO PREVENT RACE CONDITION) ---
+    // --- Auth Listener ---
     useEffect(() => {
         if (!supabase?.auth) {
-            console.error("Supabase auth not initialized.");
             setLoadingRole(false);
             return;
         }
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-            console.log("Auth State Change Detected:", _event, currentSession);
-
             if (_event === 'PASSWORD_RECOVERY') {
-                console.log("Password recovery event detected!");
                 setIsUpdatingPassword(true);
             }
 
             setSession(currentSession);
 
             if (currentSession?.user) {
-                console.log("Valid user session found, checking role...");
+                // User is logged in, hide landing page immediately
+                setShowLanding(false); 
                 checkUserRole(currentSession.user);
             } else {
-                console.log("No user session. Setting role to customer.");
                 setUserRole('customer');
                 setBarberProfile(null);
                 setLoadingRole(false);
                 setIsUpdatingPassword(false);
+                // Note: We do NOT reset showLanding to true here. 
+                // If they logout, we show AuthForm (Login) by default, unless they refresh.
             }
-
         });
 
         return () => subscription?.unsubscribe();
@@ -3467,16 +3520,37 @@ function App() {
     
     // --- Render Logic ---
     const renderAppContent = () => {
+        // 1. Loading State
         if (loadingRole) return <div className="loading-fullscreen"><Spinner /><span>Loading...</span></div>;
-        if (isUpdatingPassword) return <UpdatePasswordForm onPasswordUpdated={() => setIsUpdatingPassword(false)} />;
-        if (!session) return <AuthForm />;
         
-        if (userRole === 'admin') {
-            return <AdminAppLayout session={session} />;
+        // 2. Password Reset View
+        if (isUpdatingPassword) return <UpdatePasswordForm onPasswordUpdated={() => setIsUpdatingPassword(false)} />;
+        
+        // 3. Authenticated View (Dashboard)
+        if (session) {
+            if (userRole === 'admin') return <AdminAppLayout session={session} />;
+            if (userRole === 'barber' && barberProfile) return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} />;
+            return <CustomerAppLayout session={session} />;
         }
 
-        if (userRole === 'barber' && barberProfile) return <BarberAppLayout session={session} barberProfile={barberProfile} setBarberProfile={setBarberProfile} />;
-        return <CustomerAppLayout session={session} />;
+        // 4. Unauthenticated Views
+        if (showLanding) {
+            return <LandingPage onGetStarted={() => setShowLanding(false)} onLogin={() => setShowLanding(false)} />;
+        }
+
+        // 5. Login/Signup Form (Pass a "Back" prop if you want them to go back to landing)
+        return (
+            <div style={{position: 'relative'}}>
+                <button 
+                    onClick={() => setShowLanding(true)} 
+                    style={{position: 'absolute', top: '20px', left: '20px', zIndex: 100}} 
+                    className="btn btn-link"
+                >
+                    ← Back to Home
+                </button>
+                <AuthForm />
+            </div>
+        );
     }
 
     return (
