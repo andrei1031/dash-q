@@ -1651,36 +1651,28 @@ function CustomerView({ session }) {
 
                 // 2. If NOT in list, and no modals are open... check why.
                 if (!amIInActiveQueue && !isServiceCompleteModalOpen && !isCancelledModalOpen) {
-                    
+    
                     const investigateDisappearance = async () => {
-                        console.log("[Catcher] Entry missing from current queue. Investigating...");
+                        console.log("[Catcher] Entry missing. Investigating...");
                         
-                        // STEP A: Check if we were TRANSFERRED (Active but different barber)
+                        // 1. Check if Transferred (Active but different barber)
                         const { data: movedEntry } = await supabase
                             .from('queue_entries')
                             .select('barber_id, status')
                             .eq('id', currentQueueId)
                             .maybeSingle();
 
-                        // If entry exists and is still active...
+                        // If entry exists and is still active (Waiting/Up Next/In Progress)
                         if (movedEntry && ['Waiting', 'Up Next', 'In Progress'].includes(movedEntry.status)) {
                             const currentStoredBarber = localStorage.getItem('joinedBarberId');
                             
-                            // ...and the barber ID is different:
+                            // If the barber ID changed, it was a transfer!
                             if (movedEntry.barber_id.toString() !== currentStoredBarber) {
-                                console.log(`[Transfer] User moved to Barber ${movedEntry.barber_id}. Updating view.`);
-                                
-                                // 1. Update Local Storage
+                                console.log(`[Transfer] Moved to Barber ${movedEntry.barber_id}.`);
                                 localStorage.setItem('joinedBarberId', movedEntry.barber_id.toString());
-                                
-                                // 2. Update State (Triggers UI refresh)
-                                setJoinedBarberId(movedEntry.barber_id.toString());
-                                
-                                // 3. Notify User
+                                setJoinedBarberId(movedEntry.barber_id.toString()); // Trigger refresh
                                 setMessage("🔄 You have been transferred to another barber.");
-                                
-                                // 4. STOP here. Do not check for cancellations.
-                                return; 
+                                return; // STOP HERE. Do not show cancelled modal.
                             }
                         }
 
