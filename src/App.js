@@ -2964,12 +2964,17 @@ function AdminAppLayout({ session }) {
     const StatsView = () => {
         if (!advancedStats) return <div className="loading-fullscreen"><Spinner /><span>Crunching numbers...</span></div>;
         
-        // 1. Prepare Chart Data
+        // --- SAFEGUARDS: Prevent Crash if data is missing ---
+        const totals = advancedStats.totals || { revenue: 0, cuts: 0 };
+        const dailyTrend = advancedStats.dailyTrend || [];
+        const barberStats = advancedStats.barberStats || [];
+
+        // 1. Prepare Chart Data (Safely)
         const trendData = {
-            labels: (advancedStats.dailyTrend || []).map(d => d.day),
+            labels: dailyTrend.map(d => d.day),
             datasets: [{
                 label: 'Shop Revenue (₱)',
-                data: (advancedStats.dailyTrend || []).map(d => d.daily_total),
+                data: dailyTrend.map(d => d.daily_total),
                 borderColor: '#ff9500',
                 backgroundColor: 'rgba(255, 149, 0, 0.1)',
                 fill: true,
@@ -2978,10 +2983,10 @@ function AdminAppLayout({ session }) {
         };
 
         const barberComparisonData = {
-            labels: (advancedStats.barberStats || []).map(b => b.full_name),
+            labels: barberStats.map(b => b.full_name),
             datasets: [{
                 label: 'Total Revenue (₱)',
-                data: (advancedStats.barberStats || []).map(b => b.total_revenue),
+                data: barberStats.map(b => b.total_revenue),
                 backgroundColor: [
                     'rgba(255, 99, 132, 0.7)',
                     'rgba(54, 162, 235, 0.7)',
@@ -2993,7 +2998,8 @@ function AdminAppLayout({ session }) {
             }]
         };
 
-        const topBarber = (advancedStats.barberStats || [])[0] || { full_name: 'N/A', total_revenue: 0 };
+        // Safely get top barber
+        const topBarber = barberStats.length > 0 ? barberStats[0] : { full_name: 'No Data', total_revenue: 0 };
 
         return (
             <div className="stats-container">
@@ -3002,12 +3008,12 @@ function AdminAppLayout({ session }) {
                     <div className="analytics-item">
                         <span className="analytics-label">Total Shop Revenue</span>
                         <span className="analytics-value" style={{color: 'var(--success-color)'}}>
-                            ₱{parseInt(advancedStats.totals.revenue).toLocaleString()}
+                            ₱{parseInt(totals.revenue || 0).toLocaleString()}
                         </span>
                     </div>
                     <div className="analytics-item">
                         <span className="analytics-label">Total Haircuts</span>
-                        <span className="analytics-value">{advancedStats.totals.cuts}</span>
+                        <span className="analytics-value">{totals.cuts || 0}</span>
                     </div>
                     <div className="analytics-item">
                         <span className="analytics-label">Top Performer 🏆</span>
@@ -3015,7 +3021,7 @@ function AdminAppLayout({ session }) {
                             {topBarber.full_name}
                         </span>
                         <small style={{color: 'var(--text-secondary)'}}>
-                            Earned ₱{topBarber.total_revenue.toLocaleString()}
+                            Earned ₱{(topBarber.total_revenue || 0).toLocaleString()}
                         </small>
                     </div>
                 </div>
@@ -3036,7 +3042,7 @@ function AdminAppLayout({ session }) {
                         <h3 style={{marginTop: 0, fontSize: '1rem'}}>💈 Barber Comparison (Revenue)</h3>
                         <div style={{height: '250px'}}>
                             <Bar data={barberComparisonData} options={{ 
-                                indexAxis: 'y', // Horizontal Bar Chart for better name readability
+                                indexAxis: 'y', 
                                 responsive: true, 
                                 maintainAspectRatio: false,
                                 plugins: { legend: { display: false } }
@@ -3062,8 +3068,8 @@ function AdminAppLayout({ session }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {advancedStats.barberStats && advancedStats.barberStats.length > 0 ? (
-                                    advancedStats.barberStats.map((b, i) => (
+                                {barberStats.length > 0 ? (
+                                    barberStats.map((b, i) => (
                                         <tr key={i} style={{borderBottom: '1px solid var(--border-color)'}}>
                                             <td style={{padding: '12px', fontWeight: '600'}}>
                                                 {i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : ''}
@@ -3088,7 +3094,7 @@ function AdminAppLayout({ session }) {
                                                 </div>
                                             </td>
                                             <td style={{padding: '12px', textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-orange)', fontSize: '1.1rem'}}>
-                                                ₱{b.total_revenue.toLocaleString()}
+                                                ₱{(b.total_revenue || 0).toLocaleString()}
                                             </td>
                                         </tr>
                                     ))
