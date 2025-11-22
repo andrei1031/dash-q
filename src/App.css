@@ -1934,14 +1934,12 @@ button .spinner {
   line-height: 1.1;
   margin-bottom: 20px;
   background: linear-gradient(to right, #fff, #aaa);
-  -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   max-width: 800px;
 }
 
 .hero-title span {
   background: linear-gradient(to right, var(--primary-orange), var(--primary-orange-hover));
-  -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -2029,7 +2027,6 @@ button .spinner {
 /* Light Mode Overrides */
 :root.light-mode .hero-title {
   background: linear-gradient(to right, #000, #555);
-  -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 :root.light-mode .hero-section {
