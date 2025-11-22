@@ -3538,17 +3538,24 @@ function App() {
             return <LandingPage onGetStarted={() => setShowLanding(false)} onLogin={() => setShowLanding(false)} />;
         }
 
-        // 5. Login/Signup Form (Pass a "Back" prop if you want them to go back to landing)
+        // 5. Login/Signup Form
         return (
-            <div style={{position: 'relative'}}>
-                <button 
-                    onClick={() => setShowLanding(true)} 
-                    style={{position: 'absolute', top: '20px', left: '20px', zIndex: 100}} 
-                    className="btn btn-link"
-                >
-                    ← Back to Home
-                </button>
-                <AuthForm />
+            <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+                {/* Back Button - Now part of the layout flow (pushes form down) */}
+                <div style={{ padding: '20px 20px 0 20px' }}>
+                    <button 
+                        onClick={() => setShowLanding(true)} 
+                        className="btn btn-link"
+                        style={{ fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                    >
+                        ← Back to Home
+                    </button>
+                </div>
+                
+                {/* Auth Form - Will naturally sit below the button now */}
+                <div style={{ flex: 1 }}>
+                    <AuthForm />
+                </div>
             </div>
         );
     }
