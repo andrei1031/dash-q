@@ -1568,6 +1568,11 @@ function CustomerView({ session }) {
     const myQueueEntry = liveQueue.find(e => e.id.toString() === myQueueEntryId);
     const isQueueUpdateAllowed = myQueueEntry && (myQueueEntry.status === 'Waiting' || myQueueEntry.status === 'Up Next');
     const [customerRating, setCustomerRating] = useState(0);
+    const [joinMode, setJoinMode] = useState('now'); // 'now' or 'later'
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [selectedSlot, setSelectedSlot] = useState(null);
+
 
     const fetchLoyaltyHistory = useCallback(async (userId) => {
         if (!userId) return;
@@ -1908,7 +1913,56 @@ function CustomerView({ session }) {
         console.log("[handleReturnToJoin] State reset complete.");
     };
 
+    const handleBooking = async (e) => {
+        e.preventDefault();
+        if (!customerName || !selectedBarberId || !selectedServiceId || !selectedSlot) { 
+            setMessage('All fields including a Time Slot are required.'); 
+            return; 
+        }
+
+        setIsLoading(true);
+        setMessage('Booking appointment...');
+
+        try {
+            await axios.post(`${API_URL}/appointments/book`, {
+                customer_name: customerName,
+                customer_email: customerEmail,
+                user_id: session.user.id,
+                barber_id: selectedBarberId,
+                service_id: selectedServiceId,
+                scheduled_time: selectedSlot
+            });
+
+            setMessage(`Success! Appointment confirmed for ${new Date(selectedSlot).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`);
+            
+            // Optional: Reset form or switch to history view
+            setSelectedSlot(null);
+            setAvailableSlots([]);
+            setTimeout(() => {
+                setMessage('');
+                setViewMode('history'); // Switch to history so they can see the booking? (Requires history update)
+            }, 3000);
+
+        } catch (error) {
+            console.error('Booking failed:', error);
+            setMessage(error.response?.data?.error || 'Booking failed.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // --- Effects ---
+    useEffect(() => {
+        if (joinMode === 'later' && selectedBarberId && selectedServiceId && selectedDate) {
+            setAvailableSlots([]); // Clear old slots while loading
+            axios.get(`${API_URL}/appointments/slots`, {
+                params: { barberId: selectedBarberId, serviceId: selectedServiceId, date: selectedDate }
+            })
+            .then(res => setAvailableSlots(res.data))
+            .catch(err => console.error(err));
+        }
+    }, [joinMode, selectedBarberId, selectedServiceId, selectedDate]);
+
     useEffect(() => {
         if (viewMode === 'history' && session?.user?.id) {
             fetchLoyaltyHistory(session.user.id);
@@ -2441,90 +2495,169 @@ return (
         </div>
 
         {/* A. JOIN FORM (SHOWS WHEN IN JOIN MODE AND NOT IN QUEUE) */}
+        {/* A. JOIN / BOOKING SECTION */}
         {viewMode === 'join' && !myQueueEntryId && (
-            <form onSubmit={handleJoinQueue} className="card-body">
+            <div className="card-body">
+                {/* 1. SUB-TABS: NOW vs LATER */}
+                <div className="customer-view-tabs" style={{marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px'}}>
+                    <button 
+                        className={joinMode === 'now' ? 'active' : ''} 
+                        onClick={() => setJoinMode('now')}
+                        style={{flex: 1, textAlign: 'center'}}
+                    >
+                        ⚡ Join Queue Now
+                    </button>
+                    <button 
+                        className={joinMode === 'later' ? 'active' : ''} 
+                        onClick={() => setJoinMode('later')}
+                        style={{flex: 1, textAlign: 'center'}}
+                    >
+                        📅 Book Appointment
+                    </button>
+                </div>
+
+                {/* 2. SHARED INPUTS (Name, Email) */}
                 <div className="form-group"><label>Your Name:</label><input type="text" value={customerName} required readOnly className="prefilled-input" /></div>
                 <div className="form-group"><label>Your Email:</label><input type="email" value={customerEmail} readOnly className="prefilled-input" /></div>
-                <div className="form-group"><label>Select Service:</label><select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required><option value="">-- Choose service --</option>{services.map((service) => (<option key={service.id} value={service.id}>{service.name} ({service.duration_minutes} min / ₱{service.price_php})</option>))}</select></div>
-                
-                {selectedServiceId && (
-                    <div className="form-group vip-toggle-group">
-                        <label>Service Priority:</label>
-                        <div className="priority-toggle-control">
-                            <button type="button" className={`priority-option ${!isVIPToggled ? 'active' : ''}`} onClick={() => setIsVIPToggled(false)}>No Priority</button>
-                            <button type="button" className={`priority-option ${isVIPToggled ? 'active vip' : ''}`} onClick={() => handleVIPToggle({ target: { checked: true } })} disabled={isVIPToggled}>VIP Priority (+₱100)</button>
+
+                {/* --- OPTION A: JOIN NOW FORM (Full Logic) --- */}
+                {joinMode === 'now' && (
+                    <form onSubmit={handleJoinQueue}>
+                        <div className="form-group"><label>Select Service:</label><select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required><option value="">-- Choose service --</option>{services.map((service) => (<option key={service.id} value={service.id}>{service.name} ({service.duration_minutes} min / ₱{service.price_php})</option>))}</select></div>
+                        
+                        {/* VIP Toggle */}
+                        {selectedServiceId && (
+                            <div className="form-group vip-toggle-group">
+                                <label>Service Priority:</label>
+                                <div className="priority-toggle-control">
+                                    <button type="button" className={`priority-option ${!isVIPToggled ? 'active' : ''}`} onClick={() => setIsVIPToggled(false)}>No Priority</button>
+                                    <button type="button" className={`priority-option ${isVIPToggled ? 'active vip' : ''}`} onClick={() => handleVIPToggle({ target: { checked: true } })} disabled={isVIPToggled}>VIP Priority (+₱100)</button>
+                                </div>
+                                {isVIPToggled && (<p className="success-message small">VIP Priority is active. You will be placed Up Next.</p>)}
+                            </div>
+                        )}
+                        
+                        {/* Photo Upload */}
+                        <div className="form-group photo-upload-group">
+                            <label>Desired Haircut Photo (Optional):</label>
+                            <input type="file" accept="image/*" onChange={handleFileChange} disabled={isUploading} id="file-upload" className="file-upload-input" />
+                            <label htmlFor="file-upload" className="btn btn-secondary btn-icon-label file-upload-label"><IconUpload />{selectedFile ? selectedFile.name : 'Choose a file...'}</label>
+                            <button type="button" onClick={() => handleUploadPhoto(null)} disabled={!selectedFile || isUploading || referenceImageUrl} className="btn btn-secondary btn-icon-label">
+                                {isUploading ? <Spinner /> : <IconUpload />}
+                                {isUploading ? 'Uploading...' : (referenceImageUrl ? 'Photo Attached' : 'Upload Photo')}
+                            </button>
+                            {referenceImageUrl && <p className="success-message small">Photo ready. <a href={referenceImageUrl} target="_blank" rel="noopener noreferrer">View Photo</a></p>}
                         </div>
-                        {isVIPToggled && (<p className="success-message small">VIP Priority is active. You will be placed Up Next.</p>)}
-                    </div>
+
+                        {/* Barber Selection */}
+                        <div className="form-group">
+                            <label>Select Available Barber:</label>
+                            {barbers.length > 0 ? (
+                                <div className="barber-selection-list">
+                                    {barbers.map((barber) => (
+                                        <button type="button" key={barber.id} className={`barber-card ${selectedBarberId === barber.id.toString() ? 'selected' : ''}`} onClick={() => setSelectedBarberId(barber.id.toString())}>
+                                            <span className="barber-name">{barber.full_name}</span>
+                                            <div className="barber-rating">
+                                                <span className="star-icon">⭐</span>
+                                                <span className="score-text">{parseFloat(barber.average_score).toFixed(1)}</span>
+                                                <span className="review-count">({barber.review_count})</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (<p className="empty-text">No barbers are available right now.</p>)}
+                            <input type="hidden" value={selectedBarberId} required />
+                        </div>
+
+                        {/* Feedback List */}
+                        {selectedBarberId && (<div className="feedback-list-container customer-feedback">
+                            <h3 className="feedback-subtitle">Recent Feedback</h3>
+                            <ul className="feedback-list">
+                                {barberFeedback.length > 0 ? (barberFeedback.map((item, index) => (
+                                    <li key={index} className="feedback-item">
+                                        <div className="feedback-header">
+                                            <span className="feedback-score" style={{fontSize: '1.2rem', lineHeight: '1'}}>
+                                                <span style={{color: '#FFD700'}}>
+                                                    {'★'.repeat(Math.round(Math.max(0, Math.min(5, item.score || 0))))}
+                                                </span>
+                                                <span style={{color: 'var(--text-secondary)'}}>
+                                                    {'☆'.repeat(5 - Math.round(Math.max(0, Math.min(5, item.score || 0))))}
+                                                </span>
+                                            </span>
+                                            <span className="feedback-customer">
+                                                {item.customer_name || 'Customer'}
+                                            </span>
+                                        </div>
+                                        {item.comments && <p className="feedback-comment">"{item.comments}"</p>}
+                                    </li>
+                                ))) : (<p className="empty-text">No feedback yet for this barber.</p>)}</ul></div>)}
+
+                        {/* EWT Display */}
+                        {isQueueLoading && selectedBarberId ? (<div className="ewt-container skeleton-ewt"><SkeletonLoader height="40px" /></div>) : (selectedBarberId && (<div className="ewt-container">
+                            <div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div>
+                            <div className="ewt-item"><span>Expected Time</span><strong>{finishTime > 0 ? new Date(finishTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Calculating...'}</strong></div>
+                        </div>))}
+
+                        {isIOsDevice() && (<p className="message warning small"><b>iPhone Users:</b> Push alerts and sounds are not supported. Please keep this tab open and watch your email for notifications!</p>)}
+                        
+                        <button type="submit" disabled={isLoading || !selectedBarberId || barbers.length === 0 || isUploading} className="btn btn-primary btn-full-width" style={{marginTop: '20px'}}>
+                            {isLoading ? <Spinner /> : 'Join Queue Now'}
+                        </button>
+                    </form>
+                )}
+
+                {/* --- OPTION B: BOOK LATER FORM (New Logic) --- */}
+                {joinMode === 'later' && (
+                    <form onSubmit={handleBooking}>
+                        <div className="form-group"><label>Select Service:</label><select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required><option value="">-- Choose service --</option>{services.map((service) => (<option key={service.id} value={service.id}>{service.name} ({service.duration_minutes} min / ₱{service.price_php})</option>))}</select></div>
+
+                        <div className="form-group">
+                            <label>Select Barber:</label>
+                            <select value={selectedBarberId} onChange={(e) => setSelectedBarberId(e.target.value)} required>
+                                <option value="">-- Choose Barber --</option>
+                                {barbers.map(b => (
+                                    <option key={b.id} value={b.id}>{b.full_name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Select Date:</label>
+                            <input type="date" value={selectedDate} min={new Date().toISOString().split('T')[0]} onChange={e => setSelectedDate(e.target.value)} required />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Available Time Slots:</label>
+                            {!selectedBarberId || !selectedServiceId ? (
+                                <p className="message small">Select a Service and Barber to see times.</p>
+                            ) : (
+                                <div className="slots-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px', marginTop: '10px'}}>
+                                    {availableSlots.length > 0 ? availableSlots.map(slot => (
+                                        <button 
+                                            type="button" 
+                                            key={slot} 
+                                            className={`btn ${selectedSlot === slot ? 'btn-primary' : 'btn-secondary'}`}
+                                            onClick={() => setSelectedSlot(slot)}
+                                            style={{fontSize: '0.8rem', padding: '8px'}}
+                                        >
+                                            {new Date(slot).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        </button>
+                                    )) : (
+                                        <p className="empty-text" style={{gridColumn: '1/-1'}}>No slots available for this date.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <button type="submit" disabled={isLoading || !selectedSlot} className="btn btn-primary btn-full-width" style={{marginTop: '20px'}}>
+                            {isLoading ? <Spinner /> : 'Confirm Booking'}
+                        </button>
+                    </form>
                 )}
                 
-                <div className="form-group photo-upload-group">
-                    <label>Desired Haircut Photo (Optional):</label>
-                    <input type="file" accept="image/*" onChange={handleFileChange} disabled={isUploading} id="file-upload" className="file-upload-input" />
-                    <label htmlFor="file-upload" className="btn btn-secondary btn-icon-label file-upload-label"><IconUpload />{selectedFile ? selectedFile.name : 'Choose a file...'}</label>
-                    <button type="button" onClick={() => handleUploadPhoto(null)} disabled={!selectedFile || isUploading || referenceImageUrl} className="btn btn-secondary btn-icon-label">
-                        {isUploading ? <Spinner /> : <IconUpload />}
-                        {isUploading ? 'Uploading...' : (referenceImageUrl ? 'Photo Attached' : 'Upload Photo')}
-                    </button>
-                    {referenceImageUrl && <p className="success-message small">Photo ready. <a href={referenceImageUrl} target="_blank" rel="noopener noreferrer">View Photo</a></p>}
-                </div>
-
-                <div className="form-group">
-                    <label>Select Available Barber:</label>
-                    {barbers.length > 0 ? (
-                        <div className="barber-selection-list">
-                            {barbers.map((barber) => (
-                                <button type="button" key={barber.id} className={`barber-card ${selectedBarberId === barber.id.toString() ? 'selected' : ''}`} onClick={() => setSelectedBarberId(barber.id.toString())}>
-                                    <span className="barber-name">{barber.full_name}</span>
-                                    <div className="barber-rating">
-                                        <span className="star-icon">⭐</span>
-                                        <span className="score-text">{parseFloat(barber.average_score).toFixed(1)}</span>
-                                        <span className="review-count">({barber.review_count})</span>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    ) : (<p className="empty-text">No barbers are available right now.</p>)}
-                    <input type="hidden" value={selectedBarberId} required />
-                </div>
-
-                {selectedBarberId && (<div className="feedback-list-container customer-feedback">
-                    <h3 className="feedback-subtitle">Recent Feedback</h3>
-                    <ul className="feedback-list">
-                        {barberFeedback.length > 0 ? (barberFeedback.map((item, index) => (
-                            <li key={index} className="feedback-item">
-                                <div className="feedback-header">
-                                    {/* NEW: Display Stars based on item.score (which is now the rating) */}
-                                    <span className="feedback-score" style={{fontSize: '1.2rem', lineHeight: '1'}}>
-                                        <span style={{color: '#FFD700'}}>
-                                            {/* FIX: Use 'entry.score' instead of 'item.score' */}
-                                            {'★'.repeat(Math.round(Math.max(0, Math.min(5, item.score || 0))))}
-                                        </span>
-                                        <span style={{color: 'var(--text-secondary)'}}>
-                                            {'☆'.repeat(5 - Math.round(Math.max(0, Math.min(5, item.score || 0))))}
-                                        </span>
-                                    </span>
-                                    {/* END NEW */}
-                                    <span className="feedback-customer">
-                                        {item.customer_name || 'Customer'}
-                                    </span>
-                                </div>
-                                {/* Comments are now optional */}
-                                {item.comments && <p className="feedback-comment">"{item.comments}"</p>}
-                            </li>
-                        ))) : (<p className="empty-text">No feedback yet for this barber.</p>)}</ul></div>)}
-
-                {isQueueLoading && selectedBarberId ? (<div className="ewt-container skeleton-ewt"><SkeletonLoader height="40px" /></div>) : (selectedBarberId && (<div className="ewt-container">
-                    <div className="ewt-item"><span>Currently waiting</span><strong>{peopleWaiting} {peopleWaiting === 1 ? 'person' : 'people'}</strong></div>
-                    <div className="ewt-item"><span>Expected Time</span><strong>{finishTime > 0 ? new Date(finishTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Calculating...'}</strong></div>
-                </div>))}
-
-                {isIOsDevice() && (<p className="message warning small"><b>iPhone Users:</b> Push alerts and sounds are not supported. Please keep this tab open and watch your email for notifications!</p>)}
-                <button type="submit" disabled={isLoading || !selectedBarberId || barbers.length === 0 || isUploading} className="btn btn-primary btn-full-width">
-                    {isLoading ? <Spinner /> : 'Join Queue'}
-                </button>
-                {message && <p className={`message ${message.toLowerCase().includes('failed') || message.toLowerCase().includes('error') ? 'error' : ''}`}>{message}</p>}
-            </form>
+                {/* Shared Message Display */}
+                {message && <p className={`message ${message.toLowerCase().includes('success') ? 'success' : 'error'}`}>{message}</p>}
+            </div>
         )}
 
         {/* B. LIVE QUEUE VIEW (SHOWS WHEN IN JOIN MODE AND IN QUEUE) */}
