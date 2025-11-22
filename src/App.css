@@ -2035,3 +2035,74 @@ button .spinner {
 :root.light-mode .hero-section {
   background: radial-gradient(circle at 50% 30%, rgba(255, 149, 0, 0.1), transparent 60%);
 }
+/* ===================================================================
+   AUTH PAGE STYLES (UNIFIED WITH LANDING PAGE)
+   =================================================================== */
+
+.auth-page-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-dark);
+  /* Reuse the Landing Page "Glow" for consistency */
+  background-image: radial-gradient(circle at 50% 20%, rgba(255, 149, 0, 0.15), transparent 60%);
+  position: relative;
+}
+
+.auth-nav {
+  padding: 20px 30px;
+  position: absolute; /* Keep it fixed at top */
+  top: 0;
+  width: 100%;
+  z-index: 10;
+}
+
+.auth-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px 40px; /* Top padding clears the nav */
+  z-index: 5;
+}
+
+/* Enhance the Auth Card to pop against the new background */
+.auth-card {
+  /* Remove the old margins since flexbox centers it now */
+  margin: 0; 
+  width: 100%;
+  max-width: 450px;
+  
+  /* Add depth to match the landing page vibe */
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color);
+  background: var(--surface-color); /* Keep surface color opaque */
+}
+
+/* Back Button Styling */
+.btn-back-home {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: color 0.2s, transform 0.2s;
+  padding: 10px 0;
+}
+
+.btn-back-home:hover {
+  color: var(--primary-orange);
+  transform: translateX(-5px); /* Slight nudge left */
+  text-decoration: none;
+}
+
+.btn-back-home .icon {
+  margin-right: 8px;
+}
+
+/* Light Mode Override for Auth Page */
+:root.light-mode .auth-page-container {
+  background-image: radial-gradient(circle at 50% 20%, rgba(255, 149, 0, 0.1), transparent 60%);
+}
+:root.light-mode .auth-card {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+}

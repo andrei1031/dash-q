@@ -3538,23 +3538,32 @@ function App() {
             return <LandingPage onGetStarted={() => setShowLanding(false)} onLogin={() => setShowLanding(false)} />;
         }
 
-        // 5. Login/Signup Form
+        // 5. Login/Signup Form (Unified Design)
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-                {/* Back Button - Now part of the layout flow (pushes form down) */}
-                <div style={{ padding: '20px 20px 0 20px' }}>
+            <div className="auth-page-container">
+                {/* Navigation Bar (Top Left) */}
+                <nav className="auth-nav">
                     <button 
                         onClick={() => setShowLanding(true)} 
-                        className="btn btn-link"
-                        style={{ fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                        className="btn btn-link btn-back-home"
                     >
                         ← Back to Home
                     </button>
-                </div>
+                </nav>
                 
-                {/* Auth Form - Will naturally sit below the button now */}
-                <div style={{ flex: 1 }}>
+                {/* Centered Content */}
+                <div className="auth-content">
                     <AuthForm />
+                    
+                    {/* Optional: Small branding footer under the card */}
+                    <p style={{
+                        marginTop: '20px', 
+                        color: 'var(--text-secondary)', 
+                        fontSize: '0.85rem', 
+                        opacity: 0.7
+                    }}>
+                        Dash-Q &copy; 2025
+                    </p>
                 </div>
             </div>
         );
