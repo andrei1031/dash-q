@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
-import io from 'socket.io-client';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 
@@ -27,7 +26,6 @@ const playSound = (audioElement) => {
 
 
 // --- Global Constants ---
-const SOCKET_URL = 'https://dash-q-backend.onrender.com';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 const API_URL = 'https://dash-q-backend.onrender.com/api' || 'http://localhost:3000';
 
@@ -813,7 +811,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
     const [queueDetails, setQueueDetails] = useState({ waiting: [], inProgress: null, upNext: null });
     const [error, setError] = useState('');
     const [fetchError, setFetchError] = useState('');
-    const socketRef = useRef(null);
     const [chatMessages, setChatMessages] = useState({});
     const [openChatCustomerId, setOpenChatCustomerId] = useState(null);
     const [openChatQueueId, setOpenChatQueueId] = useState(null);
@@ -878,82 +875,63 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
         }
     }, [barberId]);
 
-    // --- WebSocket Connection Effect for Barber ---
-    // --- WebSocket Connection Effect for Barber (NEW) ---
-    // 1. CONNECTION EFFECT (Run once on mount)
+    // --- REPLACED SOCKET.IO WITH SUPABASE REALTIME ---
     useEffect(() => {
-        if (!session?.user?.id) return;
+        if (!openChatQueueId) return;
 
-        // Connect only if not already connected
-        if (!socketRef.current) {
-            console.log("[Barber] Connecting WebSocket...");
-            socketRef.current = io(SOCKET_URL);
-            
-            socketRef.current.on('connect', () => { 
-                console.log(`[Barber] WebSocket connected.`);
-                socketRef.current.emit('register', session.user.id); 
+        console.log(`[Barber] Subscribing to chat for Queue #${openChatQueueId}`);
+        
+        const chatChannel = supabase.channel(`barber_chat_${openChatQueueId}`)
+            .on(
+                'postgres_changes', 
+                { 
+                    event: 'INSERT', 
+                    schema: 'public', 
+                    table: 'chat_messages', 
+                    filter: `queue_entry_id=eq.${openChatQueueId}` 
+                }, 
+                (payload) => {
+                    const newMsg = payload.new;
+                    // Update the specific customer's chat history
+                    setChatMessages(prev => {
+                        const customerId = openChatCustomerId; // Current open chat
+                        const msgs = prev[customerId] || [];
+                        return { ...prev, [customerId]: [...msgs, { senderId: newMsg.sender_id, message: newMsg.message }] };
+                    });
+
+                    if (newMsg.sender_id !== session.user.id) {
+                        playSound(messageNotificationSound);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(chatChannel);
+        };
+    }, [openChatQueueId, openChatCustomerId, session]); // Re-subscribes when you switch customers
+
+    // --- UPDATE SEND FUNCTION ---
+    const sendBarberMessage = async (recipientId, messageText) => {
+        if (!messageText.trim() || !openChatQueueId) return;
+
+        // Optimistic UI Update
+        setChatMessages(prev => {
+            const msgs = prev[recipientId] || [];
+            return { ...prev, [recipientId]: [...msgs, { senderId: session.user.id, message: messageText }] };
+        });
+
+        try {
+            await axios.post(`${API_URL}/chat/send`, {
+                senderId: session.user.id,
+                queueId: openChatQueueId,
+                message: messageText
             });
-            
-            socketRef.current.on('disconnect', (reason) => { 
-                console.log("[Barber] WebSocket disconnected:", reason); 
-            });
+        } catch (error) {
+            console.error("Failed to send:", error);
+            // Handle error (toast notification?)
         }
-
-        // Cleanup on unmount ONLY
-        return () => {
-            if (socketRef.current) {
-                console.log("[Barber] Unmounting & Disconnecting Socket.");
-                socketRef.current.disconnect();
-                socketRef.current = null;
-            }
-        };
-    }, [session]);
-
-    // 2. LISTENER EFFECT (Runs when chat target changes)
-    useEffect(() => {
-        const socket = socketRef.current;
-        if (!socket) return;
-
-        const messageListener = (incomingMessage) => {
-            playSound(messageNotificationSound);
-            
-            // Update chat history
-            setChatMessages(prev => {
-                const senderId = incomingMessage.senderId;
-                const msgs = prev[senderId] || [];
-                return { ...prev, [senderId]: [...msgs, incomingMessage] };
-            });
-
-            // Mark unread if chat is NOT open for this sender
-            if (incomingMessage.senderId !== openChatCustomerId) {
-                setUnreadMessages(prev => {
-                    const newState = { ...prev, [incomingMessage.senderId]: true };
-                    localStorage.setItem('barberUnreadMessages', JSON.stringify(newState));
-                    return newState;
-                });
-            }
-        };
-
-        // Clean old listener to prevent duplicates, then add new one
-        socket.off('chat message');
-        socket.on('chat message', messageListener);
-
-        return () => { socket.off('chat message', messageListener); };
-    }, [openChatCustomerId]);
-
-
-    // This new useEffect handles the *main* socket cleanup
-    useEffect(() => {
-         // This runs only when the component unmounts
-        return () => {
-            if (socketRef.current) {
-                console.log("[Barber] Cleaning up WebSocket connection."); 
-                socketRef.current.disconnect(); 
-                socketRef.current = null;
-            }
-        };
-    }, []); // <-- Empty dependency array
-
+    };
     // UseEffect for initial load and realtime subscription
     useEffect(() => {
         if (!barberId || !supabase?.channel) return;
@@ -1117,18 +1095,6 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
         }
     };
 
-    const sendBarberMessage = (recipientId, messageText) => {
-        const queueId = openChatQueueId;
-        if (messageText.trim() && socketRef.current?.connected && session?.user?.id && queueId) {
-            const messageData = { senderId: session.user.id, recipientId, message: messageText, queueId };
-            socketRef.current.emit('chat message', messageData);
-            setChatMessages(prev => {
-                const customerId = recipientId;
-                const existingMessages = prev[customerId] || [];
-                return { ...prev, [customerId]: [...existingMessages, { senderId: session.user.id, message: messageText }] };
-            });
-        } else { console.warn("Cannot send barber msg, socket disconnected or queueId missing."); }
-    };
 
     const openChat = (customer) => {
         const customerUserId = customer?.profiles?.id;
@@ -1544,7 +1510,6 @@ function CustomerView({ session }) {
     const [isOnCooldown, setIsOnCooldown] = useState(false);
     const locationWatchId = useRef(null);
     const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
-    const socketRef = useRef(null);
     const liveQueueRef = useRef([]);
     const [selectedFile, setSelectedFile] = useState(null);
     const [referenceImageUrl, setReferenceImageUrl] = useState('');
@@ -1600,15 +1565,6 @@ function CustomerView({ session }) {
     const handleCloseInstructions = () => {
         localStorage.setItem('hasSeenInstructions_v1', 'true');
         setIsInstructionsModalOpen(false);
-    };
-    const sendCustomerMessage = (recipientId, messageText) => {
-        const queueId = myQueueEntryId;
-
-        if (messageText.trim() && socketRef.current?.connected && session?.user?.id && queueId) {
-            const messageData = { senderId: session.user.id, recipientId, message: messageText, queueId };
-            socketRef.current.emit('chat message', messageData);
-            setChatMessagesFromBarber(prev => [...prev, { senderId: session.user.id, message: messageText }]);
-        } else { console.warn("[Customer] Cannot send message (socket disconnected or missing IDs)."); setMessage("Chat disconnected."); }
     };
     const fetchPublicQueue = useCallback(async (barberId) => {
         if (!barberId) {
@@ -2144,57 +2100,77 @@ function CustomerView({ session }) {
         }
     }, [selectedBarberId]);
 
-    useEffect(() => { // WebSocket Connection and History Fetch
-        if (session?.user?.id && joinedBarberId && currentChatTargetBarberUserId && myQueueEntryId) {
+    // --- REPLACED SOCKET.IO WITH SUPABASE REALTIME ---
+    useEffect(() => { 
+        if (!session?.user?.id || !joinedBarberId || !myQueueEntryId) return;
 
-            fetchChatHistory(myQueueEntryId);
+        // 1. Initial Load
+        fetchChatHistory(myQueueEntryId);
 
-            if (!socketRef.current) {
-                console.log("[Customer] Connecting WebSocket...");
-                socketRef.current = io(SOCKET_URL);
-                const socket = socketRef.current;
-                const customerUserId = session.user.id;
+        // 2. Subscribe to NEW messages in the database
+        console.log("[Customer] Subscribing to Chat via Supabase...");
+        const chatChannel = supabase.channel(`chat_${myQueueEntryId}`)
+            .on(
+                'postgres_changes', 
+                { 
+                    event: 'INSERT', 
+                    schema: 'public', 
+                    table: 'chat_messages', 
+                    filter: `queue_entry_id=eq.${myQueueEntryId}` 
+                }, 
+                (payload) => {
+                    const newMsg = payload.new;
+                    console.log("[Customer] New message received:", newMsg);
+                    
+                    // Only add if it's NOT from me (to avoid duplicates, though React handles keys well)
+                    // OR add everything and let state management handle it.
+                    // Simple approach: Add everything.
+                    setChatMessagesFromBarber(prev => [...prev, { 
+                        senderId: newMsg.sender_id, 
+                        message: newMsg.message 
+                    }]);
 
-                socket.on('connect', () => {
-                    console.log(`[Customer] WebSocket connected.`);
-                    socket.emit('register', customerUserId);
-                    socket.emit('registerQueueEntry', myQueueEntryId);
-                });
-
-                const messageListener = (incomingMessage) => {
-                    if (incomingMessage.senderId === currentChatTargetBarberUserId) {
+                    // Notify if it's from the barber
+                    if (newMsg.sender_id !== session.user.id) {
                         playSound(messageNotificationSound);
-
-                        setChatMessagesFromBarber(prev => [...prev, incomingMessage]);
-                        setIsChatOpen(currentIsOpen => {
-                            if (!currentIsOpen) { 
-                                setHasUnreadFromBarber(true); 
+                        setIsChatOpen(current => {
+                            if (!current) {
+                                setHasUnreadFromBarber(true);
                                 localStorage.setItem('hasUnreadFromBarber', 'true');
                             }
-                            return currentIsOpen;
+                            return current;
                         });
                     }
-                };
-                socket.on('chat message', messageListener);
-                socket.on('connect_error', (err) => { console.error("[Customer] WebSocket Connection Error:", err); });
-                socket.on('disconnect', (reason) => { console.log("[Customer] WebSocket disconnected:", reason); socketRef.current = null; });
-            }
-        } else {
-            if (socketRef.current) {
-                console.log("[Customer] Disconnecting WebSocket due to state change.");
-                socketRef.current.disconnect();
-                socketRef.current = null;
-            }
-        }
+                }
+            )
+            .subscribe();
 
         return () => {
-            if (socketRef.current) {
-                socketRef.current.disconnect();
-                socketRef.current = null;
-            }
+            supabase.removeChannel(chatChannel);
         };
-    }, [session, joinedBarberId, myQueueEntryId, currentChatTargetBarberUserId, fetchChatHistory]);
+    }, [session, joinedBarberId, myQueueEntryId, fetchChatHistory]);
 
+    // --- UPDATE SEND FUNCTION ---
+    const sendCustomerMessage = async (recipientId, messageText) => {
+        if (!messageText.trim()) return;
+        
+        // Optimistic UI Update (Show immediately)
+        const tempMsg = { senderId: session.user.id, message: messageText };
+        setChatMessagesFromBarber(prev => [...prev, tempMsg]);
+
+        try {
+            await axios.post(`${API_URL}/chat/send`, {
+                senderId: session.user.id,
+                queueId: myQueueEntryId,
+                message: messageText
+            });
+        } catch (error) {
+            console.error("Failed to send message:", error);
+            setMessage("Failed to send message. Profanity?");
+            // Rollback UI if needed, or just show error
+        }
+    };
+    
     useEffect(() => { // EWT Preview
         if (selectedBarberId) {
             console.log(`[EWT Preview] Fetching queue for barber ${selectedBarberId}`);
