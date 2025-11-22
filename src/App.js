@@ -2711,33 +2711,25 @@ function BarberAppLayout({ session, barberProfile, setBarberProfile }) {
     );
 }
 
-// ##############################################
-// ##           ADMIN APP LAYOUT             ##
-// ##############################################
 function AdminAppLayout({ session }) {
-    const [activeTab, setActiveTab] = useState('live'); // 'live', 'stats', 'users', 'menu'
+    // Added 'staff' to tabs
+    const [activeTab, setActiveTab] = useState('live'); // 'live', 'stats', 'users', 'menu', 'staff'
     
-    // --- Live Shop Data ---
+    // Data States
     const [allQueues, setAllQueues] = useState([]);
     const [barbers, setBarbers] = useState([]);
     const [transferMode, setTransferMode] = useState(null);
-
-    // --- Analytics Data ---
     const [advancedStats, setAdvancedStats] = useState(null);
-
-    // --- Users Data ---
     const [users, setUsers] = useState([]);
-
-    // --- Service Menu Data (RESTORED) ---
     const [services, setServices] = useState([]);
-    const [isEditingService, setIsEditingService] = useState(null); // Track which service is being edited
+    const [isEditingService, setIsEditingService] = useState(null);
 
     // --- FETCHERS ---
     const fetchLiveShop = useCallback(async () => {
         try {
             const [qRes, bRes] = await Promise.all([
                 supabase.from('queue_entries').select('*, services(name)').in('status', ['Waiting', 'Up Next', 'In Progress']),
-                axios.get(`${API_URL}/admin/barbers`)
+                axios.get(`${API_URL}/admin/barbers`) // This returns ALL barbers (active and inactive)
             ]);
             setAllQueues(qRes.data || []);
             setBarbers(bRes.data || []);
@@ -2752,20 +2744,92 @@ function AdminAppLayout({ session }) {
         try { const res = await axios.get(`${API_URL}/admin/users`); setUsers(res.data); } catch (e) {}
     }, []);
 
-    // NEW: Fetch Services
     const fetchServices = useCallback(async () => {
         try { const res = await axios.get(`${API_URL}/services`); setServices(res.data); } catch (e) { console.error(e); }
     }, []);
 
     // --- EFFECTS ---
     useEffect(() => {
-        if (activeTab === 'live') { fetchLiveShop(); const interval = setInterval(fetchLiveShop, 5000); return () => clearInterval(interval); }
+        // Refresh live data every 5 seconds
+        if (activeTab === 'live' || activeTab === 'staff') { 
+            fetchLiveShop(); 
+            const interval = setInterval(fetchLiveShop, 5000); 
+            return () => clearInterval(interval); 
+        }
         if (activeTab === 'stats') fetchAdvancedStats();
         if (activeTab === 'users') fetchUsers();
-        if (activeTab === 'menu') fetchServices(); // Fetch menu when tab is active
+        if (activeTab === 'menu') fetchServices();
     }, [activeTab, fetchLiveShop, fetchAdvancedStats, fetchUsers, fetchServices]);
 
     // --- ACTIONS ---
+    
+    // 1. Service Management
+    const handleSaveService = async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const name = form.serviceName.value;
+        const duration = form.serviceDuration.value;
+        const price = form.servicePrice.value;
+
+        // Frontend Validation
+        if (duration < 5) return alert("Duration must be at least 5 minutes.");
+        if (price < 0) return alert("Price cannot be negative.");
+
+        try {
+            const payload = { userId: session.user.id, name, duration_minutes: duration, price_php: price };
+            
+            if (isEditingService) {
+                await axios.put(`${API_URL}/admin/services/${isEditingService.id}`, payload);
+                alert("Service updated!");
+                setIsEditingService(null);
+            } else {
+                await axios.post(`${API_URL}/admin/services`, payload);
+                alert("Service added!");
+            }
+            form.reset();
+            fetchServices();
+        } catch (err) {
+            alert("Action failed: " + (err.response?.data?.error || err.message));
+        }
+    };
+
+    const handleDeleteService = async (id) => {
+        if (!window.confirm("Are you sure? This will hide the service from the menu.")) return;
+        try {
+            await axios.delete(`${API_URL}/admin/services/${id}`, { data: { userId: session.user.id } });
+            fetchServices(); // Refresh list
+        } catch (err) { alert("Delete failed."); }
+    };
+
+    // 2. User Management
+    const handleDeleteUser = async (targetId) => {
+        const confirmText = prompt("WARNING: This action cannot be undone.\nType 'DELETE' to permanently ban/delete this user account.");
+        if (confirmText !== 'DELETE') return;
+        try {
+            await axios.delete(`${API_URL}/admin/users/${targetId}`, { data: { userId: session.user.id } });
+            alert("User deleted.");
+            fetchUsers();
+        } catch (e) { alert("Delete failed: " + (e.response?.data?.error || e.message)); }
+    };
+
+    // 3. Staff Management (Toggle Active/Inactive)
+    const handleToggleBarberStatus = async (barberId, currentStatus) => {
+        const newStatus = !currentStatus;
+        const action = newStatus ? "ACTIVATE" : "DEACTIVATE";
+        if (!window.confirm(`Are you sure you want to ${action} this barber?`)) return;
+
+        try {
+            await axios.put(`${API_URL}/admin/barbers/${barberId}/status`, {
+                userId: session.user.id,
+                is_active: newStatus
+            });
+            fetchLiveShop(); // Refresh barber list
+        } catch (err) {
+            alert("Update failed: " + (err.response?.data?.error || err.message));
+        }
+    };
+
+    // 4. Transfer Logic
     const handleTransfer = async (targetBarberId) => {
         if (!transferMode) return;
         if (window.confirm(`Transfer this customer to Barber #${targetBarberId}?`)) {
@@ -2781,77 +2845,29 @@ function AdminAppLayout({ session }) {
         }
     };
 
-    const handleDeleteUser = async (targetId) => {
-        const confirmText = prompt("Type 'DELETE' to permanently ban/delete this user account.");
-        if (confirmText !== 'DELETE') return;
-        try {
-            await axios.delete(`${API_URL}/admin/users/${targetId}`, { data: { userId: session.user.id } });
-            alert("User deleted.");
-            fetchUsers();
-        } catch (e) { alert("Delete failed: " + e.response?.data?.error); }
-    };
+    // --- SUB-COMPONENTS ---
 
-    // --- NEW: SERVICE ACTIONS ---
-    const handleSaveService = async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const name = form.serviceName.value;
-        const duration = form.serviceDuration.value;
-        const price = form.servicePrice.value;
-
-        try {
-            if (isEditingService) {
-                // EDIT MODE
-                await axios.put(`${API_URL}/admin/services/${isEditingService.id}`, {
-                    userId: session.user.id,
-                    name,
-                    duration_minutes: duration,
-                    price_php: price
-                });
-                alert("Service updated!");
-                setIsEditingService(null); // Exit edit mode
-            } else {
-                // ADD MODE
-                await axios.post(`${API_URL}/admin/services`, {
-                    userId: session.user.id,
-                    name,
-                    duration_minutes: duration,
-                    price_php: price
-                });
-                alert("Service added!");
-            }
-            form.reset();
-            fetchServices();
-        } catch (err) {
-            alert("Action failed: " + (err.response?.data?.error || err.message));
-        }
-    };
-
-    const handleDeleteService = async (id) => {
-        if (!window.confirm("Delete this service permanently?")) return;
-        try {
-            await axios.delete(`${API_URL}/admin/services/${id}`, { data: { userId: session.user.id } });
-            fetchServices();
-        } catch (err) { alert("Delete failed."); }
-    };
-
-    // --- VIEWS ---
     const LiveShopView = () => (
         <div className="live-shop-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
-            {barbers.map(barber => {
+            {barbers.filter(b => b.is_active).map(barber => { // Only show active barbers in Live View
                 const barberQueue = allQueues.filter(q => q.barber_id === barber.id);
                 const inChair = barberQueue.find(q => q.status === 'In Progress');
                 const waiting = barberQueue.filter(q => q.status === 'Waiting');
                 return (
                     <div key={barber.id} className="card" style={{border: transferMode ? '2px dashed var(--primary-orange)' : '1px solid var(--border-color)'}}>
-                        <div className="card-header" style={{padding:'10px'}}>
-                            <h3 style={{fontSize:'1rem', margin:0}}>{barber.full_name}</h3>
+                        <div className="card-header" style={{padding:'10px', justifyContent: 'space-between'}}>
+                            <div>
+                                <h3 style={{fontSize:'1rem', margin:0}}>{barber.full_name}</h3>
+                                <small style={{color: barber.is_available ? 'var(--success-color)' : 'var(--text-secondary)'}}>
+                                    ● {barber.is_available ? 'Online' : 'Offline'}
+                                </small>
+                            </div>
                             {transferMode && transferMode.currentBarberId !== barber.id && (
                                 <button onClick={() => handleTransfer(barber.id)} className="btn btn-primary" style={{fontSize:'0.8rem', padding:'4px 8px'}}>Select</button>
                             )}
                         </div>
                         <div className="card-body" style={{padding:'10px'}}>
-                            {inChair && <div style={{background:'rgba(52,199,89,0.1)', padding:'5px', borderRadius:'4px', marginBottom:'5px', fontSize:'0.9rem'}}>✂️ <strong>{inChair.customer_name}</strong></div>}
+                            {inChair ? <div style={{background:'rgba(52,199,89,0.1)', padding:'5px', borderRadius:'4px', marginBottom:'5px', fontSize:'0.9rem'}}>✂️ <strong>{inChair.customer_name}</strong></div> : <div style={{fontStyle:'italic', fontSize:'0.9rem', color:'var(--text-secondary)'}}>Chair Empty</div>}
                             <h4 style={{fontSize:'0.8rem', color:'var(--text-secondary)', margin:'10px 0 5px 0'}}>Waiting ({waiting.length})</h4>
                             <ul className="queue-list" style={{maxHeight:'150px', overflowY:'auto'}}>
                                 {waiting.map(q => (
@@ -2865,6 +2881,75 @@ function AdminAppLayout({ session }) {
                     </div>
                 );
             })}
+            {barbers.filter(b => b.is_active).length === 0 && <p className="empty-text">No active barbers found.</p>}
+        </div>
+    );
+
+    const StaffView = () => (
+        <div className="card">
+            <div className="card-header"><h2>Staff Management</h2></div>
+            <div className="card-body">
+                <table style={{width:'100%', borderCollapse:'collapse', color:'var(--text-primary)'}}>
+                    <thead>
+                        <tr style={{textAlign:'left', borderBottom:'1px solid var(--border-color)'}}>
+                            <th style={{padding:'10px'}}>Barber Name</th>
+                            <th style={{padding:'10px'}}>Status</th>
+                            <th style={{padding:'10px'}}>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {barbers.map(b => (
+                            <tr key={b.id} style={{borderBottom:'1px solid var(--border-color)', opacity: b.is_active ? 1 : 0.5}}>
+                                <td style={{padding:'10px'}}>{b.full_name}</td>
+                                <td style={{padding:'10px'}}>
+                                    {b.is_active ? <span style={{color:'var(--success-color)', fontWeight:'bold'}}>ACTIVE</span> : <span style={{color:'var(--error-color)', fontWeight:'bold'}}>BANNED/INACTIVE</span>}
+                                </td>
+                                <td style={{padding:'10px'}}>
+                                    <button 
+                                        onClick={() => handleToggleBarberStatus(b.id, b.is_active)} 
+                                        className={b.is_active ? "btn btn-danger" : "btn btn-success"}
+                                        style={{fontSize:'0.8rem', padding: '5px 10px'}}
+                                    >
+                                        {b.is_active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                <p className="message small">Deactivating a barber hides them from the customer "Join Queue" list immediately.</p>
+            </div>
+        </div>
+    );
+
+    const MenuView = () => (
+        <div className="card">
+            <div className="card-header">
+                <h2>{isEditingService ? 'Edit Service' : 'Add New Service'}</h2>
+            </div>
+            <div className="card-body">
+                <form onSubmit={handleSaveService} style={{display:'grid', gap:'10px', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', marginBottom:'20px', paddingBottom:'20px', borderBottom:'1px solid var(--border-color)'}}>
+                    <div className="form-group"><label>Service Name</label><input name="serviceName" defaultValue={isEditingService?.name || ''} required placeholder="e.g. Haircut" /></div>
+                    <div className="form-group"><label>Duration (mins)</label><input name="serviceDuration" type="number" defaultValue={isEditingService?.duration_minutes || 30} required min="5" /></div>
+                    <div className="form-group"><label>Price (₱)</label><input name="servicePrice" type="number" defaultValue={isEditingService?.price_php || 150} required min="0" /></div>
+                    <div style={{display:'flex', alignItems:'end', gap:'10px'}}>
+                        <button type="submit" className="btn btn-primary btn-full-width">{isEditingService ? 'Update' : 'Add'}</button>
+                        {isEditingService && <button type="button" onClick={() => setIsEditingService(null)} className="btn btn-secondary">Cancel</button>}
+                    </div>
+                </form>
+                <h3 style={{marginTop:0}}>Current Menu</h3>
+                <ul className="queue-list">
+                    {services.map(s => (
+                        <li key={s.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                            <div><strong>{s.name}</strong> <span style={{color:'var(--text-secondary)'}}>({s.duration_minutes}m)</span><div style={{fontWeight:'bold', color:'var(--primary-orange)'}}>₱{s.price_php}</div></div>
+                            <div style={{display:'flex', gap:'10px'}}>
+                                <button onClick={() => setIsEditingService(s)} className="btn btn-secondary" style={{padding:'5px 10px'}}>Edit</button>
+                                <button onClick={() => handleDeleteService(s.id)} className="btn btn-danger" style={{padding:'5px 10px'}}>Delete</button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
         </div>
     );
 
@@ -2877,8 +2962,8 @@ function AdminAppLayout({ session }) {
         return (
             <div className="stats-container">
                 <div className="analytics-grid">
-                    <div className="analytics-item"><span className="analytics-label">Total Revenue</span><span className="analytics-value">₱{parseInt(advancedStats.totalRevenue).toLocaleString()}</span></div>
-                    <div className="analytics-item"><span className="analytics-label">Total Cuts</span><span className="analytics-value">{advancedStats.totalCuts}</span></div>
+                    <div className="analytics-item"><span className="analytics-label">Total Revenue</span><span className="analytics-value">₱{parseInt(advancedStats.totalRevenue || 0).toLocaleString()}</span></div>
+                    <div className="analytics-item"><span className="analytics-label">Total Cuts</span><span className="analytics-value">{advancedStats.totalCuts || 0}</span></div>
                 </div>
                 <div className="card" style={{marginTop:'20px', padding:'20px'}}>
                      <h3 style={{marginTop:0}}>Revenue Trend (7 Days)</h3>
@@ -2910,59 +2995,6 @@ function AdminAppLayout({ session }) {
         </div>
     );
 
-    // --- NEW: MENU VIEW COMPONENT ---
-    const MenuView = () => (
-        <div className="card">
-            <div className="card-header">
-                <h2>{isEditingService ? 'Edit Service' : 'Add New Service'}</h2>
-            </div>
-            <div className="card-body">
-                {/* Add/Edit Form */}
-                <form onSubmit={handleSaveService} style={{display:'grid', gap:'10px', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', marginBottom:'20px', paddingBottom:'20px', borderBottom:'1px solid var(--border-color)'}}>
-                    <div className="form-group">
-                        <label>Service Name</label>
-                        <input name="serviceName" defaultValue={isEditingService?.name || ''} required placeholder="e.g. Haircut" />
-                    </div>
-                    <div className="form-group">
-                        <label>Duration (mins)</label>
-                        <input name="serviceDuration" type="number" defaultValue={isEditingService?.duration_minutes || 30} required />
-                    </div>
-                    <div className="form-group">
-                        <label>Price (₱)</label>
-                        <input name="servicePrice" type="number" defaultValue={isEditingService?.price_php || 150} required />
-                    </div>
-                    <div style={{display:'flex', alignItems:'end', gap:'10px'}}>
-                        <button type="submit" className="btn btn-primary btn-full-width">
-                            {isEditingService ? 'Update Service' : 'Add Service'}
-                        </button>
-                        {isEditingService && (
-                            <button type="button" onClick={() => setIsEditingService(null)} className="btn btn-secondary">
-                                Cancel
-                            </button>
-                        )}
-                    </div>
-                </form>
-
-                {/* Service List */}
-                <h3 style={{marginTop:0}}>Current Menu</h3>
-                <ul className="queue-list">
-                    {services.map(s => (
-                        <li key={s.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                            <div>
-                                <strong>{s.name}</strong> <span style={{color:'var(--text-secondary)'}}>({s.duration_minutes}m)</span>
-                                <div style={{fontWeight:'bold', color:'var(--primary-orange)'}}>₱{s.price_php}</div>
-                            </div>
-                            <div style={{display:'flex', gap:'10px'}}>
-                                <button onClick={() => setIsEditingService(s)} className="btn btn-secondary" style={{padding:'5px 10px'}}>Edit</button>
-                                <button onClick={() => handleDeleteService(s.id)} className="btn btn-danger" style={{padding:'5px 10px'}}>Delete</button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        </div>
-    );
-
     return (
         <div className="app-layout admin-layout">
             <header className="app-header" style={{ borderBottom: '2px solid #7c4dff' }}>
@@ -2983,16 +3015,18 @@ function AdminAppLayout({ session }) {
             <div className="customer-view-tabs card-header" style={{ justifyContent: 'center', background: 'var(--surface-color)', marginTop: '10px', flexWrap: 'wrap' }}>
                 <button className={activeTab === 'live' ? 'active' : ''} onClick={() => setActiveTab('live')}>⚡ Live Shop</button>
                 <button className={activeTab === 'stats' ? 'active' : ''} onClick={() => setActiveTab('stats')}>📊 Analytics</button>
-                <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>👥 Users</button>
+                <button className={activeTab === 'staff' ? 'active' : ''} onClick={() => setActiveTab('staff')}>💈 Staff</button>
                 <button className={activeTab === 'menu' ? 'active' : ''} onClick={() => setActiveTab('menu')}>✂️ Menu</button>
+                <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>👥 Users</button>
             </div>
 
             <main className="main-content">
                 <div className="container" style={{maxWidth:'1200px'}}>
                     {activeTab === 'live' && <LiveShopView />}
                     {activeTab === 'stats' && <StatsView />}
-                    {activeTab === 'users' && <UsersView />}
+                    {activeTab === 'staff' && <StaffView />}
                     {activeTab === 'menu' && <MenuView />}
+                    {activeTab === 'users' && <UsersView />}
                 </div>
             </main>
         </div>
