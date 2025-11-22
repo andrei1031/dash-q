@@ -2960,21 +2960,144 @@ function AdminAppLayout({ session }) {
         </div>
     );
 
+    // --- SUPER DETAILED ANALYTICS VIEW ---
     const StatsView = () => {
-        if (!advancedStats) return <div className="loading-fullscreen"><Spinner /></div>;
-        const chartData = {
-            labels: advancedStats.dailyTrend.map(d => d.day),
-            datasets: [{ label: 'Revenue (₱)', data: advancedStats.dailyTrend.map(d => d.daily_total), backgroundColor: 'rgba(255, 149, 0, 0.5)', borderColor: 'rgba(255, 149, 0, 1)', borderWidth: 2 }]
+        if (!advancedStats) return <div className="loading-fullscreen"><Spinner /><span>Crunching numbers...</span></div>;
+        
+        // 1. Prepare Chart Data
+        const trendData = {
+            labels: (advancedStats.dailyTrend || []).map(d => d.day),
+            datasets: [{
+                label: 'Shop Revenue (₱)',
+                data: (advancedStats.dailyTrend || []).map(d => d.daily_total),
+                borderColor: '#ff9500',
+                backgroundColor: 'rgba(255, 149, 0, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
         };
+
+        const barberComparisonData = {
+            labels: (advancedStats.barberStats || []).map(b => b.full_name),
+            datasets: [{
+                label: 'Total Revenue (₱)',
+                data: (advancedStats.barberStats || []).map(b => b.total_revenue),
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)',
+                ],
+                borderWidth: 1
+            }]
+        };
+
+        const topBarber = (advancedStats.barberStats || [])[0] || { full_name: 'N/A', total_revenue: 0 };
+
         return (
             <div className="stats-container">
-                <div className="analytics-grid">
-                    <div className="analytics-item"><span className="analytics-label">Total Revenue</span><span className="analytics-value">₱{parseInt(advancedStats.totalRevenue || 0).toLocaleString()}</span></div>
-                    <div className="analytics-item"><span className="analytics-label">Total Cuts</span><span className="analytics-value">{advancedStats.totalCuts || 0}</span></div>
+                {/* --- ROW 1: KPI CARDS --- */}
+                <div className="analytics-grid" style={{marginBottom: '20px'}}>
+                    <div className="analytics-item">
+                        <span className="analytics-label">Total Shop Revenue</span>
+                        <span className="analytics-value" style={{color: 'var(--success-color)'}}>
+                            ₱{parseInt(advancedStats.totals.revenue).toLocaleString()}
+                        </span>
+                    </div>
+                    <div className="analytics-item">
+                        <span className="analytics-label">Total Haircuts</span>
+                        <span className="analytics-value">{advancedStats.totals.cuts}</span>
+                    </div>
+                    <div className="analytics-item">
+                        <span className="analytics-label">Top Performer 🏆</span>
+                        <span className="analytics-value" style={{fontSize: '1.4rem'}}>
+                            {topBarber.full_name}
+                        </span>
+                        <small style={{color: 'var(--text-secondary)'}}>
+                            Earned ₱{topBarber.total_revenue.toLocaleString()}
+                        </small>
+                    </div>
                 </div>
-                <div className="card" style={{marginTop:'20px', padding:'20px'}}>
-                     <h3 style={{marginTop:0}}>Revenue Trend (7 Days)</h3>
-                     <div style={{height:'250px'}}><Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false }} /></div>
+
+                {/* --- ROW 2: CHARTS --- */}
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px'}}>
+                    <div className="card" style={{padding: '20px'}}>
+                        <h3 style={{marginTop: 0, fontSize: '1rem'}}>📈 7-Day Revenue Trend</h3>
+                        <div style={{height: '250px'}}>
+                            <Bar data={trendData} options={{ 
+                                responsive: true, 
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } } 
+                            }} />
+                        </div>
+                    </div>
+                    <div className="card" style={{padding: '20px'}}>
+                        <h3 style={{marginTop: 0, fontSize: '1rem'}}>💈 Barber Comparison (Revenue)</h3>
+                        <div style={{height: '250px'}}>
+                            <Bar data={barberComparisonData} options={{ 
+                                indexAxis: 'y', // Horizontal Bar Chart for better name readability
+                                responsive: true, 
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } }
+                            }} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- ROW 3: DETAILED LEADERBOARD TABLE --- */}
+                <div className="card">
+                    <div className="card-header">
+                        <h2>Detailed Performance Matrix</h2>
+                    </div>
+                    <div className="card-body">
+                        <table style={{width: '100%', borderCollapse: 'collapse', minWidth: '600px'}}>
+                            <thead>
+                                <tr style={{borderBottom: '2px solid var(--border-color)', textAlign: 'left'}}>
+                                    <th style={{padding: '12px'}}>Barber Name</th>
+                                    <th style={{padding: '12px'}}>Status</th>
+                                    <th style={{padding: '12px', textAlign: 'center'}}>Cuts</th>
+                                    <th style={{padding: '12px', textAlign: 'center'}}>Rating</th>
+                                    <th style={{padding: '12px', textAlign: 'right'}}>Revenue Generated</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {advancedStats.barberStats && advancedStats.barberStats.length > 0 ? (
+                                    advancedStats.barberStats.map((b, i) => (
+                                        <tr key={i} style={{borderBottom: '1px solid var(--border-color)'}}>
+                                            <td style={{padding: '12px', fontWeight: '600'}}>
+                                                {i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : ''}
+                                                {b.full_name}
+                                            </td>
+                                            <td style={{padding: '12px'}}>
+                                                {b.is_active 
+                                                    ? <span style={{color: 'var(--success-color)', background: 'rgba(52,199,89,0.1)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem'}}>Active</span> 
+                                                    : <span style={{color: 'var(--text-secondary)', background: 'rgba(100,100,100,0.1)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem'}}>Inactive</span>
+                                                }
+                                            </td>
+                                            <td style={{padding: '12px', textAlign: 'center', fontSize: '1.1rem'}}>
+                                                {b.cut_count}
+                                            </td>
+                                            <td style={{padding: '12px', textAlign: 'center'}}>
+                                                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'}}>
+                                                    <span style={{color: '#FFD700'}}>★</span>
+                                                    <strong>{b.avg_rating > 0 ? b.avg_rating : '-'}</strong>
+                                                    <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>
+                                                        ({b.review_count})
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td style={{padding: '12px', textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-orange)', fontSize: '1.1rem'}}>
+                                                ₱{b.total_revenue.toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr><td colSpan="5" style={{padding: '20px', textAlign: 'center'}}>No performance data available yet.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         );
