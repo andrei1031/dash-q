@@ -1595,117 +1595,132 @@ function CustomerView({ session }) {
     };
     const fetchPublicQueue = useCallback(async (barberId) => {
         if (!barberId) {
-            setLiveQueue(() => []);
+            setLiveQueue([]);
             liveQueueRef.current = [];
-            setIsQueueLoading(() => false);
+            setIsQueueLoading(false);
             return;
         }
-        setIsQueueLoading(() => true);
-        let queueData = [];
+        setIsQueueLoading(true);
+        
         try {
             const response = await axios.get(`${API_URL}/queue/public/${barberId}`);
-            queueData = response.data || [];
-            setLiveQueue(() => queueData);
+            const queueData = response.data || [];
+            setLiveQueue(queueData);
             liveQueueRef.current = queueData;
 
             const currentQueueId = localStorage.getItem('myQueueEntryId');
+            
+            // --- NOTIFICATION LOGIC (Your Turn / Up Next) ---
             if (currentQueueId) {
                 const myEntry = queueData.find(e => e.id.toString() === currentQueueId);
 
                 if (myEntry && (myEntry.status === 'In Progress' || myEntry.status === 'Up Next')) {
                     const modalFlag = localStorage.getItem('stickyModal');
-
                     if (modalFlag !== 'yourTurn') {
-                        console.log(`[Catcher] Missed event! My status is ${myEntry.status}. Triggering notification.`);
-
+                        console.log(`[Catcher] Status Update: ${myEntry.status}`);
                         playSound(queueNotificationSound);
-                        if (myEntry.status === 'In Progress') {
-                            startBlinking(TURN_TITLE);
-                        } else if (myEntry.status === 'Up Next') {
-                            startBlinking(NEXT_UP_TITLE);
-                        }
+                        if (myEntry.status === 'In Progress') startBlinking(TURN_TITLE);
+                        else if (myEntry.status === 'Up Next') startBlinking(NEXT_UP_TITLE);
                         localStorage.setItem('stickyModal', 'yourTurn');
                         if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
                     }
-
                 } else if (myEntry && myEntry.status === 'Waiting') {
-                    // My status is just 'Waiting'. Ensure the modal is closed and the flag is cleared.
-                    // This handles edge cases where a user is demoted (e.g., by a new VIP) 
                     stopBlinking();
                     if (localStorage.getItem('stickyModal') === 'yourTurn') {
                          localStorage.removeItem('stickyModal');
                     }
                 }
             }
-        } catch (error) {
-            console.error("Failed fetch public queue:", error);
-            setLiveQueue(() => []);
-            liveQueueRef.current = [];
-            setQueueMessage(() => "Could not load queue data.");
-        } finally {
-            setIsQueueLoading(() => false);
 
-            const currentQueueId = localStorage.getItem('myQueueEntryId');
-
+            // --- FIX: TRANSFER & MISSED EVENT DETECTION ---
             if (currentQueueId) {
+                // 1. Are we in the CURRENT barber's list?
                 const amIInActiveQueue = queueData.some(entry => entry.id.toString() === currentQueueId);
 
-                setIsServiceCompleteModalOpen(isDoneOpen => {
-                    setIsCancelledModalOpen(isCancelledOpen => {
+                // 2. If NOT in list, and no modals are open... check why.
+                if (!amIInActiveQueue && !isServiceCompleteModalOpen && !isCancelledModalOpen) {
+                    
+                    const investigateDisappearance = async () => {
+                        console.log("[Catcher] Entry missing from current queue. Investigating...");
+                        
+                        // STEP A: Check if we were TRANSFERRED (Active but different barber)
+                        const { data: movedEntry } = await supabase
+                            .from('queue_entries')
+                            .select('barber_id, status')
+                            .eq('id', currentQueueId)
+                            .maybeSingle();
 
-                        if (!amIInActiveQueue && !isDoneOpen && !isCancelledOpen) {
-
-                            const checkServerForMissedEvent = async () => {
-                                const userId = session?.user?.id;
-                                if (!userId) return;
-
-                                console.log("[Catcher] My entry is no longer active. Checking server for missed event...");
-                                try {
-                                    const response = await axios.get(`${API_URL}/missed-event/${userId}`);
-                                    const eventType = response.data.event;
-
-                                    if (eventType === 'Done') {
-                                        console.log("[Catcher] Server confirmed 'Done'. Showing Feedback modal.");
-                                        setIsServiceCompleteModalOpen(true);
-                                        localStorage.removeItem('myQueueEntryId');
-                                        localStorage.removeItem('joinedBarberId');
-                                        localStorage.removeItem('stickyModal');
-                                    } else if (eventType === 'Cancelled') {
-                                        console.log("[Catcher] Server confirmed 'Cancelled'. Showing Cancelled modal.");
-                                        setIsCancelledModalOpen(true);
-                                        localStorage.removeItem('myQueueEntryId');
-                                        localStorage.removeItem('joinedBarberId');
-                                        localStorage.removeItem('stickyModal');
-                                    } else {
-                                        if (currentQueueId) {
-                                            // FIX: This fallback is likely causing the generic error screen.
-                                            // Instead of assuming 'Done', we assume a general cleanup failure.
-                                            console.warn("[Catcher] Server returned null, but entry is gone. Performing safe cleanup and showing alert.");
-                                            setQueueMessage("Your queue entry was removed. See My History for details.");
-                                            
-                                            // Clear flags without showing modal
-                                            localStorage.removeItem('myQueueEntryId');
-                                            localStorage.removeItem('joinedBarberId');
-                                            localStorage.removeItem('stickyModal');
-                                            
-                                            // Use the alert state if you need to notify the user
-                                            // Example: setModalState({ type: 'alert', data: { title: 'Queue Removed', message: 'Your entry was finalized.' } });
-                                        }
-                                    }
-                                } catch (error) {
-                                    console.error("[Catcher] Error fetching missed event from server:", error.message);
-                                }
-                            };
-                            checkServerForMissedEvent();
+                        // If entry exists and is still active...
+                        if (movedEntry && ['Waiting', 'Up Next', 'In Progress'].includes(movedEntry.status)) {
+                            const currentStoredBarber = localStorage.getItem('joinedBarberId');
+                            
+                            // ...and the barber ID is different:
+                            if (movedEntry.barber_id.toString() !== currentStoredBarber) {
+                                console.log(`[Transfer] User moved to Barber ${movedEntry.barber_id}. Updating view.`);
+                                
+                                // 1. Update Local Storage
+                                localStorage.setItem('joinedBarberId', movedEntry.barber_id.toString());
+                                
+                                // 2. Update State (Triggers UI refresh)
+                                setJoinedBarberId(movedEntry.barber_id.toString());
+                                
+                                // 3. Notify User
+                                setMessage("🔄 You have been transferred to another barber.");
+                                
+                                // 4. STOP here. Do not check for cancellations.
+                                return; 
+                            }
                         }
-                        return isCancelledOpen;
-                    });
-                    return isDoneOpen;
-                });
+
+                        // STEP B: If not transferred, check for "Done" or "Cancelled" events (Old Logic)
+                        const userId = session?.user?.id;
+                        if (!userId) return;
+
+                        try {
+                            const response = await axios.get(`${API_URL}/missed-event/${userId}`);
+                            const eventType = response.data.event;
+
+                            if (eventType === 'Done') {
+                                console.log("[Catcher] Confirmed 'Done'.");
+                                setIsServiceCompleteModalOpen(true);
+                                localStorage.removeItem('myQueueEntryId');
+                                localStorage.removeItem('joinedBarberId');
+                                localStorage.removeItem('stickyModal');
+                            } else if (eventType === 'Cancelled') {
+                                console.log("[Catcher] Confirmed 'Cancelled'.");
+                                setIsCancelledModalOpen(true);
+                                localStorage.removeItem('myQueueEntryId');
+                                localStorage.removeItem('joinedBarberId');
+                                localStorage.removeItem('stickyModal');
+                            } else {
+                                // Fallback: If it's just gone from DB completely
+                                if (!movedEntry) {
+                                    console.warn("[Catcher] Entry disappeared completely.");
+                                    setQueueMessage("Your queue entry was removed.");
+                                    localStorage.removeItem('myQueueEntryId');
+                                    localStorage.removeItem('joinedBarberId');
+                                    localStorage.removeItem('stickyModal');
+                                    setMyQueueEntryId(null); // Reset state
+                                }
+                            }
+                        } catch (error) {
+                            console.error("[Catcher] Error checking event:", error.message);
+                        }
+                    };
+                    
+                    investigateDisappearance();
+                }
             }
+
+        } catch (error) {
+            console.error("Failed fetch public queue:", error);
+            setLiveQueue([]);
+            liveQueueRef.current = [];
+            setQueueMessage("Could not load queue data.");
+        } finally {
+            setIsQueueLoading(false);
         }
-        
-    }, [session, setIsQueueLoading, setLiveQueue, setQueueMessage, setIsServiceCompleteModalOpen, setIsCancelledModalOpen]);
+    }, [session, isServiceCompleteModalOpen, isCancelledModalOpen, setLiveQueue, setQueueMessage, setIsServiceCompleteModalOpen, setIsCancelledModalOpen, setJoinedBarberId]);
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
