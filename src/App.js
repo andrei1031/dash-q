@@ -624,7 +624,7 @@ function AvailabilityToggle({ barberProfile, session, onAvailabilityChange }) {
 
 // --- AnalyticsDashboard (Displays Barber Stats) ---
 function AnalyticsDashboard({ barberId, refreshSignal }) {
-    const [analytics, setAnalytics] = useState({ totalEarningsToday: 0, totalCutsToday: 0, totalEarningsWeek: 0, totalCutsWeek: 0, dailyData: [], busiestDay: { name: 'N/A', earnings: 0 }, currentQueueSize: 0, totalCutsAllTime: 0 });
+    const [analytics, setAnalytics] = useState({ totalEarningsToday: 0, totalCutsToday: 0, totalEarningsWeek: 0, totalCutsWeek: 0, dailyData: [], busiestDay: { name: 'N/A', earnings: 0 }, currentQueueSize: 0, totalCutsAllTime: 0, carbonSavedTotal: 0 });
     const [error, setError] = useState('');
     const [showEarnings, setShowEarnings] = useState(true);
     const [feedback, setFeedback] = useState([]);
@@ -694,9 +694,8 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
     
     const dailyDataSafe = Array.isArray(analytics.dailyData) ? analytics.dailyData : [];
     const chartData = { labels: dailyDataSafe.map(d => { try { return new Date(d.day + 'T00:00:00Z').toLocaleString(undefined, { month: 'numeric', day: 'numeric' }); } catch (e) { return '?'; } }), datasets: [{ label: 'Daily Earnings (₱)', data: dailyDataSafe.map(d => d.daily_earnings ?? 0), backgroundColor: 'rgba(52, 199, 89, 0.6)', borderColor: 'rgba(52, 199, 89, 1)', borderWidth: 1 }] };
-    const carbonSavedToday = 5;
-    const carbonSavedWeekly = (dailyDataSafe.length) * 5;
-
+    const carbonSavedTotal = analytics.carbonSavedTotal || 0;
+    const carbonSavedToday = analytics.totalCutsToday > 0 ? 5 : 0;  
     const renderSkeletons = () => (
         <>
             <div className="analytics-grid">
@@ -753,8 +752,18 @@ function AnalyticsDashboard({ barberId, refreshSignal }) {
             <div className="carbon-footprint-section">
                 <h3 className="analytics-subtitle">Carbon Footprint Reduced</h3>
                 <div className="analytics-grid carbon-grid">
-                    <div className="analytics-item"><span className="analytics-label">Today</span><span className="analytics-value carbon">{carbonSavedToday}g <span className="carbon-unit">(gCO2e)</span></span></div>
-                    <div className="analytics-item"><span className="analytics-label">Last 7 Days</span><span className="analytics-value carbon">{carbonSavedWeekly}g <span className="carbon-unit">(gCO2e)</span></span></div>
+                    <div className="analytics-item">
+                        <span className="analytics-label">Today</span>
+                        <span className="analytics-value carbon">
+                            {carbonSavedToday}g <span className="carbon-unit">(Active)</span>
+                        </span>
+                    </div>
+                    <div className="analytics-item">
+                        <span className="analytics-label">All Time</span>
+                        <span className="analytics-value carbon">
+                            {carbonSavedTotal}g <span className="carbon-unit">(Total)</span>
+                        </span>
+                    </div>
                 </div>
             </div>
             {showEarnings && (
