@@ -2135,11 +2135,10 @@ function CustomerView({ session }) {
                     // Only add the message if it is NOT from me.
                     // (I already added my own message optimistically in sendCustomerMessage)
                     if (newMsg.sender_id !== session.user.id) {
-                        setChatMessages(prev => {
-                            const customerId = openChatCustomerId;
-                            const msgs = prev[customerId] || [];
-                            return { ...prev, [customerId]: [...msgs, { senderId: newMsg.sender_id, message: newMsg.message }] };
-                        });
+                        setChatMessagesFromBarber(prev => [...prev, { 
+                        senderId: newMsg.sender_id, 
+                        message: newMsg.message 
+                    }]);
                         
                         // Play sound for incoming messages
                         playSound(messageNotificationSound);
@@ -3362,7 +3361,6 @@ function CustomerAppLayout({ session }) {
 }
 
 function LandingPage({ onGetStarted, onLogin }) {
-    const { theme, toggleTheme } = useTheme(); // Assuming you moved ThemeProvider higher or pass props
 
     return (
         <div className="landing-container">
