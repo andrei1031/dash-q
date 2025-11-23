@@ -2234,7 +2234,7 @@ button .spinner {
 
   /* Chat Window */
   .chat-window {
-    height: 300px; /* Shorter on mobile */
+    height: 350px; /* Shorter on mobile */
   }
   .message-bubble {
     max-width: 85%;

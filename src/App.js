@@ -2996,7 +2996,20 @@ return (
                         )}
                     </div>
                 </div>
-                <div className="danger-zone"><button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='btn btn-danger btn-full-width'>{isLoading ? <Spinner /> : 'Leave Queue / Join Another'}</button></div>
+                <div className="danger-zone">
+                    <button 
+                        onClick={() => {
+                            // CONFIRMATION DIALOG ADDED HERE
+                            if (window.confirm("Are you sure? You will lose your spot in line and have to start over!")) {
+                                handleReturnToJoin(true);
+                            }
+                        }} 
+                        disabled={isLoading} 
+                        className='btn btn-danger btn-full-width'
+                    >
+                        {isLoading ? <Spinner /> : 'Leave Queue / Join Another'}
+                    </button>
+                </div>
             </div>
         )}
 
