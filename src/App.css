@@ -1881,8 +1881,6 @@ button .spinner {
   background: rgba(255, 59, 48, 0.2);
   color: var(--error-color);
 }
-<<<<<<< HEAD
-=======
 /* ===================================================================
    LANDING PAGE STYLES (NEW)
    =================================================================== */
@@ -2108,7 +2106,7 @@ button .spinner {
 :root.light-mode .auth-card {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
 }
->>>>>>> b5af3b4c225dcfcda82da98e21115154642e4695
+
 /* --- TABLET & MOBILE (Max Width 768px) --- */
 @media (max-width: 768px) {
   /* Layout Adjustments */
