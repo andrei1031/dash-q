@@ -563,7 +563,12 @@ function AuthForm() {
                         </button>
                     </form>
                     <div className="card-footer">
-                        {message && <p className={`message ${message.includes('successful') || message.includes('created') || message.includes('can now log in') || message.includes('sent') ? 'success' : 'error'}`}>{message}</p>}
+                        {/* FIX: improved message coloring logic */}
+                        {message && (
+                            <p className={`message ${/failed|error|taken|registered|required|invalid/i.test(message) ? 'error' : 'success'}`}>
+                                {message}
+                            </p>
+                        )}
                         
                         <button type="button" onClick={() => { setAuthView(authView === 'login' ? 'signup' : 'login'); setMessage(''); setSelectedRole('customer'); setPin(''); setBarberCode(''); }} className="btn btn-link">
                             {authView === 'login' ? 'Need account? Sign Up' : 'Have account? Login'}
@@ -636,7 +641,7 @@ function UpdatePasswordForm({ onPasswordUpdated }) {
             </form>
             <div className="card-footer">
                 {message && (
-                    <p className={`message ${message.includes('successfully') ? 'success' : 'error'}`}>
+                    <p className={`message ${/error|failed|must be/i.test(message) ? 'error' : 'success'}`}>
                         {message}
                     </p>
                 )}
@@ -2730,8 +2735,12 @@ return (
                     </form>
                 )}
                 
-                {/* Shared Message Display */}
-                {message && <p className={`message ${message.toLowerCase().includes('success') ? 'success' : 'error'}`}>{message}</p>}
+                {/* FIX: improved message coloring logic */}
+                {message && (
+                    <p className={`message ${/failed|error|required|taken|invalid|missing|please|cannot/i.test(message) ? 'error' : 'success'}`}>
+                        {message}
+                    </p>
+                )}
             </div>
         )}
 
@@ -3300,16 +3309,16 @@ function AdminAppLayout({ session }) {
         </div>
     );
 
-    // --- SUPER DETAILED ANALYTICS VIEW ---
+    // --- SUPER DETAILED ANALYTICS VIEW (RESPONSIVE FIX) ---
     const StatsView = () => {
         if (!advancedStats) return <div className="loading-fullscreen"><Spinner /><span>Crunching numbers...</span></div>;
         
-        // --- SAFEGUARDS: Prevent Crash if data is missing ---
+        // --- SAFEGUARDS ---
         const totals = advancedStats.totals || { revenue: 0, cuts: 0 };
         const dailyTrend = advancedStats.dailyTrend || [];
         const barberStats = advancedStats.barberStats || [];
 
-        // 1. Prepare Chart Data (Safely)
+        // 1. Prepare Chart Data
         const trendData = {
             labels: dailyTrend.map(d => d.day),
             datasets: [{
@@ -3338,7 +3347,6 @@ function AdminAppLayout({ session }) {
             }]
         };
 
-        // Safely get top barber
         const topBarber = barberStats.length > 0 ? barberStats[0] : { full_name: 'No Data', total_revenue: 0 };
 
         return (
@@ -3366,8 +3374,13 @@ function AdminAppLayout({ session }) {
                     </div>
                 </div>
 
-                {/* --- ROW 2: CHARTS --- */}
-                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px'}}>
+                {/* --- ROW 2: CHARTS (Responsive Grid) --- */}
+                <div style={{
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', // Decreased min-width for mobile
+                    gap: '20px', 
+                    marginBottom: '20px'
+                }}>
                     <div className="card" style={{padding: '20px'}}>
                         <h3 style={{marginTop: 0, fontSize: '1rem'}}>📈 7-Day Revenue Trend</h3>
                         <div style={{height: '250px'}}>
@@ -3391,12 +3404,13 @@ function AdminAppLayout({ session }) {
                     </div>
                 </div>
 
-                {/* --- ROW 3: DETAILED LEADERBOARD TABLE --- */}
+                {/* --- ROW 3: DETAILED LEADERBOARD TABLE (Scrollable) --- */}
                 <div className="card">
                     <div className="card-header">
                         <h2>Detailed Performance Matrix</h2>
                     </div>
-                    <div className="card-body">
+                    {/* FIX: Added overflowX auto here to allow table scrolling on mobile */}
+                    <div className="card-body" style={{overflowX: 'auto'}}>
                         <table style={{width: '100%', borderCollapse: 'collapse', minWidth: '600px'}}>
                             <thead>
                                 <tr style={{borderBottom: '2px solid var(--border-color)', textAlign: 'left'}}>
