@@ -901,14 +901,17 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                 }, 
                 (payload) => {
                     const newMsg = payload.new;
-                    // Update the specific customer's chat history
-                    setChatMessages(prev => {
-                        const customerId = openChatCustomerId; // Current open chat
-                        const msgs = prev[customerId] || [];
-                        return { ...prev, [customerId]: [...msgs, { senderId: newMsg.sender_id, message: newMsg.message }] };
-                    });
-
+                    
+                    // --- THE FIX IS HERE ---
+                    // Only update state if the message is NOT from me (the Barber).
+                    // This prevents the "Double Bubble" because sendBarberMessage already added it.
                     if (newMsg.sender_id !== session.user.id) {
+                        setChatMessages(prev => {
+                            const customerId = openChatCustomerId; 
+                            const msgs = prev[customerId] || [];
+                            return { ...prev, [customerId]: [...msgs, { senderId: newMsg.sender_id, message: newMsg.message }] };
+                        });
+
                         playSound(messageNotificationSound);
                     }
                 }
@@ -918,8 +921,8 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
         return () => {
             supabase.removeChannel(chatChannel);
         };
-    }, [openChatQueueId, openChatCustomerId, session]); // Re-subscribes when you switch customers
-
+    }, [openChatQueueId, openChatCustomerId, session]);
+    
     // --- UPDATE SEND FUNCTION ---
     const sendBarberMessage = async (recipientId, messageText) => {
         if (!messageText.trim() || !openChatQueueId) return;
