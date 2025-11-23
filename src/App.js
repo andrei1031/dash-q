@@ -2131,16 +2131,17 @@ function CustomerView({ session }) {
                     const newMsg = payload.new;
                     console.log("[Customer] New message received:", newMsg);
                     
-                    // Only add if it's NOT from me (to avoid duplicates, though React handles keys well)
-                    // OR add everything and let state management handle it.
-                    // Simple approach: Add everything.
-                    setChatMessagesFromBarber(prev => [...prev, { 
-                        senderId: newMsg.sender_id, 
-                        message: newMsg.message 
-                    }]);
-
-                    // Notify if it's from the barber
+                    // --- THE FIX IS HERE ---
+                    // Only add the message if it is NOT from me.
+                    // (I already added my own message optimistically in sendCustomerMessage)
                     if (newMsg.sender_id !== session.user.id) {
+                        setChatMessages(prev => {
+                            const customerId = openChatCustomerId;
+                            const msgs = prev[customerId] || [];
+                            return { ...prev, [customerId]: [...msgs, { senderId: newMsg.sender_id, message: newMsg.message }] };
+                        });
+                        
+                        // Play sound for incoming messages
                         playSound(messageNotificationSound);
                         setIsChatOpen(current => {
                             if (!current) {
