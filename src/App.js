@@ -222,6 +222,7 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef(null);
 
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -257,6 +258,65 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
                     <IconSend />
                 </button>
             </form>
+        </div>
+    );
+}
+
+function ReportModal({ isOpen, onClose, reporterId, reportedId, userRole, onSubmit }) {
+    const [reason, setReason] = useState('Rude Behavior');
+    const [description, setDescription] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await axios.post(`${API_URL}/reports`, {
+                reporterId,
+                reportedId,
+                role: userRole,
+                reason,
+                description
+            });
+            alert("Report submitted.");
+            onClose();
+        } catch (err) {
+            alert("Failed to report.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="modal-overlay">
+            <div className="modal-content">
+                <div className="modal-body">
+                    <h2 style={{color: 'var(--error-color)'}}>⚠️ Report User</h2>
+                    <p>This will be sent to the Admin for review.</p>
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label>Reason:</label>
+                            <select value={reason} onChange={e => setReason(e.target.value)}>
+                                <option>Rude Behavior</option>
+                                <option>Inappropriate Language</option>
+                                <option>No-Show / Late</option>
+                                <option>Scam / Spam</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Details:</label>
+                            <textarea value={description} onChange={e => setDescription(e.target.value)} required placeholder="What happened?" />
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
+                            <button type="submit" disabled={loading} className="btn btn-danger">Submit Report</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     );
 }
@@ -1549,6 +1609,7 @@ function CustomerView({ session }) {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
+    const [isReportModalOpen, setReportModalOpen] = useState(false);
 
 
     const fetchLoyaltyHistory = useCallback(async (userId) => {
@@ -1613,7 +1674,7 @@ function CustomerView({ session }) {
 
         console.log("[handleReturnToJoin] State reset complete.");
     }, [myQueueEntryId, session]);
-    
+
     const fetchPublicQueue = useCallback(async (barberId) => {
         if (!barberId) {
             setLiveQueue([]);
@@ -2729,9 +2790,45 @@ return (
                             } else { console.error("Barber user ID missing."); setMessage("Cannot initiate chat."); }
                         }} className="btn btn-secondary btn-full-width btn-icon-label chat-toggle-button">
                             <IconChat />Chat with Barber{hasUnreadFromBarber && (<span className="notification-badge"></span>)}</button>)}
-                        {isChatOpen && currentChatTargetBarberUserId && (<div className="chat-window-container">
-                            <div className="chat-window-header"><h4>Chat with {currentBarberName}</h4><button onClick={() => setIsChatOpen(false)} className="btn btn-icon btn-close-chat" title="Close Chat"><IconX /></button></div>
-                            <ChatWindow currentUser_id={session.user.id} otherUser_id={currentChatTargetBarberUserId} messages={chatMessagesFromBarber} onSendMessage={sendCustomerMessage} isVisible={isChatOpen} /></div>)}
+                        {isChatOpen && currentChatTargetBarberUserId && (
+                            <div className="chat-window-container">
+                                <div className="chat-window-header">
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                        <h4>Chat with {currentBarberName}</h4>
+
+                                        {/* --- REPORT BUTTON HERE --- */}
+                                        <button 
+                                            onClick={() => setReportModalOpen(true)} 
+                                            className="btn btn-danger btn-icon" 
+                                            title="Report Barber"
+                                            style={{padding: '2px', width: '24px', height: '24px'}} // Make it small
+                                        >
+                                            ⚠️
+                                        </button>
+                                    </div>
+
+                                    <button onClick={() => setIsChatOpen(false)} className="btn btn-icon btn-close-chat" title="Close Chat">
+                                        <IconX />
+                                    </button>
+                                </div>
+
+                                <ChatWindow 
+                                    currentUser_id={session.user.id} 
+                                    otherUser_id={currentChatTargetBarberUserId} 
+                                    messages={chatMessagesFromBarber} 
+                                    onSendMessage={sendCustomerMessage} 
+                                />
+
+                                {/* --- ADD MODAL HERE --- */}
+                                <ReportModal 
+                                    isOpen={isReportModalOpen} 
+                                    onClose={() => setReportModalOpen(false)}
+                                    reporterId={session.user.id}
+                                    reportedId={currentChatTargetBarberUserId}
+                                    userRole="customer" 
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="danger-zone"><button onClick={() => handleReturnToJoin(true)} disabled={isLoading} className='btn btn-danger btn-full-width'>{isLoading ? <Spinner /> : 'Leave Queue / Join Another'}</button></div>
@@ -2879,6 +2976,57 @@ function AdminAppLayout({ session }) {
     const [isEditingService, setIsEditingService] = useState(null);
 
     // --- FETCHERS ---
+
+    // IN AdminAppLayout -> ReportsView Component
+    const ReportsView = () => {
+        const [reports, setReports] = useState([]);
+        
+        const fetchReports = async () => {
+            const res = await axios.get(`${API_URL}/admin/reports`);
+            setReports(res.data);
+        };
+
+        useEffect(() => { fetchReports(); }, []);
+
+        const handleAction = async (reportId, targetId, action) => {
+            if(!window.confirm(`Are you sure you want to ${action} this user?`)) return;
+            await axios.put(`${API_URL}/admin/reports/resolve`, { reportId, targetUserId: targetId, action });
+            fetchReports();
+        };
+
+        return (
+            <div className="card">
+                <div className="card-header"><h2>🚨 Incident Reports</h2></div>
+                <div className="card-body">
+                    {reports.length === 0 ? <p className="empty-text">No reports found.</p> : (
+                        <ul className="queue-list">
+                            {reports.map(r => (
+                                <li key={r.id} style={{display:'block', border: r.status === 'Pending' ? '1px solid var(--error-color)' : '1px solid var(--border-color)'}}>
+                                    <div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px'}}>
+                                        <strong>{r.reason}</strong>
+                                        <span className={`status-badge`} style={{background: r.status==='Pending'?'var(--error-color)':'var(--success-color)'}}>{r.status}</span>
+                                    </div>
+                                    <p style={{fontSize:'0.9rem', color:'var(--text-secondary)'}}>
+                                        <strong>{r.reporter?.full_name}</strong> reported <strong>{r.reported?.full_name}</strong>
+                                    </p>
+                                    <p style={{background:'var(--bg-dark)', padding:'10px', borderRadius:'5px', fontStyle:'italic'}}>"{r.description}"</p>
+                                    
+                                    {r.status === 'Pending' && (
+                                        <div style={{display:'flex', gap:'10px', marginTop:'10px'}}>
+                                            <button onClick={() => handleAction(r.id, r.reported_id, 'ban')} className="btn btn-danger btn-full-width">🔨 Ban User</button>
+                                            <button onClick={() => handleAction(r.id, r.reported_id, 'dismiss')} className="btn btn-secondary btn-full-width">Dismiss</button>
+                                        </div>
+                                    )}
+                                    {r.reported?.is_banned && <p className="error-message small" style={{marginTop:'5px'}}>User is currently BANNED.</p>}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     const fetchLiveShop = useCallback(async () => {
         try {
             const [qRes, bRes] = await Promise.all([
@@ -3311,7 +3459,7 @@ function AdminAppLayout({ session }) {
         </div>
     );
 
-    return (
+   return (
         <div className="app-layout admin-layout">
             <header className="app-header" style={{ borderBottom: '2px solid #7c4dff' }}>
                 <h1>Admin Command Center</h1>
@@ -3334,6 +3482,8 @@ function AdminAppLayout({ session }) {
                 <button className={activeTab === 'staff' ? 'active' : ''} onClick={() => setActiveTab('staff')}>💈 Staff</button>
                 <button className={activeTab === 'menu' ? 'active' : ''} onClick={() => setActiveTab('menu')}>✂️ Menu</button>
                 <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>👥 Users</button>
+                {/* --- ADD THIS BUTTON --- */}
+                <button className={activeTab === 'reports' ? 'active' : ''} onClick={() => setActiveTab('reports')}>🚨 Reports</button>
             </div>
 
             <main className="main-content">
@@ -3343,6 +3493,9 @@ function AdminAppLayout({ session }) {
                     {activeTab === 'staff' && <StaffView />}
                     {activeTab === 'menu' && <MenuView />}
                     {activeTab === 'users' && <UsersView />}
+                    
+                    {/* --- ADD THIS LINE --- */}
+                    {activeTab === 'reports' && <ReportsView />}
                 </div>
             </main>
         </div>
