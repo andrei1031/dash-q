@@ -1276,7 +1276,7 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                             <ul className="queue-list">
                                 <li className={`in-progress ${queueDetails.inProgress.is_vip ? 'vip-entry' : ''}`}>
                                     <div className="queue-item-info">
-                                        <strong>#{queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
+                                        <strong>#{queueDetails.inProgress.daily_number || queueDetails.inProgress.id} - {queueDetails.inProgress.customer_name}</strong>
                                         <DistanceBadge meters={queueDetails.inProgress.current_distance_meters} />
                                         <PhotoDisplay entry={queueDetails.inProgress} label="In Chair" />
                                         <button 
@@ -1628,7 +1628,20 @@ function CustomerView({ session }) {
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isReportModalOpen, setReportModalOpen] = useState(false);
     const [freeBarber, setFreeBarber] = useState(null);
+    const [myAppointments, setMyAppointments] = useState([]);
 
+    const fetchMyAppointments = useCallback(async () => {
+        if (!session?.user?.id) return;
+        setIsLoading(true);
+        try {
+            const response = await axios.get(`${API_URL}/appointments/my/${session.user.id}`);
+            setMyAppointments(response.data || []);
+        } catch (err) {
+            console.error("Failed to load appointments", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [session]);
 
     const fetchLoyaltyHistory = useCallback(async (userId) => {
         if (!userId) return;
@@ -2088,6 +2101,12 @@ function CustomerView({ session }) {
         }
     };
     // RECOVERY SYSTEM: Restore session if LocalStorage was wiped but DB entry exists
+    useEffect(() => {
+        if (viewMode === 'appointments') {
+            fetchMyAppointments();
+        }
+    }, [viewMode, fetchMyAppointments]);
+
     useEffect(() => {
         const restoreSession = async () => {
             // Only run if we don't have a local ID but we DO have a logged-in user
@@ -2677,6 +2696,9 @@ return (
             <button className={viewMode === 'join' ? 'active' : ''} onClick={() => setViewMode('join')}>
                 Join Queue
             </button>
+            <button className={viewMode === 'appointments' ? 'active' : ''} onClick={() => setViewMode('appointments')}>
+                Appointments
+            </button>
             <button className={viewMode === 'history' ? 'active' : ''} onClick={() => setViewMode('history')}>
                 My History
             </button>
@@ -2917,7 +2939,10 @@ return (
                     </div>
                 )}
                 <h2>Live Queue for {joinedBarberId ? currentBarberName : '...'}</h2>
-                <div className="queue-number-display">Your Queue Number is: <strong>#{myQueueEntryId}</strong></div>
+                <div className="queue-number-display">
+                    Your Queue Number is: 
+                    <strong>#{liveQueue.find(e => e.id.toString() === myQueueEntryId)?.daily_number || myQueueEntryId}</strong>
+                </div>
                 <div className="current-serving-display">
                     <div className="serving-item now-serving"><span>Now Serving</span><strong>{nowServing ? `Customer #${nowServing.id}` : '---'}</strong></div>
                     <div className="serving-item up-next"><span>Up Next</span><strong>{upNext ? `Customer #${upNext.id}` : '---'}</strong></div>
@@ -3080,6 +3105,87 @@ return (
                                             ₱{servicePrice}
                                         </span>
                                     </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </div>
+        )}
+        {/* D. APPOINTMENTS VIEW */}
+        {viewMode === 'appointments' && (
+            <div className="card-body">
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                    <h2 style={{margin:0}}>My Bookings</h2>
+                    <button onClick={fetchMyAppointments} className="btn btn-secondary btn-icon" title="Refresh">
+                        <IconRefresh />
+                    </button>
+                </div>
+
+                {myAppointments.length === 0 ? (
+                    <p className="empty-text">No upcoming appointments found.</p>
+                ) : (
+                    <ul className="queue-list">
+                        {myAppointments.map((appt) => {
+                            const dateObj = new Date(appt.scheduled_time);
+                            const isPast = dateObj < new Date();
+                            // Determine Badge Color
+                            let statusColor = 'var(--text-secondary)';
+                            let statusBg = 'rgba(0,0,0,0.05)';
+                            
+                            if (appt.is_converted_to_queue) {
+                                statusColor = '#007aff'; // Blue
+                                statusBg = 'rgba(0,122,255,0.1)';
+                            } else if (appt.status === 'confirmed') {
+                                statusColor = 'var(--success-color)';
+                                statusBg = 'rgba(52,199,89,0.1)';
+                            } else if (appt.status === 'pending') {
+                                statusColor = 'var(--primary-orange)';
+                                statusBg = 'rgba(255,149,0,0.1)';
+                            } else if (appt.status === 'cancelled') {
+                                statusColor = 'var(--error-color)';
+                                statusBg = 'rgba(255,59,48,0.1)';
+                            }
+
+                            return (
+                                <li key={appt.id} style={{
+                                    opacity: isPast && !appt.is_converted_to_queue ? 0.6 : 1, 
+                                    borderLeft: `4px solid ${statusColor}`,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '5px'
+                                }}>
+                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                        <strong style={{fontSize:'1.1rem'}}>
+                                            {dateObj.toLocaleDateString([], {weekday: 'short', month:'short', day:'numeric'})}
+                                        </strong>
+                                        <span style={{
+                                            color: statusColor, 
+                                            background: statusBg, 
+                                            padding: '2px 8px', 
+                                            borderRadius: '4px', 
+                                            fontSize: '0.8rem', 
+                                            fontWeight:'bold',
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {appt.is_converted_to_queue ? 'Live in Queue' : appt.status}
+                                        </span>
+                                    </div>
+                                    
+                                    <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.95rem'}}>
+                                        <span>🕒 {dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                        <span>✂️ {appt.services?.name || 'Service'}</span>
+                                    </div>
+                                    
+                                    <div style={{fontSize:'0.9rem', color:'var(--text-secondary)'}}>
+                                        Barber: <strong>{appt.barber_profiles?.full_name || 'Any'}</strong>
+                                    </div>
+
+                                    {appt.is_converted_to_queue && (
+                                        <small style={{color: 'var(--link-color)', marginTop:'5px'}}>
+                                            * This booking has been moved to the Live Queue.
+                                        </small>
+                                    )}
                                 </li>
                             );
                         })}
