@@ -292,27 +292,61 @@ function ChatWindow({ currentUser_id, otherUser_id, messages = [], onSendMessage
 function ReportModal({ isOpen, onClose, reporterId, reportedId, userRole, onSubmit }) {
     const [reason, setReason] = useState('Rude Behavior');
     const [description, setDescription] = useState('');
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
 
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setSelectedFile(e.target.files[0]);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        let proofImageUrl = null;
+
         try {
+            // 1. Upload Proof if selected
+            if (selectedFile) {
+                setIsUploading(true);
+                const fileExt = selectedFile.name.split('.').pop();
+                const filePath = `proofs/${reporterId}-${Date.now()}.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('report_proofs') // Make sure this bucket exists!
+                    .upload(filePath, selectedFile);
+                
+                if (uploadError) throw uploadError;
+
+                const { data } = supabase.storage.from('report_proofs').getPublicUrl(filePath);
+                proofImageUrl = data.publicUrl;
+                setIsUploading(false);
+            }
+
+            // 2. Submit Report
             await axios.post(`${API_URL}/reports`, {
                 reporterId,
                 reportedId,
                 role: userRole,
                 reason,
-                description
+                description,
+                proofImageUrl
             });
-            alert("Report submitted.");
+
+            alert("Report submitted successfully.");
             onClose();
         } catch (err) {
-            alert("Failed to report.");
+            console.error(err);
+            alert("Failed to submit report. " + (err.message || ''));
         } finally {
             setLoading(false);
+            setIsUploading(false);
+            setSelectedFile(null);
+            setDescription('');
         }
     };
 
@@ -321,25 +355,38 @@ function ReportModal({ isOpen, onClose, reporterId, reportedId, userRole, onSubm
             <div className="modal-content">
                 <div className="modal-body">
                     <h2 style={{color: 'var(--error-color)'}}>⚠️ Report User</h2>
-                    <p>This will be sent to the Admin for review.</p>
+                    <p>Submit a report to the Admin.</p>
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label>Reason:</label>
                             <select value={reason} onChange={e => setReason(e.target.value)}>
                                 <option>Rude Behavior</option>
-                                <option>Inappropriate Language</option>
                                 <option>No-Show / Late</option>
+                                <option>Inappropriate Language</option>
                                 <option>Scam / Spam</option>
                                 <option>Other</option>
                             </select>
                         </div>
                         <div className="form-group">
                             <label>Details:</label>
-                            <textarea value={description} onChange={e => setDescription(e.target.value)} required placeholder="What happened?" />
+                            <textarea value={description} onChange={e => setDescription(e.target.value)} required placeholder="Describe what happened..." />
                         </div>
+                        
+                        {/* --- NEW: Screenshot Upload --- */}
+                        <div className="form-group photo-upload-group">
+                            <label>Attach Screenshot (Optional):</label>
+                            <input type="file" accept="image/*" onChange={handleFileChange} id="report-proof-upload" className="file-upload-input" />
+                            <label htmlFor="report-proof-upload" className="btn btn-secondary btn-icon-label file-upload-label">
+                                <IconCamera /> {selectedFile ? selectedFile.name : 'Choose Image...'}
+                            </label>
+                        </div>
+                        {/* ----------------------------- */}
+
                         <div className="modal-footer">
                             <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
-                            <button type="submit" disabled={loading} className="btn btn-danger">Submit Report</button>
+                            <button type="submit" disabled={loading || isUploading} className="btn btn-danger">
+                                {loading || isUploading ? <Spinner /> : 'Submit Report'}
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -936,7 +983,8 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
     const [viewImageModalUrl, setViewImageModalUrl] = useState(null);
     const [tipInput, setTipInput] = useState('');
     const [modalError, setModalError] = useState('');
-
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [reportTargetId, setReportTargetId] = useState(null);
 
     const handleLoyaltyCheck = async (customer) => {
         if (!customer.customer_email) {
@@ -1377,10 +1425,26 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                             </li>
                         )))}</ul>
 
+                        {/* REPLACEMENT FOR CHAT SECTION */}
                         {openChatCustomerId && (
                             <div className="barber-chat-container">
-                                <h4>Chat with Customer</h4>
-                                <p className="chat-warning">Hey there! Just a friendly nudge to keep the chat open even when your phone’s screen is off. It seems like the notification badge isn’t working when that happens!</p>
+                                {/* Header with Report Button */}
+                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px', borderBottom:'1px solid var(--border-color)', background:'var(--surface-color)'}}>
+                                     <h4 style={{margin:0}}>Chat with Customer</h4>
+                                     <button 
+                                        onClick={() => {
+                                            setReportTargetId(openChatCustomerId); // <--- Uses reportTargetId
+                                            setIsReportModalOpen(true);            // <--- Uses isReportModalOpen
+                                        }}
+                                        className="btn btn-danger btn-icon" 
+                                        title="Report Customer"
+                                        style={{padding: '4px', height:'30px', width:'30px'}}
+                                    >
+                                        ⚠️
+                                    </button>
+                                </div>
+
+                                <p className="chat-warning">Hey there! Just a friendly nudge to keep the chat open even when your phone’s screen is off.</p>
                                 <ChatWindow
                                     currentUser_id={session.user.id}
                                     otherUser_id={openChatCustomerId}
@@ -1596,6 +1660,13 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                 </div>
             </div>
         )}
+            <ReportModal 
+                    isOpen={isReportModalOpen}          // <--- Uses isReportModalOpen
+                    onClose={() => setIsReportModalOpen(false)}
+                    reporterId={session.user.id}
+                    reportedId={reportTargetId}         // <--- Uses reportTargetId
+                    userRole="barber"
+                />
         </div>
     );
 }
@@ -3478,6 +3549,21 @@ function AdminAppLayout({ session }) {
                                     }}>
                                         "{r.description}"
                                     </div>
+
+                                    {/* --- NEW: Display Proof Image --- */}
+                                    {r.proof_image_url && (
+                                        <div style={{marginBottom: '15px'}}>
+                                            <strong style={{fontSize: '0.85rem', color:'var(--text-secondary)'}}>Attached Proof:</strong>
+                                            <br />
+                                            <a href={r.proof_image_url} target="_blank" rel="noopener noreferrer">
+                                                <img 
+                                                    src={r.proof_image_url} 
+                                                    alt="Report Proof" 
+                                                    style={{maxWidth: '100%', maxHeight: '200px', borderRadius: '4px', marginTop: '5px', border:'1px solid var(--border-color)'}} 
+                                                />
+                                            </a>
+                                        </div>
+                                    )}
                                     
                                     {/* NEW: Display Admin Notes if resolved */}
                                     {r.status !== 'Pending' && r.admin_notes && (
@@ -3744,7 +3830,7 @@ function AdminAppLayout({ session }) {
                                         className={b.is_active ? "btn btn-danger" : "btn btn-success"}
                                         style={{fontSize:'0.8rem', padding: '5px 10px'}}
                                     >
-                                        {b.is_active ? 'Deactivate' : 'Activate'}
+                                        {b.is_active ? 'Ban / Deactivate' : 'Unban & Activate'}
                                     </button>
                                 </td>
                             </tr>
