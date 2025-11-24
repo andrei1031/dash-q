@@ -1748,7 +1748,14 @@ function CustomerView({ session }) {
     const isQueueUpdateAllowed = myQueueEntry && (myQueueEntry.status === 'Waiting' || myQueueEntry.status === 'Up Next');
     const [customerRating, setCustomerRating] = useState(0);
     const [joinMode, setJoinMode] = useState('now'); // 'now' or 'later'
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const getTomorrowDate = () => {
+        const date = new Date();
+        date.setDate(date.getDate() + 1); // Move to tomorrow
+        return date.toISOString().split('T')[0];
+    };
+
+    // Initialize with Tomorrow's date
+    const [selectedDate, setSelectedDate] = useState(getTomorrowDate());
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isReportModalOpen, setReportModalOpen] = useState(false);
@@ -3035,9 +3042,14 @@ return (
 
                         <div className="form-group">
                             <label>Select Date:</label>
-                            <input type="date" value={selectedDate} min={new Date().toISOString().split('T')[0]} onChange={e => setSelectedDate(e.target.value)} required />
+                            <input 
+                                type="date" 
+                                value={selectedDate} 
+                                min={getTomorrowDate()}   // <--- CHANGE THIS PART
+                                onChange={e => setSelectedDate(e.target.value)} 
+                                required 
+                            />
                         </div>
-
                         <div className="form-group">
                             <label>Available Time Slots:</label>
                             {!selectedBarberId || !selectedServiceId ? (
