@@ -2248,3 +2248,50 @@ button .spinner {
     min-width: 500px; /* Force minimum width to trigger scroll */
   }
 }
+/* Stepper Control for Head Count */
+.stepper-wrapper {
+    display: flex;
+    align-items: center;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: fit-content;
+    overflow: hidden; /* Keeps corners rounded */
+}
+
+.btn-stepper {
+    background: var(--surface-color);
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    width: 50px;
+    height: 45px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0; /* Override default button margin */
+    border-radius: 0; /* Remove default radius */
+}
+
+.btn-stepper:hover {
+    background: var(--hover-bg-dark);
+    color: var(--primary-orange);
+}
+
+.btn-stepper:active {
+    background: var(--primary-orange);
+    color: white;
+}
+
+.stepper-count {
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 0 20px;
+    color: var(--text-primary);
+    min-width: 40px;
+    text-align: center;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+}

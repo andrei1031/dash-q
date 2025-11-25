@@ -2997,24 +2997,48 @@ return (
                         <div className="form-group"><label>Select Service:</label><select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} required><option value="">-- Choose service --</option>{services.map((service) => (<option key={service.id} value={service.id}>{service.name} ({service.duration_minutes} min / ₱{service.price_php})</option>))}</select></div>
                         <div className="form-group">
                             <label>Group Size (Number of Heads):</label>
-                            <div className="role-toggle"> {/* Reusing your toggle styling */}
-                                {[1, 2, 3].map(num => (
-                                    <button 
-                                        key={num} 
-                                        type="button" 
-                                        className={headCount === num ? 'active' : ''} 
-                                        onClick={() => setHeadCount(num)}
-                                    >
-                                        {num} {num === 1 ? 'Person' : 'People'}
-                                    </button>
-                                ))}
+                            
+                            {/* --- NEW STEPPER UI --- */}
+                            <div className="stepper-wrapper">
+                                <button 
+                                    type="button" 
+                                    className="btn-stepper"
+                                    onClick={() => setHeadCount(prev => Math.max(1, prev - 1))}
+                                >
+                                    −
+                                </button>
+                                <span className="stepper-count">{headCount}</span>
+                                <button 
+                                    type="button" 
+                                    className="btn-stepper"
+                                    onClick={() => setHeadCount(prev => prev + 1)}
+                                >
+                                    +
+                                </button>
                             </div>
-                            {headCount > 1 && (
-                                <p className="message warning small">
-                                    Note: This will book <strong>{headCount} slots</strong> back-to-back. 
-                                    Estimated duration: {services.find(s => s.id.toString() === selectedServiceId)?.duration_minutes * headCount} mins.
-                                </p>
-                            )}
+                            
+                            {/* --- DYNAMIC INFO / WARNING --- */}
+                            <div style={{marginTop: '10px'}}>
+                                {headCount > 1 ? (
+                                    <div className="message warning small" style={{textAlign:'left'}}>
+                                        <strong style={{display:'block', marginBottom:'4px'}}>👥 Group Booking Details:</strong>
+                                        <ul style={{margin:0, paddingLeft:'20px'}}>
+                                            <li>This will book <strong>{headCount} slots</strong> back-to-back.</li>
+                                            <li>
+                                                Total Duration: <strong>
+                                                    {services.find(s => s.id.toString() === selectedServiceId)?.duration_minutes * headCount || 0} mins
+                                                </strong>.
+                                            </li>
+                                            <li style={{color: 'var(--error-color)', fontWeight: 'bold', marginTop:'5px'}}>
+                                                Note: Everyone must get the same service. 
+                                                <span style={{fontWeight:'normal', color:'var(--text-primary)'}}> If guests want different services, please join the queue individually.</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                ) : (
+                                    <p className="message small">Booking for 1 person.</p>
+                                )}
+                            </div>
                         </div>
                         {/* VIP Toggle */}
                         {selectedServiceId && (
