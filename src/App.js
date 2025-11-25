@@ -1244,6 +1244,23 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
     };
 
     const handleNextCustomer = async () => {
+        const nextAppt = queueDetails.nextAppointment; // This comes from our updated API
+        if (nextAppt) {
+            const apptTime = new Date(nextAppt.scheduled_time);
+            const now = new Date();
+            const diffInMinutes = Math.floor((apptTime - now) / 60000);
+
+            // If appointment is within 30 minutes (or fits your service duration logic)
+            if (diffInMinutes <= 30 && diffInMinutes >= -10) {
+                // Play a warning sound? (Optional)
+                // Show Confirmation
+                const confirmMsg = `⚠️ SAFETY WARNING ⚠️\n\nYou have an appointment with ${nextAppt.customer_name} at ${apptTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} (in ${diffInMinutes} mins).\n\nTaking a walk-in now might make you late. Are you sure?`;
+                
+                if (!window.confirm(confirmMsg)) {
+                    return; // Barber cancelled action
+                }
+            }
+        }
         const next = queueDetails.upNext || (queueDetails.waiting.length > 0 ? queueDetails.waiting[0] : null);
         if (!next) {
             setModalState({ type: 'alert', data: { title: 'Queue Empty', message: 'There are no customers waiting to be called.' } });
@@ -3264,12 +3281,55 @@ return (
                     <div className="ewt-item"><span>Expected Time</span><strong>{finishTime > 0 ? new Date(finishTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Calculating...'}</strong></div>
                 </div>
                 <ul className="queue-list live">
-                    {isQueueLoading ? (<>
-                        <li className="skeleton-li"><SkeletonLoader height="25px" /></li>
-                        <li className="skeleton-li"><SkeletonLoader height="25px" /></li>
-                        <li className="skeleton-li"><SkeletonLoader height="25px" /></li></>) : (!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (<li className="empty-text">Queue is empty.</li>) : (liveQueue.map((entry, index) => (<li key={entry.id} className={`${entry.id.toString() === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''} ${entry.is_vip ? 'vip-entry' : ''}`}>
-                        <div className="queue-item-info"><span>{index + 1}. </span>{entry.id.toString() === myQueueEntryId ? (<strong>You ({entry.customer_name})</strong>) : (<span>{entry.customer_name}</span>)}</div>
-                        <span className="public-queue-status">{entry.status}</span></li>))))}</ul>
+                    {isQueueLoading ? (
+                        <>
+                            <li className="skeleton-li"><SkeletonLoader height="25px" /></li>
+                            <li className="skeleton-li"><SkeletonLoader height="25px" /></li>
+                            <li className="skeleton-li"><SkeletonLoader height="25px" /></li>
+                        </>
+                    ) : (!isQueueLoading && liveQueue.length === 0 && !queueMessage ? (
+                        <li className="empty-text">Queue is empty.</li>
+                    ) : (
+                        liveQueue.map((entry, index) => {
+                            // --- GHOST SLOT RENDER ---
+                            if (entry.is_ghost) {
+                                return (
+                                    <li key={entry.id} className="queue-item ghost-slot" style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 10px'}}>
+                                        <div className="queue-item-info">
+                                            <span style={{color:'var(--text-secondary)', marginRight:'5px'}}>{index + 1}.</span>
+                                            <strong style={{color:'var(--text-secondary)'}}>📅 {entry.display_time} - Reserved</strong>
+                                        </div>
+                                        <span className="status-badge" style={{
+                                            background:'rgba(128, 128, 128, 0.1)', 
+                                            color:'var(--text-secondary)', 
+                                            border:'1px solid var(--border-color)',
+                                            fontSize:'0.75rem',
+                                            padding:'2px 8px',
+                                            borderRadius:'4px'
+                                        }}>
+                                            Booked
+                                        </span>
+                                    </li>
+                                );
+                            }
+
+                            // --- STANDARD ENTRY RENDER ---
+                            return (
+                                <li key={entry.id} className={`${entry.id.toString() === myQueueEntryId ? 'my-position' : ''} ${entry.status === 'Up Next' ? 'up-next-public' : ''} ${entry.status === 'In Progress' ? 'in-progress-public' : ''} ${entry.is_vip ? 'vip-entry' : ''}`}>
+                                    <div className="queue-item-info">
+                                        <span>{index + 1}. </span>
+                                        {entry.id.toString() === myQueueEntryId ? (
+                                            <strong>You ({entry.customer_name})</strong>
+                                        ) : (
+                                            <span>{entry.customer_name}</span>
+                                        )}
+                                    </div>
+                                    <span className="public-queue-status">{entry.status}</span>
+                                </li>
+                            );
+                        })
+                    ))}
+                </ul>
                     <div className="live-queue-actions">
                     {isQueueUpdateAllowed && (<div className="form-group photo-upload-group live-update-group">
                         <label>Update Haircut Photo:</label>
