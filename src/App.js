@@ -2378,7 +2378,7 @@ function CustomerView({ session }) {
             description: "Achieve that messy, beach-vibes texture instantly.",
             price: "₱200.00",
             badge: "BEST SELLER",
-            image: "https://placehold.co/100x100/png?text=Spray", // REPLACE THIS URL
+            image: "public/images/IMG_0616.PNG", // REPLACE THIS URL
             theme: { 
                 background: 'linear-gradient(135deg, #fffbeb 0%, #fff3cd 100%)', // Gold Gradient
                 text: '#856404', 
@@ -2392,7 +2392,7 @@ function CustomerView({ session }) {
             description: "Slick back style with high shine and all-day control.",
             price: "₱200.00",
             badge: "BARBER'S CHOICE",
-            image: "https://placehold.co/100x100/png?text=Wax", // REPLACE THIS URL
+            image: "public/images/IMG_0614.PNG", // REPLACE THIS URL
             theme: { 
                 background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', // Blue Gradient
                 text: '#0d47a1', 
@@ -2403,10 +2403,10 @@ function CustomerView({ session }) {
         {
             id: 'powder',
             title: "Textured Powder",
-            description: "Slick back style with high shine and all-day control.",
+            description: "Instant Volume & Stronghold matte finish.",
             price: "₱100.00",
             badge: "NEW ARRIVAL",
-            image: "https://placehold.co/100x100/png?text=Pomade", // REPLACE THIS URL
+            image: "public/images/IMG_0615.PNG", // REPLACE THIS URL
             theme: { 
                 background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', // Green Gradient
                 text: '#1b5e20', 
@@ -2419,7 +2419,7 @@ function CustomerView({ session }) {
     const CAFE_AD = {
     name: "Safehouse Cafe",
     pitch: "Tired of standing? Wait here instead! nearby cafe",
-    perks: "☕ Free WiFi  •   ₱150 Buy1Take1 Milktea  •  Board Games",
+    perks: "☕ Free WiFi  •   ₱159 Buy1Take1 Milktea  •  Board Games",
     image: "https://placehold.co/400x120/3e2723/ffffff?text=Coffee+Break", // Replace with real cafe photo
     // REPLACE WITH CAFE COORDINATES or Google Maps Link
     locationLink: "https://maps.app.goo.gl/ETUu5bxPA6t2yuSs6" 
