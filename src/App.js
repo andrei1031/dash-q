@@ -1056,6 +1056,22 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
     const [modalError, setModalError] = useState('');
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [reportTargetId, setReportTargetId] = useState(null);
+    const [isApptListOpen, setIsApptListOpen] = useState(false);
+    const [barberAppointments, setBarberAppointments] = useState([]);
+    const [loadingAppts, setLoadingAppts] = useState(false);
+
+    const fetchBarberAppointments = async () => {
+        setLoadingAppts(true);
+        try {
+            const res = await axios.get(`${API_URL}/appointments/barber/${barberId}`);
+            setBarberAppointments(res.data || []);
+            setIsApptListOpen(true);
+        } catch (err) {
+            alert("Failed to load appointments.");
+        } finally {
+            setLoadingAppts(false);
+        }
+    };
 
     const handleLoyaltyCheck = async (customer) => {
         if (!customer.customer_email) {
@@ -1544,9 +1560,12 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                     </>
                 )}
             </div>
-            <div className="card-footer">
-                 <button onClick={fetchQueueDetails} className="btn btn-secondary btn-full-width btn-icon-label">
-                    <IconRefresh /> Refresh Queue
+            <div className="card-footer" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
+                <button onClick={fetchBarberAppointments} className="btn btn-primary btn-icon-label" disabled={loadingAppts}>
+                    {loadingAppts ? <Spinner /> : '📅 Bookings'}
+                </button>
+                <button onClick={fetchQueueDetails} className="btn btn-secondary btn-icon-label">
+                    <IconRefresh /> Refresh
                 </button>
             </div>
 
@@ -1753,6 +1772,70 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
                     reportedId={reportTargetId}         // <--- Uses reportTargetId
                     userRole="barber"
                 />
+            {isApptListOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'15px'}}>
+                            <h2 style={{margin:0}}>📅 Upcoming Bookings</h2>
+                            <button onClick={() => setIsApptListOpen(false)} className="btn btn-icon"><IconX /></button>
+                        </div>
+                        
+                        <div className="modal-body" style={{textAlign:'left', maxHeight: '60vh', overflowY: 'auto'}}>
+                            {barberAppointments.length === 0 ? (
+                                <p className="empty-text">No upcoming appointments found.</p>
+                            ) : (
+                                <ul className="queue-list">
+                                    {barberAppointments.map((appt) => {
+                                        const dateObj = new Date(appt.scheduled_time);
+                                        // Highlight "Today"
+                                        const isToday = new Date().toDateString() === dateObj.toDateString();
+                                        
+                                        return (
+                                            <li key={appt.id} style={{
+                                                display: 'flex', 
+                                                flexDirection: 'column', 
+                                                gap: '5px',
+                                                borderLeft: isToday ? '4px solid var(--primary-orange)' : '4px solid var(--text-secondary)',
+                                                opacity: appt.is_converted_to_queue ? 0.6 : 1,
+                                                padding: '10px',
+                                                marginBottom: '10px',
+                                                background: 'var(--bg-dark)',
+                                                borderRadius: '6px'
+                                            }}>
+                                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                                    <strong style={{fontSize:'1.1rem', color: isToday ? 'var(--primary-orange)' : 'var(--text-primary)'}}>
+                                                        {dateObj.toLocaleDateString([], {weekday: 'short', month:'short', day:'numeric'})}
+                                                    </strong>
+                                                    <span style={{fontSize:'1.1rem', fontWeight:'bold'}}>
+                                                        {dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                    </span>
+                                                </div>
+                                                
+                                                <div style={{fontSize:'1rem'}}>
+                                                    👤 <strong>{appt.customer_name}</strong>
+                                                </div>
+                                                
+                                                <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem', color:'var(--text-secondary)'}}>
+                                                    <span>✂️ {appt.services?.name}</span>
+                                                    {appt.is_converted_to_queue && (
+                                                        <span style={{color: 'var(--success-color)', fontWeight:'bold', fontSize:'0.75rem'}}>
+                                                            IN QUEUE ✅
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </div>
+                        
+                        <div className="modal-footer single-action">
+                            <button onClick={() => setIsApptListOpen(false)} className="btn btn-secondary">Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
