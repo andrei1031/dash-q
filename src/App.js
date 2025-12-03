@@ -3152,7 +3152,31 @@ return (
                             <textarea 
                                 value={feedbackText} 
                                 onChange={(e) => setFeedbackText(e.target.value)} 
-                                placeholder="Leave optional comments... (e.g., great service!)"
+                                placeholder="How was your cut? (Optional - e.g. 'Great fade!')"
+                                style={{
+                                    width: '100%',
+                                    minHeight: '120px', /* Reasonable height for typing */
+                                    padding: '15px',
+                                    marginTop: '15px',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-dark)', /* Blends with theme */
+                                    color: 'var(--text-primary)',
+                                    fontSize: '1rem',
+                                    lineHeight: '1.5',
+                                    resize: 'none', /* Prevents user from breaking layout */
+                                    fontFamily: 'inherit',
+                                    boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.2)', /* Inner shadow depth */
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.borderColor = 'var(--primary-orange)';
+                                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 149, 0, 0.1)';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.borderColor = 'var(--border-color)';
+                                    e.target.style.boxShadow = 'inset 0 2px 6px rgba(0,0,0,0.2)';
+                                }}
                             />
                             {message && <p className="message error small">{message}</p>}
                         </div>
@@ -4215,18 +4239,32 @@ function AdminAppLayout({ session }) {
                                         <div style={{marginTop:'10px'}}>
                                             {/* NEW: Admin Note Input Area */}
                                             <textarea 
-                                                placeholder="Enter resolution notes here (e.g., 'Verified via CCTV', 'First warning')..." 
                                                 value={adminNotes[r.id] || ''}
                                                 onChange={(e) => handleNoteChange(r.id, e.target.value)}
+                                                placeholder="Enter resolution notes here (e.g., 'Verified via CCTV', 'First warning')..."
                                                 style={{
-                                                    width: '100%', 
-                                                    padding: '10px', 
-                                                    marginBottom: '10px', 
-                                                    borderRadius: '6px',
+                                                    width: '100%',
+                                                    minHeight: '120px', /* Reasonable height for typing */
+                                                    padding: '15px',
+                                                    marginTop: '15px',
+                                                    borderRadius: '12px',
                                                     border: '1px solid var(--border-color)',
-                                                    background: 'var(--bg-dark)',
+                                                    background: 'var(--bg-dark)', /* Blends with theme */
                                                     color: 'var(--text-primary)',
-                                                    minHeight: '60px'
+                                                    fontSize: '1rem',
+                                                    lineHeight: '1.5',
+                                                    resize: 'none', /* Prevents user from breaking layout */
+                                                    fontFamily: 'inherit',
+                                                    boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.2)', /* Inner shadow depth */
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onFocus={(e) => {
+                                                    e.target.style.borderColor = 'var(--primary-orange)';
+                                                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 149, 0, 0.1)';
+                                                }}
+                                                onBlur={(e) => {
+                                                    e.target.style.borderColor = 'var(--border-color)';
+                                                    e.target.style.boxShadow = 'inset 0 2px 6px rgba(0,0,0,0.2)';
                                                 }}
                                             />
                                             
