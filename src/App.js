@@ -2405,7 +2405,7 @@ function CustomerView({ session }) {
             description: "Achieve that messy, beach-vibes texture instantly.",
             price: "₱200.00",
             badge: "BEST SELLER",
-            image: "public/images/IMG_0616.PNG", // REPLACE THIS URL
+            image: "/IMG_0616.PNG", // REPLACE THIS URL
             theme: { 
                 background: 'linear-gradient(135deg, #fffbeb 0%, #fff3cd 100%)', // Gold Gradient
                 text: '#856404', 
@@ -2419,7 +2419,7 @@ function CustomerView({ session }) {
             description: "Slick back style with high shine and all-day control.",
             price: "₱200.00",
             badge: "BARBER'S CHOICE",
-            image: "public/images/IMG_0614.PNG", // REPLACE THIS URL
+            image: "/IMG_0614.PNG", // REPLACE THIS URL
             theme: { 
                 background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', // Blue Gradient
                 text: '#0d47a1', 
@@ -2433,7 +2433,7 @@ function CustomerView({ session }) {
             description: "Instant Volume & Stronghold matte finish.",
             price: "₱100.00",
             badge: "NEW ARRIVAL",
-            image: "public/images/IMG_0615.PNG", // REPLACE THIS URL
+            image: "/IMG_0615.PNG", // REPLACE THIS URL
             theme: { 
                 background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', // Green Gradient
                 text: '#1b5e20', 
