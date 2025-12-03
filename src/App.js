@@ -1638,17 +1638,26 @@ function BarberDashboard({ barberId, barberName, onCutComplete, session }) {
 
                                     {modalState.data.is_vip && (
                                         <>
-                                            <strong>VIP Fee:</strong> ₱100.00<br/>
+                                            {/* Updated Label for clarity */}
+                                            <div style={{display:'flex', justifyContent:'space-between', color:'var(--primary-orange)'}}>
+                                                <span>VIP / Appointment Fee:</span>
+                                                <span>+ ₱100.00</span>
+                                            </div>
                                         </>
                                     )}
-                                    
-                                    {/* --- NEW: TOTAL DUE CALCULATION --- */}
-                                    <strong style={{fontSize: '1.2rem', color: 'var(--success-color)'}}>
-                                        Total Due: ₱{(
-                                            ((parseFloat(modalState.data.services?.price_php || 0)) * (modalState.data.head_count || 1)) + 
-                                            (modalState.data.is_vip ? 100 : 0)
-                                        ).toFixed(2)}
-                                    </strong>
+
+                                    <hr style={{borderColor:'var(--border-color)', margin:'10px 0'}} />
+
+                                    {/* Total Due Calculation */}
+                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', fontSize: '1.2rem', fontWeight:'bold'}}>
+                                        <span>Total Due:</span>
+                                        <span style={{color: 'var(--success-color)'}}>
+                                            ₱{(
+                                                ((parseFloat(modalState.data.services?.price_php || 0)) * (modalState.data.head_count || 1)) + 
+                                                (modalState.data.is_vip ? 100 : 0)
+                                            ).toFixed(2)}
+                                        </span>
+                                    </div>
                                 </p>
                                 
                                 <div className="form-group">
@@ -3442,7 +3451,37 @@ return (
                                 </div>
                             )}
                         </div>
-
+                        {selectedServiceId && (
+                            <div style={{
+                                marginTop: '15px',
+                                padding: '12px',
+                                background: 'rgba(255, 149, 0, 0.1)', // Orange background
+                                border: '1px solid var(--primary-orange)',
+                                borderRadius: '8px',
+                                color: 'var(--primary-orange)',
+                                fontSize: '0.9rem',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '5px'}}>
+                                    <span>Service Price:</span>
+                                    <strong>₱{services.find(s => s.id.toString() === selectedServiceId)?.price_php}</strong>
+                                </div>
+                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '5px'}}>
+                                    <span>Appointment Fee:</span>
+                                    <strong>+ ₱100.00</strong>
+                                </div>
+                                <hr style={{borderColor: 'rgba(255, 149, 0, 0.3)', margin: '5px 0'}} />
+                                <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem'}}>
+                                    <strong>Total Estimate:</strong>
+                                    <strong>
+                                        ₱{(parseFloat(services.find(s => s.id.toString() === selectedServiceId)?.price_php || 0) + 100).toFixed(2)}
+                                    </strong>
+                                </div>
+                                <p style={{margin: '8px 0 0 0', fontSize: '0.75rem', opacity: 0.8}}>
+                                    *Fee guarantees your time slot. Payable at the shop.
+                                </p>
+                            </div>
+                        )}
                         <button type="submit" disabled={isLoading || !selectedSlot} className="btn btn-primary btn-full-width" style={{marginTop: '20px'}}>
                             {isLoading ? <Spinner /> : 'Confirm Booking'}
                         </button>
