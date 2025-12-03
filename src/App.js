@@ -3490,7 +3490,10 @@ return (
                 
                 {/* FIX: improved message coloring logic */}
                 {message && (
-                    <p className={`message ${/failed|error|required|taken|invalid|missing|please|cannot/i.test(message) ? 'error' : 'success'}`}>
+                    <p className={`message ${
+                        message.toLowerCase().includes('success') ? 'success' : 
+                        /failed|error|required|taken|invalid|missing|please|cannot/i.test(message) ? 'error' : 'success'
+                    }`}>
                         {message}
                     </p>
                 )}
