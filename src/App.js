@@ -2659,43 +2659,32 @@ function CustomerView({ session }) {
     useEffect(() => { // ROBUST OneSignal Setup
         window.OneSignal = window.OneSignal || [];
         
-        // 1. Initialize
-        window.OneSignal.push(function() {
-            window.OneSignal.init({
-                appId: process.env.REACT_APP_ONESIGNAL_APP_ID, 
-                allowLocalhostAsSecureOrigin: true, // Only works on http://localhost:3000
-                notifyButton: { enable: false },
-            });
-        });
+        // --- REMOVED .init() FROM HERE (It is handled in App function) ---
 
-        // 2. Function to get ID safely
-        const getAndSetPlayerId = () => {
-             window.OneSignal.push(function() {
-                // Get the ID
+        // 2. Helper to capture ID securely
+        const updatePlayerId = () => {
+            window.OneSignal.push(function() {
                 window.OneSignal.getUserId(function(userId) {
                     if (userId) {
                         console.log("✅ OneSignal Player ID captured:", userId);
-                        setPlayerId(userId); 
-                    } else {
-                        console.log("❌ OneSignal: User is not subscribed yet.");
+                        setPlayerId(userId); // Saves to state
                     }
                 });
             });
         };
 
-        // 3. Listen for subscription changes (User clicks "Allow")
+        // 3. Check immediately
+        updatePlayerId();
+
+        // 4. LISTEN for "Allow" click
         window.OneSignal.push(function() {
             window.OneSignal.on('subscriptionChange', function (isSubscribed) {
                 console.log("🔔 Notification Permission Changed:", isSubscribed);
                 if (isSubscribed) {
-                    getAndSetPlayerId();
+                    updatePlayerId();
                 }
             });
         });
-
-        // 4. Try to fetch immediately (in case they are already subscribed from a previous visit)
-        getAndSetPlayerId();
-
     }, []);
 
     useEffect(() => { // Fetch Available Barbers
