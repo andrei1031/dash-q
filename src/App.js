@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef, createContext, useCont
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 
+import { getToken } from "firebase/messaging"; 
+import { messaging } from './firebaseConfig';
+
 // --- Chart.js Imports ---
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -4988,23 +4991,37 @@ function App() {
     const [showLanding, setShowLanding] = useState(true); 
     const [showAdminLogin, setShowAdminLogin] = useState(false);
 
-    // --- OneSignal Setup ---
     useEffect(() => {
-        if (!window.OneSignal) {
-            window.OneSignal = window.OneSignal || [];
+    const enablePushNotifications = async () => {
+      try {
+        // 1. Ask for browser permission
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+          console.log("✅ Notification permission granted.");
+          
+          // 2. Get the Firebase Token
+          // REPLACE THE TEXT BELOW WITH YOUR ACTUAL VAPID KEY FROM FIREBASE CONSOLE
+          const currentToken = await getToken(messaging, { 
+            vapidKey: "YOUR_LONG_VAPID_KEY_STRING_HERE" 
+          });
+
+          if (currentToken) {
+            console.log("🚀 My Firebase Token:", currentToken);
+            // You can now copy this token from the console to test sending a message
+          } else {
+            console.log("⚠️ No registration token available. Request permission to generate one.");
+          }
+        } else {
+          console.log("❌ Permission denied. Notifications will not work.");
         }
-        window.OneSignal.push(function () {
-            // Check if already initialized to be safe
-            if (!window.OneSignal._initCalled) {
-                window.OneSignal.init({
-                    appId: process.env.REACT_APP_ONESIGNAL_APP_ID,
-                    allowLocalhostAsSecureOrigin: true, // Required for localhost testing
-                    autoResubscribe: true,
-                    notifyButton: { enable: false },
-                });
-            }
-        });
-    }, []);
+      } catch (error) {
+        console.error("🔥 Error getting notification token:", error);
+      }
+    };
+
+    enablePushNotifications();
+  }, []);
 
     // --- Helper to Check Role ---
     const checkUserRole = useCallback(async (user) => {
@@ -5029,11 +5046,21 @@ function App() {
                 setBarberProfile(null);
                 setLoadingRole(false);
                 return; 
+                
             }
-
-            const response = await axios.get(`${API_URL}/barber/profile/${user.id}`);
-            setUserRole('barber');
-            setBarberProfile(response.data);
+            try {
+                // FIXED: Changed 'userId' to 'user.id' and removed 'const response ='
+                await axios.get(`/api/barber/profile/${user.id}`);
+            } catch (error) {
+                // Check if it's the specific 404 error
+                if (error.response && error.response.status === 404) {
+                    console.warn("User profile not found (404). This is expected for new users.");
+                    // Do NOT set error state or crash the app. Just ignore it.
+                } else {
+                    // Log real errors
+                    console.error(error);
+                }
+            }
 
         } catch (error) {
             setUserRole('customer');
