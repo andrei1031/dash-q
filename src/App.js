@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, createContext, useCont
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 
-import { getToken } from "firebase/messaging"; 
+import { getToken, onMessage } from "firebase/messaging";
 import { messaging } from './firebaseConfig';
 
 // --- Chart.js Imports ---
