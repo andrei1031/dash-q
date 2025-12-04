@@ -4970,7 +4970,7 @@ function App() {
           // 2. Get the Firebase Token
           // REPLACE THE TEXT BELOW WITH YOUR ACTUAL VAPID KEY FROM FIREBASE CONSOLE
           const currentToken = await getToken(messaging, { 
-            vapidKey: "YOUR_LONG_VAPID_KEY_STRING_HERE" 
+            vapidKey: "BBn2kpPFylago12MYfYXYVAe-QEnep06Ya8jjhS4WhMIC8Q2-l5l_7nso57BnKnKF3UOgUehfJ3-qjf0XP6pCzU" 
           });
 
           if (currentToken) {
