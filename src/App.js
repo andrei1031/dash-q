@@ -4992,15 +4992,18 @@ function App() {
     useEffect(() => {
         if (!window.OneSignal) {
             window.OneSignal = window.OneSignal || [];
-            window.OneSignal.push(function () {
+        }
+        window.OneSignal.push(function () {
+            // Check if already initialized to be safe
+            if (!window.OneSignal._initCalled) {
                 window.OneSignal.init({
                     appId: process.env.REACT_APP_ONESIGNAL_APP_ID,
-                    allowLocalhostAsSecureOrigin: true,
+                    allowLocalhostAsSecureOrigin: true, // Required for localhost testing
                     autoResubscribe: true,
                     notifyButton: { enable: false },
                 });
-            });
-        }
+            }
+        });
     }, []);
 
     // --- Helper to Check Role ---
