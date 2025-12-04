@@ -1,11 +1,9 @@
-// Import the functions you need from the SDKs you need
+// src/firebaseConfig.js
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getMessaging } from "firebase/messaging";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// REPLACE THE VALUES BELOW WITH YOUR FIREBASE PROJECT SETTINGS
+// You can find these in Firebase Console > Project Settings > General > Your Apps > SDK Setup and Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAR8TbEXRuYTX8_6UAx2DBa9BD1a7LK6U0",
   authDomain: "dash-q.firebaseapp.com",
@@ -18,4 +16,6 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Initialize Cloud Messaging and export it
+export const messaging = getMessaging(app);
