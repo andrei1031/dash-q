@@ -2447,7 +2447,7 @@ function CustomerView({ session }) {
     name: "Safehouse Cafe",
     pitch: "Tired of standing? Wait here instead! nearby cafe",
     perks: "☕ Free WiFi  •   ₱159 Buy1Take1 Milktea  •  Board Games",
-    image: "https://placehold.co/400x120/3e2723/ffffff?text=Coffee+Break", // Replace with real cafe photo
+    image: "/sahouselogo.jpg", // Replace with real cafe photo
     // REPLACE WITH CAFE COORDINATES or Google Maps Link
     locationLink: "https://maps.app.goo.gl/ETUu5bxPA6t2yuSs6" 
 };
