@@ -280,6 +280,49 @@ app.post('/api/check-email', async (req, res) => {
     }
 });
 
+// POST /api/admin/next-customer
+// Body: { barberId: 5 }
+app.post('/api/admin/next-customer', async (req, res) => {
+    const { barberId } = req.body;
+
+    try {
+        // 1. Find the current customer in the chair (status: 'serving') and finish them
+        await db.query(
+            "UPDATE queue SET status = 'completed' WHERE barber_id = $1 AND status = 'serving'",
+            [barberId]
+        );
+
+        // 2. Find the next person waiting
+        const nextCustomer = await db.query(
+            "SELECT * FROM queue WHERE barber_id = $1 AND status = 'waiting' ORDER BY id ASC LIMIT 1",
+            [barberId]
+        );
+
+        if (nextCustomer.rows.length === 0) {
+            return res.json({ message: "Queue is empty for this barber." });
+        }
+
+        // 3. Update the next person to 'serving'
+        const customer = nextCustomer.rows[0];
+        await db.query("UPDATE queue SET status = 'serving' WHERE id = $1", [customer.id]);
+
+        // 4. TRIGGER N8N (Notify the customer)
+        // Note: We use the logic you already have, just triggering it manually here
+        await axios.post(process.env.N8N_WEBHOOK_URL, {
+            type: 'up_next', // Ensure your Switch node handles this!
+            email: customer.email,
+            name: customer.name,
+            barberName: `Admin for Barber ${barberId}` // Or fetch actual name
+        });
+
+        res.json({ success: true, message: `Moved ${customer.name} to chair.` });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 /**
  * ENDPOINT: Update Customer Location (Heartbeat)
  */
@@ -364,6 +407,39 @@ app.get('/api/customer/history/:userId', async (req, res) => {
     }
 });
 
+app.get('/api/admin/conversations', async (req, res) => {
+    // This SQL is tricky: It finds the latest message for every unique barber-customer pair
+    const sql = `
+        SELECT DISTINCT ON (LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id))
+            id, sender_id, receiver_id, message, timestamp
+        FROM messages
+        ORDER BY LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id), timestamp DESC
+    `;
+    const result = await db.query(sql);
+    res.json(result.rows);
+});
+
+app.get('/api/admin/chat-history', async (req, res) => {
+    const { barberId, customerId } = req.query;
+    
+    const result = await db.query(
+        "SELECT * FROM messages WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1) ORDER BY timestamp ASC",
+        [barberId, customerId]
+    );
+    res.json(result.rows);
+});
+
+app.post('/api/admin/reply', async (req, res) => {
+    const { barberId, customerId, message } = req.body;
+
+    // We save the message as if it came FROM the barber (sender_id = barberId)
+    await db.query(
+        "INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3)",
+        [barberId, customerId, `[Admin]: ${message}`] // Optional: Add [Admin] tag
+    );
+
+    res.json({ success: true });
+});
 
 /**
  * ENDPOINT: Timezone-Aware Smart Slots
