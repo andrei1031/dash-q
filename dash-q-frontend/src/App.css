@@ -2314,3 +2314,33 @@ button .spinner {
     background-color: rgba(0, 0, 0, 0.03);
     border-color: #ccc;
 }
+/* [App.css] - Add these styles */
+
+/* Admin Chat Layout */
+.admin-chat-layout {
+  height: 70vh;
+}
+
+.chat-list-item:hover {
+  background-color: var(--hover-bg-dark) !important;
+}
+
+/* Responsive adjustment for Admin Chat */
+@media (max-width: 768px) {
+  .admin-chat-layout {
+    grid-template-columns: 1fr; /* Stack vertically on mobile */
+    grid-template-rows: 1fr 2fr;
+    height: auto;
+    min-height: 80vh;
+  }
+  
+  .admin-chat-layout .card {
+    height: 40vh; /* Fixed height for each section on mobile */
+  }
+}
+
+/* Force Next Button Specifics */
+.live-shop-grid .card-header {
+  flex-wrap: wrap; /* Allow header items to wrap on very small screens */
+  gap: 10px;
+}

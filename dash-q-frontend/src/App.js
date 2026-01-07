@@ -4265,6 +4265,152 @@ function AdminAppLayout({ session }) {
                 </div>
             </div>
         );
+        // --- FEATURE 2: OMNI CHAT COMPONENT ---
+    const OmniChatView = () => {
+        const [activeChats, setActiveChats] = useState([]);
+        const [selectedChat, setSelectedChat] = useState(null);
+        const [messages, setMessages] = useState([]);
+        const [loading, setLoading] = useState(false);
+        const [replyText, setReplyText] = useState("");
+
+        // Fetch list of chats
+        const fetchChats = async () => {
+            setLoading(true);
+            try {
+                const res = await axios.get(`${API_URL}/admin/active-chats`);
+                setActiveChats(res.data);
+            } catch (e) { console.error(e); }
+            finally { setLoading(false); }
+        };
+
+        useEffect(() => { fetchChats(); }, []);
+
+        // Load specific conversation
+        const loadConversation = async (chatEntry) => {
+            setSelectedChat(chatEntry);
+            try {
+                // We use the existing barbershop query but manually because we need raw access
+                const { data } = await supabase
+                    .from('chat_messages')
+                    .select('*')
+                    .eq('queue_entry_id', chatEntry.id)
+                    .order('created_at', { ascending: true });
+                
+                // Format for ChatWindow
+                setMessages(data.map(m => ({
+                    senderId: m.sender_id,
+                    message: m.message
+                })));
+            } catch (e) { console.error(e); }
+        };
+
+        // Handle Admin Reply
+        const handleAdminReply = async (e) => {
+            e.preventDefault();
+            if(!replyText.trim() || !selectedChat) return;
+
+            try {
+                const newMsg = { senderId: session.user.id, message: `[ADMIN]: ${replyText}` };
+                setMessages(prev => [...prev, newMsg]); // Optimistic update
+                
+                await axios.post(`${API_URL}/admin/chat/reply`, {
+                    adminId: session.user.id,
+                    queueId: selectedChat.id,
+                    message: replyText
+                });
+                setReplyText("");
+            } catch(e) { alert("Failed to send."); }
+        };
+
+        return (
+            <div className="admin-chat-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', height: '70vh' }}>
+                {/* LEFT: Chat List */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div className="card-header">
+                        <h3 style={{ fontSize: '1.1rem', margin: 0 }}>💬 Active Chats ({activeChats.length})</h3>
+                        <button onClick={fetchChats} className="btn btn-icon"><IconRefresh /></button>
+                    </div>
+                    <div className="card-body" style={{ overflowY: 'auto', padding: '10px' }}>
+                        {loading && <Spinner />}
+                        {activeChats.map(chat => (
+                            <div 
+                                key={chat.id} 
+                                onClick={() => loadConversation(chat)}
+                                className={`chat-list-item ${selectedChat?.id === chat.id ? 'active' : ''}`}
+                                style={{
+                                    padding: '12px', 
+                                    borderBottom: '1px solid var(--border-color)', 
+                                    cursor: 'pointer',
+                                    background: selectedChat?.id === chat.id ? 'var(--bg-dark)' : 'transparent',
+                                    borderLeft: selectedChat?.id === chat.id ? '3px solid var(--primary-orange)' : '3px solid transparent'
+                                }}
+                            >
+                                <div style={{ fontWeight: 'bold' }}>{chat.customer_name}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                    w/ {chat.barber_profiles?.full_name}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                                    Status: <span style={{ color: 'var(--primary-orange)' }}>{chat.status}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* RIGHT: Conversation */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+                    {selectedChat ? (
+                        <>
+                            <div className="card-header">
+                                <div>
+                                    <h3 style={{ margin: 0 }}>{selectedChat.customer_name}</h3>
+                                    <small style={{ color: 'var(--text-secondary)' }}>Queue ID: #{selectedChat.id}</small>
+                                </div>
+                            </div>
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '15px', background: 'var(--bg-dark)' }}>
+                                {messages.map((msg, idx) => {
+                                    const isAdminMsg = msg.message.startsWith('[ADMIN]');
+                                    const isCustomer = msg.senderId === selectedChat.user_id;
+                                    
+                                    return (
+                                        <div key={idx} style={{
+                                            display: 'flex', 
+                                            justifyContent: isCustomer ? 'flex-start' : 'flex-end',
+                                            marginBottom: '10px'
+                                        }}>
+                                            <div style={{
+                                                maxWidth: '70%',
+                                                padding: '8px 12px',
+                                                borderRadius: '12px',
+                                                background: isAdminMsg ? '#ff3b30' : (isCustomer ? '#333' : 'var(--primary-orange)'),
+                                                color: isAdminMsg ? 'white' : (isCustomer ? 'white' : 'black'),
+                                                fontSize: '0.9rem'
+                                            }}>
+                                                {msg.message}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                            <form onSubmit={handleAdminReply} style={{ padding: '10px', background: 'var(--surface-color)', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '10px' }}>
+                                <input 
+                                    value={replyText} 
+                                    onChange={e => setReplyText(e.target.value)} 
+                                    placeholder="Reply as Admin..." 
+                                    style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-dark)', color: 'white' }}
+                                />
+                                <button type="submit" className="btn btn-primary">Send</button>
+                            </form>
+                        </>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+                            Select a chat to view messages
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
     };
 
     const fetchLiveShop = useCallback(async () => {
@@ -4408,12 +4554,16 @@ function AdminAppLayout({ session }) {
 
     // --- SUB-COMPONENTS ---
 
+    // [App.js] - Inside AdminAppLayout -> LiveShopView
+
     const LiveShopView = () => (
-        <div className="live-shop-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
-            {barbers.filter(b => b.is_active).map(barber => { // Only show active barbers in Live View
+        <div className="live-shop-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px'}}>
+            {barbers.filter(b => b.is_active).map(barber => {
                 const barberQueue = allQueues.filter(q => q.barber_id === barber.id);
                 const inChair = barberQueue.find(q => q.status === 'In Progress');
                 const waiting = barberQueue.filter(q => q.status === 'Waiting');
+                const upNext = barberQueue.find(q => q.status === 'Up Next');
+
                 return (
                     <div key={barber.id} className="card" style={{border: transferMode ? '2px dashed var(--primary-orange)' : '1px solid var(--border-color)'}}>
                         <div className="card-header" style={{padding:'10px', justifyContent: 'space-between'}}>
@@ -4426,9 +4576,42 @@ function AdminAppLayout({ session }) {
                             {transferMode && transferMode.currentBarberId !== barber.id && (
                                 <button onClick={() => handleTransfer(barber.id)} className="btn btn-primary" style={{fontSize:'0.8rem', padding:'4px 8px'}}>Select</button>
                             )}
+                            
+                            {/* --- FEATURE 1: FORCE NEXT BUTTON --- */}
+                            {!transferMode && !inChair && (waiting.length > 0 || upNext) && (
+                                <button 
+                                    onClick={async () => {
+                                        if(!window.confirm(`Force next customer for ${barber.full_name}?`)) return;
+                                        try {
+                                            await axios.post(`${API_URL}/admin/force-next`, { userId: session.user.id, barberId: barber.id });
+                                            alert("Customer moved to chair.");
+                                            fetchLiveShop();
+                                        } catch(e) { alert(e.response?.data?.error || "Failed."); }
+                                    }} 
+                                    className="btn btn-primary" 
+                                    style={{fontSize:'0.75rem', padding:'4px 8px'}}
+                                    title="Force Call Next"
+                                >
+                                    Force Next ⏩
+                                </button>
+                            )}
                         </div>
                         <div className="card-body" style={{padding:'10px'}}>
-                            {inChair ? <div style={{background:'rgba(52,199,89,0.1)', padding:'5px', borderRadius:'4px', marginBottom:'5px', fontSize:'0.9rem'}}>✂️ <strong>{inChair.customer_name}</strong></div> : <div style={{fontStyle:'italic', fontSize:'0.9rem', color:'var(--text-secondary)'}}>Chair Empty</div>}
+                            {inChair ? (
+                                <div style={{background:'rgba(52,199,89,0.1)', padding:'5px', borderRadius:'4px', marginBottom:'5px', fontSize:'0.9rem', border: '1px solid var(--success-color)'}}>
+                                    ✂️ <strong>{inChair.customer_name}</strong>
+                                    <span style={{display:'block', fontSize:'0.7rem', color:'var(--text-secondary)'}}>Svc: {inChair.services?.name}</span>
+                                </div>
+                            ) : (
+                                <div style={{fontStyle:'italic', fontSize:'0.9rem', color:'var(--text-secondary)', padding:'5px'}}>Chair Empty</div>
+                            )}
+
+                            {upNext && (
+                                <div style={{background:'rgba(255,149,0,0.1)', padding:'5px', borderRadius:'4px', marginBottom:'5px', fontSize:'0.9rem', border: '1px solid var(--primary-orange)'}}>
+                                    🔜 <strong>{upNext.customer_name}</strong> (Up Next)
+                                </div>
+                            )}
+
                             <h4 style={{fontSize:'0.8rem', color:'var(--text-secondary)', margin:'10px 0 5px 0'}}>Waiting ({waiting.length})</h4>
                             <ul className="queue-list" style={{maxHeight:'150px', overflowY:'auto'}}>
                                 {waiting.map(q => (
@@ -4445,7 +4628,6 @@ function AdminAppLayout({ session }) {
                     </div>
                 );
             })}
-            {barbers.filter(b => b.is_active).length === 0 && <p className="empty-text">No active barbers found.</p>}
         </div>
     );
 
@@ -4726,8 +4908,8 @@ function AdminAppLayout({ session }) {
                 <button className={activeTab === 'stats' ? 'active' : ''} onClick={() => setActiveTab('stats')}>📊 Analytics</button>
                 <button className={activeTab === 'staff' ? 'active' : ''} onClick={() => setActiveTab('staff')}>💈 Staff</button>
                 <button className={activeTab === 'menu' ? 'active' : ''} onClick={() => setActiveTab('menu')}>✂️ Menu</button>
+                <button className={activeTab === 'omni' ? 'active' : ''} onClick={() => setActiveTab('omni')}>💬 Omni-Chat</button>
                 <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>👥 Users</button>
-                {/* --- ADD THIS BUTTON --- */}
                 <button className={activeTab === 'reports' ? 'active' : ''} onClick={() => setActiveTab('reports')}>🚨 Reports</button>
             </div>
 
@@ -4737,6 +4919,7 @@ function AdminAppLayout({ session }) {
                     {activeTab === 'stats' && <StatsView />}
                     {activeTab === 'staff' && <StaffView />}
                     {activeTab === 'menu' && <MenuView />}
+                    {activeTab === 'omni' && <OmniChatView />}
                     {activeTab === 'users' && <UsersView />}
                     
                     {/* --- ADD THIS LINE --- */}
