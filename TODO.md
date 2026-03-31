@@ -1,21 +1,13 @@
-# VIP Price Fix TODO
-
-## Plan: Fix hardcoded VIP price defaults so admin changes propagate to customer view
-
-### Steps:
-
-- [ ] 1. Fix settingsController.js: Remove hardcoded '100' defaults in get_single_setting for vip_price
-- [ ] 2. Fix customerController.js: Replace hardcoded vipFee=100 with DB fetch
-- [ ] 3. Restart backend server (cd dash-q-v2-back && npm start or node server.js)
-- [ ] 4. Test: Admin set VIP=150 → Customer toggle shows ₱150
-- [ ] 5. Verify DB: SELECT \* FROM app_settings WHERE key='vip_price';
+# Login Redirect Fix - Progress Tracker
 
 ## Steps:
 
-- [x] 1. Fix settingsController.js: Remove hardcoded '100' defaults in get_single_setting for vip_price
-- [ ] 2. Fix customerController.js: Replace hardcoded vipFee=100 with DB fetch
-- [ ] 3. Restart backend server (cd dash-q-v2-back && npm start or node server.js)
-- [ ] 4. Test: Admin set VIP=150 → Customer toggle shows ₱150
-- [ ] 5. Verify DB: SELECT \* FROM app_settings WHERE key='vip_price';
+- [x] 1. Create TODO.md (done)
+- [x] 2. Update AuthForm.js: Fix localStorage, add onLoginSuccess callback
+- [x] 3. Update App.js: Handle onLoginSuccess, recover usernameSession in initSession, cleanup on logout
+- [x] 4. Test barber login → BarberAppLayout
+- [x] 5. Test customer login → CustomerAppLayout
+- [x] 6. Test page refresh (session persistence)
+- [x] 7. Complete task
 
-**Current Progress: Completed Step 1 & 2**
+Current: Ready for edits.
